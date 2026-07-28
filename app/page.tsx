@@ -147,7 +147,7 @@ className="hidden rounded-full bg-white px-7 py-3 font-bold text-black transitio
 
         <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 sm:gap-14 sm:px-6 lg:grid-cols-2 lg:gap-20">
 
-          <div>
+          <div className="order-2 lg:order-1">
 
             <p className="uppercase tracking-[0.45em] text-sm text-gray-500">
               Fitness Tracker
@@ -283,11 +283,9 @@ className="hidden rounded-full bg-white px-7 py-3 font-bold text-black transitio
         className="border-y border-white/10 bg-[#0b0b0b] py-28"
       >
 
-        <div className="mx-auto grid max-w-7xl items-center gap-20 px-6 lg:grid-cols-2">
+       <div className="order-2 lg:order-2">
 
-          <div className="rounded-[40px] bg-white p-8">
-
-            <Image
+         <div className="order-1 rounded-[40px] bg-white p-8 lg:order-1">
               src={selectedColour.image}
               alt={selectedColour.name}
               width={700}
