@@ -28,6 +28,7 @@ export default function AdminPage() {
 const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
 const [totalViews, setTotalViews] = useState(0);
 const [viewsToday, setViewsToday] = useState(0);
+const [resettingOrders, setResettingOrders] = useState(false);
 
   async function loadOrders() {
     setLoading(true);
@@ -150,8 +151,55 @@ async function updateOrderStatus(orderId: string, status: string) {
     setUpdatingOrderId(null);
   }
 }
+async function resetAllOrders() {
+  const confirmation = window.prompt(
+    'To delete all orders permanently, type: DELETE ALL ORDERS'
+  );
 
+  if (confirmation !== "DELETE ALL ORDERS") {
+    if (confirmation !== null) {
+      setMessage("Orders were not deleted. Confirmation text was incorrect.");
+    }
+
+    return;
+  }
+
+  setResettingOrders(true);
+  setMessage("");
+
+  try {
+    const response = await fetch("/api/admin/reset-orders", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        confirmation,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(
+        result.message || "Could not delete the orders."
+      );
+    }
+
+    setOrders([]);
+    setMessage("All old orders were deleted successfully.");
+  } catch (error) {
+    setMessage(
+      error instanceof Error
+        ? error.message
+        : "Could not delete the orders."
+    );
+  } finally {
+    setResettingOrders(false);
+  }
+}
   const totalSales = useMemo(
+
     () =>
       orders.reduce(
         (sum, order) => sum + Number(order.total_price || 0),
@@ -233,12 +281,23 @@ async function updateOrderStatus(orderId: string, status: string) {
             </h1>
           </div>
 
-          <button
-            onClick={loadOrders}
-            className="rounded-2xl border border-white/15 px-5 py-3 font-semibold"
-          >
-            Refresh
-          </button>
+   <div className="flex flex-col gap-3 sm:flex-row">
+  <button
+    onClick={loadOrders}
+    className="rounded-2xl border border-white/15 px-5 py-3 font-semibold"
+  >
+    Refresh
+  </button>
+
+  <button
+    type="button"
+    onClick={resetAllOrders}
+    disabled={resettingOrders || orders.length === 0}
+    className="rounded-2xl bg-red-600 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+  >
+    {resettingOrders ? "Deleting..." : "Reset All Orders"}
+  </button>
+</div>
         </div>
 
         {message && (
