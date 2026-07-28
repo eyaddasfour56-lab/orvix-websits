@@ -360,6 +360,92 @@ const [selectedGarminColour, setSelectedGarminColour] =
         </div>
       </section>
 
+{/* Garmin Coming Soon */}
+<section className="border-b border-white/10 bg-[#070707] py-24">
+  <div className="mx-auto max-w-7xl px-4 sm:px-6">
+    <div className="mb-14 text-center">
+      <p className="text-sm uppercase tracking-[0.45em] text-gray-500">
+        Coming Soon
+      </p>
+
+      <h2 className="mt-5 text-5xl font-black sm:text-6xl">
+        GARMIN CIRQA
+      </h2>
+
+      <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-gray-400">
+        A new screen-free fitness experience is coming soon to ORVIX.
+      </p>
+    </div>
+
+    <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-20">
+      <div className="rounded-[40px] bg-white p-6 sm:p-8">
+        <Image
+          key={selectedGarminColour.name}
+          src={selectedGarminColour.image}
+          alt={`Garmin CIRQA - ${selectedGarminColour.name}`}
+          width={700}
+          height={700}
+          className="h-auto w-full rounded-[30px] object-contain"
+        />
+      </div>
+
+      <div>
+        <div className="inline-flex rounded-full border border-white/15 bg-white/5 px-5 py-2 text-sm font-bold uppercase tracking-[0.25em] text-gray-300">
+          Coming Soon
+        </div>
+
+        <h3 className="mt-6 text-4xl font-black sm:text-5xl">
+          Garmin CIRQA
+        </h3>
+
+        <p className="mt-6 max-w-xl text-lg leading-8 text-gray-400">
+          Choose your preferred colour and stay tuned for availability,
+          pricing and launch details.
+        </p>
+
+        <p className="mt-10 text-sm uppercase tracking-[0.35em] text-gray-500">
+          Available colours
+        </p>
+
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          {garminColours.map((colour) => {
+            const selected =
+              selectedGarminColour.name === colour.name;
+
+            return (
+              <button
+                key={colour.name}
+                type="button"
+                onClick={() => setSelectedGarminColour(colour)}
+                className={`flex items-center gap-3 rounded-2xl border p-4 text-left font-bold transition ${
+                  selected
+                    ? "border-white bg-white text-black"
+                    : "border-white/15 bg-white/5 text-white"
+                }`}
+              >
+                <span
+                  className={`h-5 w-5 rounded-full border border-black/20 ${colour.dot}`}
+                />
+
+                <span>{colour.name}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          disabled
+          className="mt-8 flex w-full cursor-not-allowed items-center justify-center rounded-full border border-white/15 bg-white/5 px-8 py-5 text-lg font-bold text-gray-500"
+        >
+          Coming Soon
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+
       {/* FAQ */}
       <section id="faq" className="py-24">
         <div className="mx-auto max-w-4xl px-4 sm:px-6">
