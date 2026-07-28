@@ -24,7 +24,10 @@ const colours = [
 ];
 
 export default function Home() {
-  const [selectedColour, setSelectedColour] = useState(colours[0]);
+  const [selectedColour, setSelectedColour] =
+    useState(colours[0]);
+
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <main className="min-h-screen bg-[#070707] text-white">
@@ -33,7 +36,7 @@ export default function Home() {
 
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-black/80 backdrop-blur-xl">
 
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+<div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-6 md:py-5">
 
           <Link href="/" className="flex items-center gap-3">
 
@@ -65,20 +68,71 @@ export default function Home() {
 
           <Link
             href="/checkout"
-            className="rounded-full bg-white px-7 py-3 font-bold text-black hover:bg-gray-200 transition"
+className="hidden rounded-full bg-white px-7 py-3 font-bold text-black transition hover:bg-gray-200 md:inline-flex"
           >
             Buy Now
           </Link>
-
+<button
+  type="button"
+  onClick={() => setMenuOpen(!menuOpen)}
+  className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 text-2xl text-white md:hidden"
+  aria-label="Toggle mobile menu"
+>
+  {menuOpen ? "×" : "☰"}
+</button>
         </div>
+{menuOpen && (
+  <div className="border-t border-white/10 bg-black/95 px-4 py-4 md:hidden">
+    <nav className="flex flex-col gap-1">
+      <a
+        href="#product"
+        onClick={() => setMenuOpen(false)}
+        className="rounded-xl px-4 py-3 text-gray-300 hover:bg-white/10 hover:text-white"
+      >
+        Product
+      </a>
 
+      <a
+        href="#features"
+        onClick={() => setMenuOpen(false)}
+        className="rounded-xl px-4 py-3 text-gray-300 hover:bg-white/10 hover:text-white"
+      >
+        Features
+      </a>
+
+      <a
+        href="#reviews"
+        onClick={() => setMenuOpen(false)}
+        className="rounded-xl px-4 py-3 text-gray-300 hover:bg-white/10 hover:text-white"
+      >
+        Reviews
+      </a>
+
+      <a
+        href="#faq"
+        onClick={() => setMenuOpen(false)}
+        className="rounded-xl px-4 py-3 text-gray-300 hover:bg-white/10 hover:text-white"
+      >
+        FAQ
+      </a>
+
+      <Link
+        href="/checkout"
+        onClick={() => setMenuOpen(false)}
+        className="mt-3 flex w-full items-center justify-center rounded-full bg-white px-7 py-4 font-bold text-black"
+      >
+        Buy Now
+      </Link>
+    </nav>
+  </div>
+)}
       </header>
 
       {/* Hero */}
 
-      <section className="pt-40 pb-28">
+  <section className="pb-16 pt-28 sm:pb-20 sm:pt-32 lg:pb-28 lg:pt-40">
 
-        <div className="mx-auto grid max-w-7xl items-center gap-20 px-6 lg:grid-cols-2">
+        <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 sm:gap-14 sm:px-6 lg:grid-cols-2 lg:gap-20">
 
           <div>
 
@@ -86,7 +140,7 @@ export default function Home() {
               Fitness Tracker
             </p>
 
-            <h1 className="mt-8 text-6xl font-black leading-none lg:text-8xl">
+   <h1 className="mt-6 text-4xl font-black leading-none sm:mt-8 sm:text-6xl lg:text-8xl">
 
               GOOGLE
 
