@@ -3,6 +3,9 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
+
 type OrderData = {
   fullName: string;
   phone: string;
@@ -36,6 +39,15 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+if (!supabaseUrl || !supabaseSecretKey) {
+  return NextResponse.json(
+    {
+      success: false,
+      message: "Supabase environment variables are missing.",
+    },
+    { status: 500 }
+  );
+}
 
     const order = (await request.json()) as OrderData;
 
@@ -86,6 +98,51 @@ export async function POST(request: Request) {
 
     const orderNumber = `ORVIX-${Date.now()}`;
 
+const productsTotal = productPrice * quantity;
+
+const supabaseResponse = await fetch(
+  `${supabaseUrl}/rest/v1/orders`,
+  {
+    method: "POST",
+    headers: {
+      apikey: supabaseSecretKey,
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify({
+      customer_name: String(order.fullName).trim(),
+      phone: String(order.phone).trim(),
+      governorate: String(order.governorate).trim(),
+      address: String(order.address).trim(),
+      notes: String(order.notes || "").trim(),
+      colour: String(order.colour).trim(),
+      quantity,
+      product_price: productPrice,
+      products_total: productsTotal,
+      delivery_fee: deliveryFee,
+      discount_amount: 0,
+      total_price: totalPrice,
+      status: "new",
+    }),
+  }
+);
+
+if (!supabaseResponse.ok) {
+  const supabaseError = await supabaseResponse.text();
+
+  console.error(
+    "Supabase order saving error:",
+    supabaseError
+  );
+
+  return NextResponse.json(
+    {
+      success: false,
+      message: "Could not save the order.",
+    },
+    { status: 500 }
+  );
+}
     const { data, error } = await resend.emails.send({
       from: "ORVIX Orders <onboarding@resend.dev>",
       to: ["eyadd.asfour56@gmail.com"],
