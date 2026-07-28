@@ -21,7 +21,28 @@ const colours = [
     dot: "bg-pink-600",
   },
 ];
-
+const garminColours = [
+  {
+    name: "Black",
+    image: "/black.jpeg",
+    dot: "bg-black",
+  },
+  {
+    name: "French Gray",
+    image: "/french gray.jpeg",
+    dot: "bg-gray-400",
+  },
+  {
+    name: "Mauve",
+    image: "/mauve.jpeg",
+    dot: "bg-purple-300",
+  },
+  {
+    name: "Captain Blue",
+    image: "/captain blue.jpeg",
+    dot: "bg-blue-500",
+  },
+];
 const features = [
   {
     title: "24/7 Heart Rate",
