@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 const colours = [
   {
     name: "Black",
-    image: "/black.jpeg",
+    image: "/black.pnj",
     dot: "bg-black",
   },
   {
