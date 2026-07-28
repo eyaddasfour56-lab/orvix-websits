@@ -285,15 +285,17 @@ className="hidden rounded-full bg-white px-7 py-3 font-bold text-black transitio
 
        <div className="order-2 lg:order-2">
 
-         <div className="order-1 rounded-[40px] bg-white p-8 lg:order-1">
-              src={selectedColour.image}
-              alt={selectedColour.name}
-              width={700}
-              height={700}
-              className="w-full h-auto"
-            />
+        <div className="order-1 rounded-[40px] bg-white p-8 lg:order-1">
+  <Image
+    src={selectedColour.image}
+    alt={selectedColour.name}
+    width={700}
+    height={700}
+    className="h-auto w-full"
+  />
+</div>
 
-          </div>
+<div className="order-2 lg:order-2">
 
           <div className="order-2 lg:order-2">
 
