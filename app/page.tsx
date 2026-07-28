@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import CirqaComingSoon from "./components/CirqaComingSoon";
 
 const colours = [
@@ -28,6 +28,19 @@ export default function Home() {
     useState(colours[0]);
 
   const [menuOpen, setMenuOpen] = useState(false);
+useEffect(() => {
+  fetch("/api/view", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      page: window.location.pathname,
+    }),
+  }).catch((error) => {
+    console.error("View tracking error:", error);
+  });
+}, []);
 
   return (
     <main className="min-h-screen bg-[#070707] text-white">
