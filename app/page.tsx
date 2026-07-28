@@ -295,7 +295,7 @@ className="hidden rounded-full bg-white px-7 py-3 font-bold text-black transitio
 
           </div>
 
-          <div>
+          <div className="order-2 lg:order-2">
 
             <p className="uppercase tracking-[0.4em] text-sm text-gray-500">
               Choose your colour
