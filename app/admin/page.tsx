@@ -25,6 +25,7 @@ export default function AdminPage() {
   const [loginLoading, setLoginLoading] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [message, setMessage] = useState("");
+const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
 
   async function loadOrders() {
     setLoading(true);
@@ -96,6 +97,47 @@ export default function AdminPage() {
       setLoginLoading(false);
     }
   }
+async function updateOrderStatus(orderId: string, status: string) {
+  setUpdatingOrderId(orderId);
+  setMessage("");
+
+  try {
+    const response = await fetch("/api/admin/order-status", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        orderId,
+        status,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(
+        result.message || "Could not update order status."
+      );
+    }
+
+    setOrders((currentOrders) =>
+      currentOrders.map((order) =>
+        order.id === orderId
+          ? { ...order, status }
+          : order
+      )
+    );
+  } catch (error) {
+    setMessage(
+      error instanceof Error
+        ? error.message
+        : "Could not update order status."
+    );
+  } finally {
+    setUpdatingOrderId(null);
+  }
+}
 
   const totalSales = useMemo(
     () =>
@@ -240,9 +282,20 @@ export default function AdminPage() {
                     </p>
                   </div>
 
-                  <div className="rounded-full bg-white px-4 py-2 text-sm font-bold capitalize text-black">
-                    {order.status}
-                  </div>
+<select
+  value={order.status}
+  disabled={updatingOrderId === order.id}
+  onChange={(event) =>
+    updateOrderStatus(order.id, event.target.value)
+  }
+  className="rounded-full bg-white px-4 py-3 text-sm font-bold capitalize text-black outline-none disabled:opacity-50"
+>
+  <option value="new">New</option>
+  <option value="confirmed">Confirmed</option>
+  <option value="shipped">Shipped</option>
+  <option value="delivered">Delivered</option>
+  <option value="cancelled">Cancelled</option>
+</select>
                 </div>
 
                 <div className="mt-6 grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
