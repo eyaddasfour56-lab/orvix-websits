@@ -26,6 +26,8 @@ export default function AdminPage() {
   const [authenticated, setAuthenticated] = useState(false);
   const [message, setMessage] = useState("");
 const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+const [totalViews, setTotalViews] = useState(0);
+const [viewsToday, setViewsToday] = useState(0);
 
   async function loadOrders() {
     setLoading(true);
@@ -49,6 +51,16 @@ const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
 
       setAuthenticated(true);
       setOrders(result.orders || []);
+const viewsResponse = await fetch("/api/admin/views", {
+  cache: "no-store",
+});
+
+const viewsResult = await viewsResponse.json();
+
+if (viewsResponse.ok && viewsResult.success) {
+  setTotalViews(viewsResult.totalViews || 0);
+  setViewsToday(viewsResult.viewsToday || 0);
+}
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -235,10 +247,20 @@ async function updateOrderStatus(orderId: string, status: string) {
           </p>
         )}
 
-        <section className="mt-8 grid gap-4 sm:grid-cols-3">
+        <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+<div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+  <p className="text-gray-400">Total website views</p>
+  <p className="mt-3 text-4xl font-black">{totalViews}</p>
+</div>
+
+<div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+  <p className="text-gray-400">Views today</p>
+  <p className="mt-3 text-4xl font-black">{viewsToday}</p>
+</div>
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
             <p className="text-gray-400">Total orders</p>
             <p className="mt-3 text-4xl font-black">{orders.length}</p>
+
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
