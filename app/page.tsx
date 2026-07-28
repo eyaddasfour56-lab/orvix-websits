@@ -78,6 +78,9 @@ const features = [
 
 export default function Home() {
   const [selectedColour, setSelectedColour] = useState(colours[0]);
+
+const [selectedGarminColour, setSelectedGarminColour] =
+  useState(garminColours[0]);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
