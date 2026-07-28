@@ -239,102 +239,141 @@ export default function Home() {
           </div>
         </div>
       </section>
+{/* Our Products */}
+<section
+  id="product"
+  className="border-y border-white/10 bg-[#0b0b0b] py-24"
+>
+  <div className="mx-auto max-w-7xl px-4 sm:px-6">
+    <div className="text-center">
+      <p className="text-sm uppercase tracking-[0.45em] text-gray-500">
+        ORVIX COLLECTION
+      </p>
 
-      {/* Product section */}
-      <section
-        id="product"
-        className="border-y border-white/10 bg-[#0b0b0b] py-24"
-      >
-        <div className="mx-auto grid max-w-7xl items-center gap-14 px-4 sm:px-6 lg:grid-cols-2 lg:gap-20">
-          {/* Image first */}
-          <div className="order-1 rounded-[40px] bg-white p-6 sm:p-8">
-            <Image
-              key={`product-${selectedColour.name}`}
-              src={selectedColour.image}
-              alt={selectedColour.name}
-              width={700}
-              height={700}
-              className="h-auto w-full rounded-[30px] object-contain"
-            />
-          </div>
+      <h2 className="mt-5 text-5xl font-black sm:text-6xl">
+        OUR PRODUCTS
+      </h2>
 
-          {/* Details second */}
-          <div className="order-2">
-            <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
-              Choose your colour
-            </p>
+      <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-gray-400">
+        Choose the fitness tracker that fits your lifestyle.
+      </p>
+    </div>
 
-            <h2 className="mt-6 text-5xl font-black">
-              Google Fitbit Air
-            </h2>
-
-            <p className="mt-6 max-w-xl text-lg leading-8 text-gray-400">
-              Select the colour you love before placing your order.
-              The displayed product image changes automatically.
-            </p>
-
-            <div className="mt-10 grid gap-4">
-              {colours.map((colour) => {
-                const selected =
-                  selectedColour.name === colour.name;
-
-                return (
-                  <button
-                    key={colour.name}
-                    type="button"
-                    onClick={() => setSelectedColour(colour)}
-                    className={`flex items-center justify-between rounded-2xl border p-5 text-left transition ${
-                      selected
-                        ? "border-white bg-white text-black"
-                        : "border-white/15 bg-white/5 text-white"
-                    }`}
-                  >
-                    <span className="flex items-center gap-4">
-                      <span
-                        className={`h-6 w-6 rounded-full border border-black/20 ${colour.dot}`}
-                      />
-
-                      <span className="font-bold">
-                        {colour.name}
-                      </span>
-                    </span>
-
-                    <span>{selected ? "Selected" : "Choose"}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="mt-10 rounded-3xl border border-white/10 bg-white/5 p-6">
-              <div className="flex justify-between gap-5">
-                <span className="text-gray-400">Price</span>
-                <strong>7,900 EGP</strong>
-              </div>
-
-              <div className="mt-4 flex justify-between gap-5">
-                <span className="text-gray-400">Delivery</span>
-                <strong>70 EGP</strong>
-              </div>
-
-              <div className="my-5 h-px bg-white/10" />
-
-              <div className="flex justify-between gap-5 text-xl">
-                <span className="font-bold">Final total</span>
-                <strong>7,970 EGP</strong>
-              </div>
-            </div>
-
-            <Link
-              href={`/checkout?colour=${encodeURIComponent(
-                selectedColour.name
-              )}`}
-              className="mt-8 flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-bold text-black"
-            >
-              Order {selectedColour.name}
-            </Link>
-          </div>
+    <div className="mt-16 grid gap-8 lg:grid-cols-2">
+      {/* Google Fitbit Air */}
+      <article className="overflow-hidden rounded-[40px] border border-white/10 bg-white/5 p-5 sm:p-7">
+        <div className="rounded-[32px] bg-white p-6">
+          <Image
+            src={selectedColour.image}
+            alt={`Google Fitbit Air - ${selectedColour.name}`}
+            width={700}
+            height={700}
+            className="h-auto w-full object-contain"
+          />
         </div>
-      </section>
+
+        <div className="px-2 pb-2 pt-7">
+          <p className="text-sm uppercase tracking-[0.35em] text-gray-500">
+            FITNESS TRACKER
+          </p>
+
+          <h3 className="mt-4 text-3xl font-black">
+            Google Fitbit Air
+          </h3>
+
+          <div className="mt-6 flex items-center justify-between">
+            <div>
+              <p className="text-2xl font-bold">7,900 EGP</p>
+
+              <p className="mt-1 text-sm text-gray-500 line-through">
+                8,500 EGP
+              </p>
+            </div>
+
+            <p className="text-sm text-gray-400">
+              {selectedColour.name}
+            </p>
+          </div>
+
+          <div className="mt-6 grid grid-cols-3 gap-3">
+            {colours.map((colour) => {
+              const selected =
+                selectedColour.name === colour.name;
+
+              return (
+                <button
+                  key={colour.name}
+                  type="button"
+                  onClick={() => setSelectedColour(colour)}
+                  className={`rounded-xl border px-3 py-3 text-sm font-bold transition ${
+                    selected
+                      ? "border-white bg-white text-black"
+                      : "border-white/15 bg-white/5 text-white"
+                  }`}
+                >
+                  {colour.name}
+                </button>
+              );
+            })}
+          </div>
+
+          <Link
+            href={`/checkout?product=${encodeURIComponent(
+              "Google Fitbit Air"
+            )}&colour=${encodeURIComponent(selectedColour.name)}`}
+            className="mt-7 flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-bold text-black"
+          >
+            Buy Now
+          </Link>
+        </div>
+      </article>
+
+      {/* Garmin CIRQA */}
+      <article className="overflow-hidden rounded-[40px] border border-white/10 bg-white/5 p-5 sm:p-7">
+        <div className="rounded-[32px] bg-white p-6">
+          <Image
+            src="/garmin-cirqa.png"
+            alt="Garmin CIRQA Smart Band"
+            width={700}
+            height={700}
+            className="h-auto w-full object-contain"
+          />
+        </div>
+
+        <div className="px-2 pb-2 pt-7">
+          <p className="text-sm uppercase tracking-[0.35em] text-gray-500">
+            SMART BAND
+          </p>
+
+          <h3 className="mt-4 text-3xl font-black">
+            Garmin CIRQA
+          </h3>
+
+          <div className="mt-6">
+            <p className="text-2xl font-bold">
+              Price coming soon
+            </p>
+
+            <p className="mt-2 text-sm text-gray-400">
+              Available soon at ORVIX
+            </p>
+          </div>
+
+          <Link
+            href={`/checkout?product=${encodeURIComponent(
+              "Garmin CIRQA"
+            )}`}
+            className="mt-7 flex w-full items-center justify-center rounded-full border border-white/20 px-8 py-5 text-lg font-bold text-white"
+          >
+            Buy Now
+          </Link>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+      
+                
 
       {/* FAQ */}
       <section id="faq" className="py-24">
