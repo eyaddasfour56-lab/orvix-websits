@@ -313,7 +313,7 @@ export default function Home() {
 
               <div className="mt-4 flex justify-between gap-5">
                 <span className="text-gray-400">Delivery</span>
-                <strong>70 EGP</strong>
+                
               </div>
 
               <div className="my-5 h-px bg-white/10" />
