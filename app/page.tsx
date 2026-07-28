@@ -320,7 +320,7 @@ export default function Home() {
 
               <div className="flex justify-between gap-5 text-xl">
                 <span className="font-bold">Final total</span>
-                <strong>7,970 EGP</strong>
+                <strong>7,900 EGP</strong>
               </div>
             </div>
 
