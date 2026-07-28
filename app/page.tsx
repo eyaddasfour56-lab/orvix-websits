@@ -258,7 +258,7 @@ className="hidden rounded-full bg-white px-7 py-3 font-bold text-black transitio
 
           </div>
 
-        <div className="hidden justify-center lg:flex">
+        <div className="order-1 flex justify-center lg:order-2">
 
         <img
   key={selectedColour.name}
