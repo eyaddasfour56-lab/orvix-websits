@@ -1,10 +1,37 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resendApiKey = process.env.RESEND_API_KEY;
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
+
+const PRODUCT_PRICE = 7900;
+
+const deliveryAreas = [
+  {
+    name: "Cairo",
+    fee: 70,
+  },
+  {
+    name: "Alexandria",
+    fee: 75,
+  },
+  {
+    name: "Delta and Canal Cities",
+    fee: 85,
+  },
+  {
+    name: "Upper Egypt and Red Sea",
+    fee: 100,
+  },
+  {
+    name:
+      "New Valley, South Sinai, Sharm El Sheikh and Marsa Matrouh",
+    fee: 140,
+  },
+];
 
 type OrderData = {
   fullName: string;
@@ -14,9 +41,23 @@ type OrderData = {
   notes?: string;
   colour: string;
   quantity: number;
-  productPrice: number;
-  deliveryFee: number;
-  totalPrice: number;
+  productPrice?: number;
+  deliveryFee?: number;
+  originalDeliveryFee?: number;
+  discountCode?: string;
+  deliveryDiscount?: number;
+  totalPrice?: number;
+};
+
+type DiscountRow = {
+  id: number;
+  code: string;
+  discount_type: string;
+  discount_value: number;
+  usage_limit: number | null;
+  times_used: number;
+  active: boolean;
+  expires_at: string | null;
 };
 
 function escapeHtml(value: string) {
@@ -28,28 +69,113 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#039;");
 }
 
+function createOrderNumber() {
+  const randomPart = Math.floor(
+    1000 + Math.random() * 9000
+  );
+
+  return `ORVIX-${Date.now()}-${randomPart}`;
+}
+
+async function findDiscountCode(
+  code: string
+): Promise<DiscountRow | null> {
+  if (!supabaseUrl || !supabaseSecretKey) {
+    return null;
+  }
+
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/delivery_discount_codes?code=eq.${encodeURIComponent(
+      code
+    )}&select=*`,
+    {
+      method: "GET",
+      headers: {
+        apikey: supabaseSecretKey,
+        Authorization: `Bearer ${supabaseSecretKey}`,
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      "Could not check the discount code."
+    );
+  }
+
+  const rows = (await response.json()) as DiscountRow[];
+
+  return rows[0] ?? null;
+}
+
+function validateDiscount(discount: DiscountRow) {
+  if (!discount.active) {
+    return "This discount code is inactive.";
+  }
+
+  if (
+    discount.expires_at &&
+    new Date(discount.expires_at).getTime() <
+      Date.now()
+  ) {
+    return "This discount code has expired.";
+  }
+
+  if (
+    discount.usage_limit !== null &&
+    Number(discount.times_used) >=
+      Number(discount.usage_limit)
+  ) {
+    return "This discount code has reached its usage limit.";
+  }
+
+  if (discount.discount_type !== "free_delivery") {
+    return "This code cannot be used for free delivery.";
+  }
+
+  return null;
+}
+
+async function increaseDiscountUsage(
+  discount: DiscountRow
+) {
+  if (!supabaseUrl || !supabaseSecretKey) {
+    return;
+  }
+
+  await fetch(
+    `${supabaseUrl}/rest/v1/delivery_discount_codes?id=eq.${discount.id}`,
+    {
+      method: "PATCH",
+      headers: {
+        apikey: supabaseSecretKey,
+        Authorization: `Bearer ${supabaseSecretKey}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        times_used: Number(discount.times_used) + 1,
+      }),
+    }
+  );
+}
+
 export async function POST(request: Request) {
   try {
-    if (!process.env.RESEND_API_KEY) {
+    if (!supabaseUrl || !supabaseSecretKey) {
       return NextResponse.json(
         {
           success: false,
-          message: "RESEND_API_KEY is missing.",
+          message:
+            "Supabase environment variables are missing.",
         },
         { status: 500 }
       );
     }
-if (!supabaseUrl || !supabaseSecretKey) {
-  return NextResponse.json(
-    {
-      success: false,
-      message: "Supabase environment variables are missing.",
-    },
-    { status: 500 }
-  );
-}
 
-    const order = (await request.json()) as OrderData;
+    const order =
+      (await request.json()) as OrderData;
 
     if (
       !order.fullName ||
@@ -62,414 +188,291 @@ if (!supabaseUrl || !supabaseSecretKey) {
       return NextResponse.json(
         {
           success: false,
-          message: "Please complete all required order details.",
+          message:
+            "Please complete all required order details.",
         },
         { status: 400 }
       );
     }
 
-    const fullName = escapeHtml(String(order.fullName));
-    const phone = escapeHtml(String(order.phone));
-    const governorate = escapeHtml(String(order.governorate));
-    const address = escapeHtml(String(order.address));
-    const notes = escapeHtml(String(order.notes || "No notes"));
-    const colour = escapeHtml(String(order.colour));
+    const fullName = String(order.fullName).trim();
+    const phone = String(order.phone).trim();
+    const governorate = String(
+      order.governorate
+    ).trim();
+    const address = String(order.address).trim();
+    const notes = String(
+      order.notes || "No notes"
+    ).trim();
+    const colour = String(order.colour).trim();
 
     const quantity = Number(order.quantity);
-    const productPrice = Number(order.productPrice);
-    const deliveryFee = Number(order.deliveryFee);
-    const totalPrice = Number(order.totalPrice);
 
     if (
-      !Number.isFinite(quantity) ||
-      !Number.isFinite(productPrice) ||
-      !Number.isFinite(deliveryFee) ||
-      !Number.isFinite(totalPrice) ||
-      quantity < 1
+      !Number.isInteger(quantity) ||
+      quantity < 1 ||
+      quantity > 10
     ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Invalid order prices or quantity.",
+          message: "Invalid product quantity.",
         },
         { status: 400 }
       );
     }
 
-    const orderNumber = `ORVIX-${Date.now()}`;
+    const selectedDeliveryArea =
+      deliveryAreas.find(
+        (area) => area.name === governorate
+      );
 
-const productsTotal = productPrice * quantity;
+    if (!selectedDeliveryArea) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "The selected delivery area is invalid.",
+        },
+        { status: 400 }
+      );
+    }
 
-const supabaseResponse = await fetch(
-  `${supabaseUrl}/rest/v1/orders`,
-  {
-    method: "POST",
-    headers: {
-      apikey: supabaseSecretKey,
-      "Content-Type": "application/json",
-      Prefer: "return=representation",
-    },
-    body: JSON.stringify({
-      customer_name: String(order.fullName).trim(),
-      phone: String(order.phone).trim(),
-      governorate: String(order.governorate).trim(),
-      address: String(order.address).trim(),
-      notes: String(order.notes || "").trim(),
-      colour: String(order.colour).trim(),
-      quantity,
-      product_price: productPrice,
-      products_total: productsTotal,
-      delivery_fee: deliveryFee,
-      discount_amount: 0,
-      total_price: totalPrice,
-      status: "new",
-    }),
-  }
-);
+    const productPrice = PRODUCT_PRICE;
+    const productsTotal =
+      productPrice * quantity;
 
-if (!supabaseResponse.ok) {
-  const supabaseError = await supabaseResponse.text();
+    const originalDeliveryFee =
+      selectedDeliveryArea.fee;
 
-  console.error(
-    "Supabase order saving error:",
-    supabaseError
-  );
+    let verifiedDeliveryFee =
+      originalDeliveryFee;
 
-  return NextResponse.json(
-    {
-      success: false,
-      message: "Could not save the order.",
-    },
-    { status: 500 }
-  );
-}
-    const { data, error } = await resend.emails.send({
-      from: "ORVIX Orders <onboarding@resend.dev>",
-      to: ["eyadd.asfour56@gmail.com"],
-      subject: `New ORVIX Order — ${orderNumber}`,
-      html: `
-        <div
-          style="
-            margin: 0;
-            padding: 32px;
-            background-color: #f4f4f5;
-            font-family: Arial, sans-serif;
-            color: #111111;
-          "
-        >
-          <div
-            style="
-              max-width: 650px;
-              margin: 0 auto;
-              background-color: #ffffff;
-              border-radius: 20px;
-              overflow: hidden;
-            "
-          >
-            <div
-              style="
-                padding: 28px;
-                background-color: #000000;
-                color: #ffffff;
-              "
-            >
-              <h1 style="margin: 0; font-size: 28px;">
-                New ORVIX Order
-              </h1>
+    let verifiedDeliveryDiscount = 0;
+    let verifiedDiscountCode = "";
+    let verifiedDiscount: DiscountRow | null =
+      null;
 
-              <p
-                style="
-                  margin: 10px 0 0;
-                  color: #d4d4d8;
-                "
-              >
-                Order number: ${orderNumber}
-              </p>
-            </div>
+    const submittedDiscountCode = String(
+      order.discountCode || ""
+    )
+      .trim()
+      .toUpperCase();
 
-            <div style="padding: 28px;">
-              <h2
-                style="
-                  margin-top: 0;
-                  font-size: 20px;
-                "
-              >
-                Customer details
-              </h2>
+    if (submittedDiscountCode) {
+      const discount = await findDiscountCode(
+        submittedDiscountCode
+      );
 
-              <table
-                style="
-                  width: 100%;
-                  border-collapse: collapse;
-                  margin-bottom: 28px;
-                "
-              >
-                <tr>
-                  <td
-                    style="
-                      padding: 10px 0;
-                      border-bottom: 1px solid #e5e7eb;
-                      font-weight: bold;
-                    "
-                  >
-                    Full name
-                  </td>
+      if (!discount) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Invalid discount code.",
+          },
+          { status: 400 }
+        );
+      }
 
-                  <td
-                    style="
-                      padding: 10px 0;
-                      border-bottom: 1px solid #e5e7eb;
-                      text-align: right;
-                    "
-                  >
-                    ${fullName}
-                  </td>
-                </tr>
+      const discountError =
+        validateDiscount(discount);
 
-                <tr>
-                  <td
-                    style="
-                      padding: 10px 0;
-                      border-bottom: 1px solid #e5e7eb;
-                      font-weight: bold;
-                    "
-                  >
-                    Phone
-                  </td>
+      if (discountError) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: discountError,
+          },
+          { status: 400 }
+        );
+      }
 
-                  <td
-                    style="
-                      padding: 10px 0;
-                      border-bottom: 1px solid #e5e7eb;
-                      text-align: right;
-                    "
-                  >
-                    ${phone}
-                  </td>
-                </tr>
+      verifiedDiscount = discount;
+      verifiedDiscountCode = discount.code;
+      verifiedDeliveryDiscount =
+        originalDeliveryFee;
+      verifiedDeliveryFee = 0;
+    }
 
-                <tr>
-                  <td
-                    style="
-                      padding: 10px 0;
-                      border-bottom: 1px solid #e5e7eb;
-                      font-weight: bold;
-                    "
-                  >
-                    Delivery area
-                  </td>
+    const verifiedTotalPrice =
+      productsTotal + verifiedDeliveryFee;
 
-                  <td
-                    style="
-                      padding: 10px 0;
-                      border-bottom: 1px solid #e5e7eb;
-                      text-align: right;
-                    "
-                  >
-                    ${governorate}
-                  </td>
-                </tr>
+    const orderNumber = createOrderNumber();
 
-                <tr>
-                  <td
-                    style="
-                      padding: 10px 0;
-                      border-bottom: 1px solid #e5e7eb;
-                      font-weight: bold;
-                    "
-                  >
-                    Address
-                  </td>
+    const supabaseResponse = await fetch(
+      `${supabaseUrl}/rest/v1/orders`,
+      {
+        method: "POST",
+        headers: {
+          apikey: supabaseSecretKey,
+          Authorization: `Bearer ${supabaseSecretKey}`,
+          "Content-Type": "application/json",
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify({
+          order_number: orderNumber,
+          customer_name: fullName,
+          phone,
+          governorate,
+          address,
+          notes,
+          colour,
+          quantity,
+          product_price: productPrice,
+          products_total: productsTotal,
+          delivery_fee: verifiedDeliveryFee,
+          discount_amount:
+            verifiedDeliveryDiscount,
+          total_price: verifiedTotalPrice,
+          status: "New",
+        }),
+      }
+    );
 
-                  <td
-                    style="
-                      padding: 10px 0;
-                      border-bottom: 1px solid #e5e7eb;
-                      text-align: right;
-                    "
-                  >
-                    ${address}
-                  </td>
-                </tr>
+    if (!supabaseResponse.ok) {
+      const supabaseError =
+        await supabaseResponse.text();
 
-                <tr>
-                  <td
-                    style="
-                      padding: 10px 0;
-                      border-bottom: 1px solid #e5e7eb;
-                      font-weight: bold;
-                    "
-                  >
-                    Notes
-                  </td>
-
-                  <td
-                    style="
-                      padding: 10px 0;
-                      border-bottom: 1px solid #e5e7eb;
-                      text-align: right;
-                    "
-                  >
-                    ${notes}
-                  </td>
-                </tr>
-              </table>
-
-              <h2 style="font-size: 20px;">
-                Order details
-              </h2>
-
-              <table
-                style="
-                  width: 100%;
-                  border-collapse: collapse;
-                "
-              >
-                <tr>
-                  <td style="padding: 10px 0;">
-                    Product
-                  </td>
-
-                  <td
-                    style="
-                      padding: 10px 0;
-                      text-align: right;
-                    "
-                  >
-                    Google Fitbit Air
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style="padding: 10px 0;">
-                    Colour
-                  </td>
-
-                  <td
-                    style="
-                      padding: 10px 0;
-                      text-align: right;
-                    "
-                  >
-                    ${colour}
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style="padding: 10px 0;">
-                    Quantity
-                  </td>
-
-                  <td
-                    style="
-                      padding: 10px 0;
-                      text-align: right;
-                    "
-                  >
-                    ${quantity}
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style="padding: 10px 0;">
-                    Products total
-                  </td>
-
-                  <td
-                    style="
-                      padding: 10px 0;
-                      text-align: right;
-                    "
-                  >
-                    ${(productPrice * quantity).toLocaleString("en-GB")} EGP
-                  </td>
-                </tr>
-
-                <tr>
-                  <td style="padding: 10px 0;">
-                    Delivery fee
-                  </td>
-
-                  <td
-                    style="
-                      padding: 10px 0;
-                      text-align: right;
-                    "
-                  >
-                    ${deliveryFee.toLocaleString("en-GB")} EGP
-                  </td>
-                </tr>
-
-                <tr>
-                  <td
-                    style="
-                      padding: 16px 0 0;
-                      border-top: 2px solid #111111;
-                      font-size: 20px;
-                      font-weight: bold;
-                    "
-                  >
-                    Final total
-                  </td>
-
-                  <td
-                    style="
-                      padding: 16px 0 0;
-                      border-top: 2px solid #111111;
-                      text-align: right;
-                      font-size: 20px;
-                      font-weight: bold;
-                    "
-                  >
-                    ${totalPrice.toLocaleString("en-GB")} EGP
-                  </td>
-                </tr>
-              </table>
-
-              <p
-                style="
-                  margin: 28px 0 0;
-                  padding: 16px;
-                  border-radius: 12px;
-                  background-color: #f4f4f5;
-                  text-align: center;
-                "
-              >
-                Payment method: Cash on delivery
-              </p>
-            </div>
-          </div>
-        </div>
-      `,
-    });
-
-    if (error) {
-      console.error("Resend error:", error);
+      console.error(
+        "Supabase order error:",
+        supabaseError
+      );
 
       return NextResponse.json(
         {
           success: false,
-          message: error.message || "The order email could not be sent.",
+          message:
+            "Could not save your order. Please try again.",
         },
         { status: 500 }
       );
     }
 
-    return NextResponse.json(
-      {
-        success: true,
-        orderNumber,
-        emailId: data?.id,
-      },
-      { status: 200 }
+    const savedOrders =
+      await supabaseResponse.json();
+
+    if (verifiedDiscount) {
+      try {
+        await increaseDiscountUsage(
+          verifiedDiscount
+        );
+      } catch (usageError) {
+        console.error(
+          "Could not increase discount usage:",
+          usageError
+        );
+      }
+    }
+
+    const safeFullName = escapeHtml(fullName);
+    const safePhone = escapeHtml(phone);
+    const safeGovernorate =
+      escapeHtml(governorate);
+    const safeAddress = escapeHtml(address);
+    const safeNotes = escapeHtml(notes);
+    const safeColour = escapeHtml(colour);
+    const safeDiscountCode = escapeHtml(
+      verifiedDiscountCode || "None"
     );
+
+    const notificationEmail =
+      process.env.ORDER_NOTIFICATION_EMAIL ||
+      process.env.RESEND_TO_EMAIL;
+
+    if (resend && notificationEmail) {
+      try {
+        await resend.emails.send({
+          from:
+            process.env.RESEND_FROM_EMAIL ||
+            "ORVIX Orders <onboarding@resend.dev>",
+          to: notificationEmail,
+          subject: `New ORVIX order — ${orderNumber}`,
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;padding:24px;color:#111;">
+              <h1 style="margin-bottom:8px;">New ORVIX Order</h1>
+
+              <p style="color:#666;margin-top:0;">
+                A new order has been placed on the website.
+              </p>
+
+              <div style="background:#f4f4f4;border-radius:16px;padding:20px;margin-top:24px;">
+                <p><strong>Order number:</strong> ${orderNumber}</p>
+                <p><strong>Customer:</strong> ${safeFullName}</p>
+                <p><strong>Phone:</strong> ${safePhone}</p>
+                <p><strong>Governorate:</strong> ${safeGovernorate}</p>
+                <p><strong>Address:</strong> ${safeAddress}</p>
+                <p><strong>Notes:</strong> ${safeNotes}</p>
+              </div>
+
+              <div style="background:#f4f4f4;border-radius:16px;padding:20px;margin-top:16px;">
+                <p><strong>Product:</strong> Google Fitbit Air</p>
+                <p><strong>Colour:</strong> ${safeColour}</p>
+                <p><strong>Quantity:</strong> ${quantity}</p>
+                <p><strong>Product price:</strong> ${productPrice.toLocaleString(
+                  "en-GB"
+                )} EGP</p>
+                <p><strong>Products total:</strong> ${productsTotal.toLocaleString(
+                  "en-GB"
+                )} EGP</p>
+                <p><strong>Original delivery:</strong> ${originalDeliveryFee.toLocaleString(
+                  "en-GB"
+                )} EGP</p>
+                <p><strong>Discount code:</strong> ${safeDiscountCode}</p>
+                <p><strong>Delivery discount:</strong> ${verifiedDeliveryDiscount.toLocaleString(
+                  "en-GB"
+                )} EGP</p>
+                <p><strong>Final delivery:</strong> ${verifiedDeliveryFee.toLocaleString(
+                  "en-GB"
+                )} EGP</p>
+
+                <p style="font-size:20px;">
+                  <strong>Final total: ${verifiedTotalPrice.toLocaleString(
+                    "en-GB"
+                  )} EGP</strong>
+                </p>
+              </div>
+            </div>
+          `,
+        });
+      } catch (emailError) {
+        console.error(
+          "Resend email error:",
+          emailError
+        );
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Order placed successfully.",
+      orderNumber,
+      order:
+        Array.isArray(savedOrders) &&
+        savedOrders.length > 0
+          ? savedOrders[0]
+          : null,
+      pricing: {
+        productPrice,
+        productsTotal,
+        originalDeliveryFee,
+        deliveryDiscount:
+          verifiedDeliveryDiscount,
+        deliveryFee: verifiedDeliveryFee,
+        totalPrice: verifiedTotalPrice,
+        discountCode:
+          verifiedDiscountCode || null,
+      },
+    });
   } catch (error) {
     console.error("Order API error:", error);
 
     return NextResponse.json(
       {
         success: false,
-        message: "Something went wrong while sending the order.",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Could not place your order.",
       },
       { status: 500 }
     );
