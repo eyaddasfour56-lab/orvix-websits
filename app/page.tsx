@@ -434,6 +434,30 @@ const [selectedGarminSize, setSelectedGarminSize] =
             );
           })}
         </div>
+<p className="mt-10 text-sm uppercase tracking-[0.35em] text-gray-500">
+  Choose your size
+</p>
+
+<div className="mt-5 grid grid-cols-2 gap-3">
+  {["S-M", "L-XL"].map((size) => {
+    const selected = selectedGarminSize === size;
+
+    return (
+      <button
+        key={size}
+        type="button"
+        onClick={() => setSelectedGarminSize(size)}
+        className={`rounded-2xl border p-4 text-center font-bold transition ${
+          selected
+            ? "border-white bg-white text-black"
+            : "border-white/15 bg-white/5 text-white"
+        }`}
+      >
+        {size}
+      </button>
+    );
+  })}
+</div>
 
         <button
           type="button"
