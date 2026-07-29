@@ -2,12 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   FormEvent,
   useEffect,
   useState,
 } from "react";
-import { useRouter } from "next/navigation";
 
 const PRODUCT_PRICE = 7900;
 
@@ -52,14 +52,21 @@ const deliveryAreas = [
   },
   {
     code: "REMOTE_AREAS",
-    name: "New Valley, South Sinai, Sharm El Sheikh and Marsa Matrouh",
+    name:
+      "New Valley, South Sinai, Sharm El Sheikh and Marsa Matrouh",
     fee: 140,
   },
 ];
 
 export default function CheckoutPage() {
-  const [selectedColour, setSelectedColour] = useState(colours[0]);
-  const [selectedAreaCode, setSelectedAreaCode] = useState("");
+  const router = useRouter();
+
+  const [selectedColour, setSelectedColour] =
+    useState(colours[0]);
+
+  const [selectedAreaCode, setSelectedAreaCode] =
+    useState("");
+
   const [quantity, setQuantity] = useState(1);
 
   const [fullName, setFullName] = useState("");
@@ -67,22 +74,36 @@ export default function CheckoutPage() {
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
 
-  const [discountCode, setDiscountCode] = useState("");
-  const [appliedDiscountCode, setAppliedDiscountCode] = useState("");
-  const [discountMessage, setDiscountMessage] = useState("");
-  const [checkingDiscount, setCheckingDiscount] = useState(false);
+  const [discountCode, setDiscountCode] =
+    useState("");
 
-  const [orderSent, setOrderSent] = useState(false);
-  const [orderNumber, setOrderNumber] = useState("");
-  const [isSending, setIsSending] = useState(false);
-  const [orderError, setOrderError] = useState("");
+  const [
+    appliedDiscountCode,
+    setAppliedDiscountCode,
+  ] = useState("");
+
+  const [discountMessage, setDiscountMessage] =
+    useState("");
+
+  const [
+    checkingDiscount,
+    setCheckingDiscount,
+  ] = useState(false);
+
+  const [isSending, setIsSending] =
+    useState(false);
+
+  const [orderError, setOrderError] =
+    useState("");
 
   const selectedArea = deliveryAreas.find(
     (area) => area.code === selectedAreaCode
   );
 
   const deliveryFee = selectedArea?.fee ?? 0;
-  const productsTotal = PRODUCT_PRICE * quantity;
+
+  const productsTotal =
+    PRODUCT_PRICE * quantity;
 
   const hasFreeDelivery =
     appliedDiscountCode.length > 0;
@@ -138,7 +159,8 @@ export default function CheckoutPage() {
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
           body: JSON.stringify({
             code: cleanCode,
@@ -169,11 +191,13 @@ export default function CheckoutPage() {
 
       setAppliedDiscountCode(result.code);
       setDiscountCode(result.code);
+
       setDiscountMessage(
         "Free delivery applied successfully."
       );
     } catch {
       setAppliedDiscountCode("");
+
       setDiscountMessage(
         "Could not check the discount code."
       );
@@ -185,6 +209,7 @@ export default function CheckoutPage() {
   function removeDiscountCode() {
     setAppliedDiscountCode("");
     setDiscountCode("");
+
     setDiscountMessage(
       "Discount code removed."
     );
@@ -195,8 +220,11 @@ export default function CheckoutPage() {
   ) {
     event.preventDefault();
 
+    if (isSending) {
+      return;
+    }
+
     setOrderError("");
-    setOrderSent(false);
 
     if (!selectedArea) {
       setOrderError(
@@ -234,7 +262,8 @@ export default function CheckoutPage() {
         {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
           body: JSON.stringify({
             fullName: fullName.trim(),
@@ -246,7 +275,8 @@ export default function CheckoutPage() {
             quantity,
             productPrice: PRODUCT_PRICE,
             deliveryFee: finalDeliveryFee,
-            originalDeliveryFee: deliveryFee,
+            originalDeliveryFee:
+              deliveryFee,
             discountCode:
               appliedDiscountCode || "",
             deliveryDiscount,
@@ -264,69 +294,35 @@ export default function CheckoutPage() {
         );
       }
 
-      setOrderNumber(
+      const createdOrderNumber =
         result.orderNumber ||
-          result.order?.order_number ||
-          "Confirmed"
+        result.order?.order_number;
+
+      if (!createdOrderNumber) {
+        throw new Error(
+          "Your order was saved, but the order number was not returned."
+        );
+      }
+
+      sessionStorage.setItem(
+        "orvixLastOrderPhone",
+        phone.trim()
       );
 
-      setOrderSent(true);
-
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
+      router.push(
+        `/order-success/${encodeURIComponent(
+          createdOrderNumber
+        )}`
+      );
     } catch (error) {
       setOrderError(
         error instanceof Error
           ? error.message
           : "Could not place your order."
       );
-    } finally {
+
       setIsSending(false);
     }
-  }
-
-  if (orderSent) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#070707] px-4 text-white">
-        <section className="w-full max-w-xl rounded-[36px] border border-white/10 bg-white/5 p-8 text-center sm:p-12">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white text-4xl text-black">
-            ✓
-          </div>
-
-          <p className="mt-8 text-sm uppercase tracking-[0.35em] text-gray-500">
-            Order confirmed
-          </p>
-
-          <h1 className="mt-4 text-4xl font-black sm:text-5xl">
-            Thank you!
-          </h1>
-
-          <p className="mt-5 leading-7 text-gray-400">
-            Your order has been received. We will
-            contact you to confirm the details.
-          </p>
-
-          <div className="mt-8 rounded-2xl border border-white/10 bg-black/30 p-5">
-            <p className="text-sm text-gray-500">
-              Order number
-            </p>
-
-            <p className="mt-2 text-2xl font-bold">
-              {orderNumber}
-            </p>
-          </div>
-
-          <Link
-            href="/"
-            className="mt-8 flex w-full justify-center rounded-full bg-white px-8 py-5 font-bold text-black"
-          >
-            Back to our products
-          </Link>
-        </section>
-      </main>
-    );
   }
 
   return (
@@ -371,8 +367,9 @@ export default function CheckoutPage() {
             </h1>
 
             <p className="mt-5 max-w-2xl leading-7 text-gray-400">
-              Choose your colour and delivery area,
-              then enter your contact information.
+              Choose your colour and delivery
+              area, then enter your contact
+              information.
             </p>
           </div>
 
@@ -381,7 +378,6 @@ export default function CheckoutPage() {
             className="grid items-start gap-10 lg:grid-cols-[1fr_0.85fr]"
           >
             <div className="space-y-8">
-              {/* Product */}
               <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
                 <h2 className="text-2xl font-black">
                   Your product
@@ -418,7 +414,6 @@ export default function CheckoutPage() {
                 </div>
               </section>
 
-              {/* Colours */}
               <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
                 <h2 className="text-2xl font-black">
                   Choose your colour
@@ -435,7 +430,9 @@ export default function CheckoutPage() {
                         key={colour.name}
                         type="button"
                         onClick={() =>
-                          setSelectedColour(colour)
+                          setSelectedColour(
+                            colour
+                          )
                         }
                         className={`flex items-center gap-3 rounded-2xl border p-4 text-left font-bold transition ${
                           selected
@@ -454,7 +451,6 @@ export default function CheckoutPage() {
                 </div>
               </section>
 
-              {/* Quantity */}
               <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
                 <h2 className="text-2xl font-black">
                   Quantity
@@ -465,10 +461,14 @@ export default function CheckoutPage() {
                     type="button"
                     onClick={() =>
                       setQuantity((current) =>
-                        Math.max(1, current - 1)
+                        Math.max(
+                          1,
+                          current - 1
+                        )
                       )
                     }
-                    className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-2xl"
+                    disabled={isSending}
+                    className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-2xl disabled:opacity-50"
                   >
                     −
                   </button>
@@ -481,17 +481,20 @@ export default function CheckoutPage() {
                     type="button"
                     onClick={() =>
                       setQuantity((current) =>
-                        Math.min(10, current + 1)
+                        Math.min(
+                          10,
+                          current + 1
+                        )
                       )
                     }
-                    className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-2xl text-black"
+                    disabled={isSending}
+                    className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-2xl text-black disabled:opacity-50"
                   >
                     +
                   </button>
                 </div>
               </section>
 
-              {/* Customer information */}
               <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
                 <h2 className="text-2xl font-black">
                   Contact information
@@ -513,7 +516,9 @@ export default function CheckoutPage() {
                       }
                       placeholder="Enter your full name"
                       autoComplete="name"
-                      className="w-full rounded-2xl border border-white/15 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white"
+                      disabled={isSending}
+                      required
+                      className="w-full rounded-2xl border border-white/15 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
                     />
                   </label>
 
@@ -526,17 +531,21 @@ export default function CheckoutPage() {
                       type="tel"
                       value={phone}
                       onChange={(event) =>
-                        setPhone(event.target.value)
+                        setPhone(
+                          event.target.value
+                        )
                       }
                       placeholder="01XXXXXXXXX"
                       autoComplete="tel"
-                      className="w-full rounded-2xl border border-white/15 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white"
+                      inputMode="tel"
+                      disabled={isSending}
+                      required
+                      className="w-full rounded-2xl border border-white/15 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
                     />
                   </label>
                 </div>
               </section>
 
-              {/* Delivery */}
               <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
                 <h2 className="text-2xl font-black">
                   Delivery information
@@ -555,20 +564,25 @@ export default function CheckoutPage() {
                           event.target.value
                         )
                       }
-                      className="w-full rounded-2xl border border-white/15 bg-black px-5 py-4 text-white outline-none focus:border-white"
+                      disabled={isSending}
+                      required
+                      className="w-full rounded-2xl border border-white/15 bg-black px-5 py-4 text-white outline-none focus:border-white disabled:opacity-50"
                     >
                       <option value="">
                         Select your delivery area
                       </option>
 
-                      {deliveryAreas.map((area) => (
-                        <option
-                          key={area.code}
-                          value={area.code}
-                        >
-                          {area.name} — {area.fee} EGP
-                        </option>
-                      ))}
+                      {deliveryAreas.map(
+                        (area) => (
+                          <option
+                            key={area.code}
+                            value={area.code}
+                          >
+                            {area.name} —{" "}
+                            {area.fee} EGP
+                          </option>
+                        )
+                      )}
                     </select>
                   </label>
 
@@ -587,7 +601,9 @@ export default function CheckoutPage() {
                       placeholder="Area, street, building, floor and apartment"
                       rows={4}
                       autoComplete="street-address"
-                      className="w-full resize-none rounded-2xl border border-white/15 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white"
+                      disabled={isSending}
+                      required
+                      className="w-full resize-none rounded-2xl border border-white/15 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
                     />
                   </label>
 
@@ -599,19 +615,21 @@ export default function CheckoutPage() {
                     <textarea
                       value={notes}
                       onChange={(event) =>
-                        setNotes(event.target.value)
+                        setNotes(
+                          event.target.value
+                        )
                       }
                       placeholder="Add any useful delivery notes"
                       rows={3}
-                      className="w-full resize-none rounded-2xl border border-white/15 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white"
+                      disabled={isSending}
+                      className="w-full resize-none rounded-2xl border border-white/15 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
                     />
                   </label>
                 </div>
               </section>
             </div>
 
-            {/* Summary */}
-            <aside className="rounded-[32px] border border-white/10 bg-[#111111] p-5 lg:sticky lg:top-6 sm:p-7">
+            <aside className="rounded-[32px] border border-white/10 bg-[#111111] p-5 sm:p-7 lg:sticky lg:top-6">
               <h2 className="text-2xl font-black">
                 Order summary
               </h2>
@@ -685,7 +703,6 @@ export default function CheckoutPage() {
                 )}
               </div>
 
-              {/* Discount */}
               <div className="mt-8 border-t border-white/10 pt-8">
                 <p className="text-sm uppercase tracking-[0.25em] text-gray-500">
                   Delivery discount code
@@ -700,11 +717,17 @@ export default function CheckoutPage() {
                         event.target.value.toUpperCase()
                       );
 
-                      setAppliedDiscountCode("");
+                      setAppliedDiscountCode(
+                        ""
+                      );
+
                       setDiscountMessage("");
                     }}
                     placeholder="Enter code"
-                    disabled={!selectedArea}
+                    disabled={
+                      !selectedArea ||
+                      isSending
+                    }
                     className="min-w-0 flex-1 rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:cursor-not-allowed disabled:opacity-50"
                   />
 
@@ -717,7 +740,8 @@ export default function CheckoutPage() {
                     }
                     disabled={
                       checkingDiscount ||
-                      !selectedArea
+                      !selectedArea ||
+                      isSending
                     }
                     className="rounded-2xl bg-white px-5 py-4 font-bold text-black disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -731,8 +755,8 @@ export default function CheckoutPage() {
 
                 {!selectedArea && (
                   <p className="mt-3 text-sm text-gray-500">
-                    Select your delivery area before
-                    applying a code.
+                    Select your delivery area
+                    before applying a code.
                   </p>
                 )}
 
@@ -770,7 +794,10 @@ export default function CheckoutPage() {
               </p>
 
               {orderError && (
-                <p className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm leading-6 text-red-300">
+                <p
+                  role="alert"
+                  className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm leading-6 text-red-300"
+                >
                   {orderError}
                 </p>
               )}
@@ -786,6 +813,13 @@ export default function CheckoutPage() {
                       "en-GB"
                     )} EGP`}
               </button>
+
+              {isSending && (
+                <p className="mt-4 text-center text-sm text-gray-500">
+                  Please do not close or refresh
+                  this page.
+                </p>
+              )}
             </aside>
           </form>
         </div>
