@@ -28,21 +28,29 @@ export default function AdminPage() {
   const [password, setPassword] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loginLoading, setLoginLoading] = useState(false);
-  const [authenticated, setAuthenticated] = useState(false);
+  const [loginLoading, setLoginLoading] =
+    useState(false);
+  const [authenticated, setAuthenticated] =
+    useState(false);
   const [message, setMessage] = useState("");
-const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
-const [totalViews, setTotalViews] = useState(0);
-const [viewsToday, setViewsToday] = useState(0);
-const [resettingOrders, setResettingOrders] = useState(false);
+  const [updatingOrderId, setUpdatingOrderId] =
+    useState<string | null>(null);
+  const [totalViews, setTotalViews] = useState(0);
+  const [viewsToday, setViewsToday] = useState(0);
+  const [resettingOrders, setResettingOrders] =
+    useState(false);
 
   async function loadOrders() {
     setLoading(true);
+    setMessage("");
 
     try {
-      const response = await fetch("/api/admin/orders", {
-        cache: "no-store",
-      });
+      const response = await fetch(
+        "/api/admin/orders",
+        {
+          cache: "no-store",
+        }
+      );
 
       if (response.status === 401) {
         setAuthenticated(false);
@@ -53,21 +61,36 @@ const [resettingOrders, setResettingOrders] = useState(false);
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || "Could not load orders.");
+        throw new Error(
+          result.message ||
+            "Could not load orders."
+        );
       }
 
       setAuthenticated(true);
       setOrders(result.orders || []);
-const viewsResponse = await fetch("/api/admin/views", {
-  cache: "no-store",
-});
 
-const viewsResult = await viewsResponse.json();
+      const viewsResponse = await fetch(
+        "/api/admin/views",
+        {
+          cache: "no-store",
+        }
+      );
 
-if (viewsResponse.ok && viewsResult.success) {
-  setTotalViews(viewsResult.totalViews || 0);
-  setViewsToday(viewsResult.viewsToday || 0);
-}
+      const viewsResult =
+        await viewsResponse.json();
+
+      if (
+        viewsResponse.ok &&
+        viewsResult.success
+      ) {
+        setTotalViews(
+          viewsResult.totalViews || 0
+        );
+        setViewsToday(
+          viewsResult.viewsToday || 0
+        );
+      }
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -83,28 +106,41 @@ if (viewsResponse.ok && viewsResult.success) {
     loadOrders();
   }, []);
 
-  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+  async function handleLogin(
+    event: FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
+
     setLoginLoading(true);
     setMessage("");
 
     try {
-      const response = await fetch("/api/admin/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ password }),
-      });
+      const response = await fetch(
+        "/api/admin/login",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            password,
+          }),
+        }
+      );
 
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || "Incorrect password.");
+        throw new Error(
+          result.message ||
+            "Incorrect password."
+        );
       }
 
       setPassword("");
       setAuthenticated(true);
+
       await loadOrders();
     } catch (error) {
       setMessage(
@@ -116,99 +152,126 @@ if (viewsResponse.ok && viewsResult.success) {
       setLoginLoading(false);
     }
   }
-async function updateOrderStatus(orderId: string, status: string) {
-  setUpdatingOrderId(orderId);
-  setMessage("");
 
-  try {
-    const response = await fetch("/api/admin/order-status", {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        orderId,
-        status,
-      }),
-    });
+  async function updateOrderStatus(
+    orderId: string,
+    status: string
+  ) {
+    setUpdatingOrderId(orderId);
+    setMessage("");
 
-    const result = await response.json();
-
-    if (!response.ok || !result.success) {
-      throw new Error(
-        result.message || "Could not update order status."
+    try {
+      const response = await fetch(
+        "/api/admin/order-status",
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            orderId,
+            status,
+          }),
+        }
       );
-    }
 
-    setOrders((currentOrders) =>
-      currentOrders.map((order) =>
-        order.id === orderId
-          ? { ...order, status }
-          : order
-      )
-    );
-  } catch (error) {
-    setMessage(
-      error instanceof Error
-        ? error.message
-        : "Could not update order status."
-    );
-  } finally {
-    setUpdatingOrderId(null);
-  }
-}
-async function resetAllOrders() {
-  const confirmation = window.prompt(
-    'To delete all orders permanently, type: DELETE ALL ORDERS'
-  );
+      const result = await response.json();
 
-  if (confirmation !== "DELETE ALL ORDERS") {
-    if (confirmation !== null) {
-      setMessage("Orders were not deleted. Confirmation text was incorrect.");
-    }
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message ||
+            "Could not update order status."
+        );
+      }
 
-    return;
-  }
-
-  setResettingOrders(true);
-  setMessage("");
-
-  try {
-    const response = await fetch("/api/admin/reset-orders", {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        confirmation,
-      }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok || !result.success) {
-      throw new Error(
-        result.message || "Could not delete the orders."
+      setOrders((currentOrders) =>
+        currentOrders.map((order) =>
+          order.id === orderId
+            ? {
+                ...order,
+                status,
+              }
+            : order
+        )
       );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not update order status."
+      );
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  }
+
+  async function resetAllOrders() {
+    const confirmation = window.prompt(
+      "To delete all orders permanently, type: DELETE ALL ORDERS"
+    );
+
+    if (
+      confirmation !== "DELETE ALL ORDERS"
+    ) {
+      if (confirmation !== null) {
+        setMessage(
+          "Orders were not deleted. Confirmation text was incorrect."
+        );
+      }
+
+      return;
     }
 
-    setOrders([]);
-    setMessage("All old orders were deleted successfully.");
-  } catch (error) {
-    setMessage(
-      error instanceof Error
-        ? error.message
-        : "Could not delete the orders."
-    );
-  } finally {
-    setResettingOrders(false);
+    setResettingOrders(true);
+    setMessage("");
+
+    try {
+      const response = await fetch(
+        "/api/admin/reset-orders",
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            confirmation,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message ||
+            "Could not delete the orders."
+        );
+      }
+
+      setOrders([]);
+
+      setMessage(
+        "All old orders were deleted successfully."
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not delete the orders."
+      );
+    } finally {
+      setResettingOrders(false);
+    }
   }
-}
+
   const totalSales = useMemo(
-
     () =>
       orders.reduce(
-        (sum, order) => sum + Number(order.total_price || 0),
+        (sum, order) =>
+          sum +
+          Number(order.total_price || 0),
         0
       ),
     [orders]
@@ -218,7 +281,10 @@ async function resetAllOrders() {
     const today = new Date().toDateString();
 
     return orders.filter(
-      (order) => new Date(order.created_at).toDateString() === today
+      (order) =>
+        new Date(
+          order.created_at
+        ).toDateString() === today
     ).length;
   }, [orders]);
 
@@ -250,7 +316,9 @@ async function resetAllOrders() {
           <input
             type="password"
             value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            onChange={(event) =>
+              setPassword(event.target.value)
+            }
             placeholder="Enter admin password"
             className="mt-8 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
           />
@@ -263,10 +331,14 @@ async function resetAllOrders() {
 
           <button
             type="submit"
-            disabled={loginLoading || !password}
+            disabled={
+              loginLoading || !password
+            }
             className="mt-6 w-full rounded-2xl bg-white px-5 py-4 font-bold text-black disabled:opacity-50"
           >
-            {loginLoading ? "Signing in..." : "Sign in"}
+            {loginLoading
+              ? "Signing in..."
+              : "Sign in"}
           </button>
         </form>
       </main>
@@ -276,7 +348,7 @@ async function resetAllOrders() {
   return (
     <main className="min-h-screen bg-[#070707] px-4 py-10 text-white sm:px-6">
       <div className="mx-auto max-w-7xl">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-sm uppercase tracking-[0.3em] text-gray-500">
               ORVIX Admin
@@ -287,62 +359,109 @@ async function resetAllOrders() {
             </h1>
           </div>
 
-   <div className="flex flex-col gap-3 sm:flex-row">
-  <button
-    onClick={loadOrders}
-    className="rounded-2xl border border-white/15 px-5 py-3 font-semibold"
-  >
-    Refresh
-  </button>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Link
+              href="/admin/discounts"
+              className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 font-bold text-black transition hover:bg-gray-200"
+            >
+              Manage Discount Codes
+            </Link>
 
-  <button
-    type="button"
-    onClick={resetAllOrders}
-    disabled={resettingOrders || orders.length === 0}
-    className="rounded-2xl bg-red-600 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
-  >
-    {resettingOrders ? "Deleting..." : "Reset All Orders"}
-  </button>
-</div>
+            <button
+              type="button"
+              onClick={loadOrders}
+              className="rounded-2xl border border-white/15 px-5 py-3 font-semibold transition hover:bg-white/10"
+            >
+              Refresh
+            </button>
+
+            <button
+              type="button"
+              onClick={resetAllOrders}
+              disabled={
+                resettingOrders ||
+                orders.length === 0
+              }
+              className="rounded-2xl bg-red-600 px-5 py-3 font-bold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {resettingOrders
+                ? "Deleting..."
+                : "Reset All Orders"}
+            </button>
+          </div>
         </div>
 
         {message && (
-          <p className="mt-5 rounded-2xl bg-red-500/10 p-4 text-red-300">
+          <p className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-red-300">
             {message}
           </p>
         )}
 
         <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-<div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-  <p className="text-gray-400">Total website views</p>
-  <p className="mt-3 text-4xl font-black">{totalViews}</p>
-</div>
-
-<div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-  <p className="text-gray-400">Views today</p>
-  <p className="mt-3 text-4xl font-black">{viewsToday}</p>
-</div>
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <p className="text-gray-400">Total orders</p>
-            <p className="mt-3 text-4xl font-black">{orders.length}</p>
+            <p className="text-gray-400">
+              Total website views
+            </p>
 
+            <p className="mt-3 text-4xl font-black">
+              {totalViews}
+            </p>
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <p className="text-gray-400">Orders today</p>
-            <p className="mt-3 text-4xl font-black">{todayOrders}</p>
+            <p className="text-gray-400">
+              Views today
+            </p>
+
+            <p className="mt-3 text-4xl font-black">
+              {viewsToday}
+            </p>
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <p className="text-gray-400">Total sales</p>
+            <p className="text-gray-400">
+              Total orders
+            </p>
+
+            <p className="mt-3 text-4xl font-black">
+              {orders.length}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+            <p className="text-gray-400">
+              Orders today
+            </p>
+
+            <p className="mt-3 text-4xl font-black">
+              {todayOrders}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+            <p className="text-gray-400">
+              Total sales
+            </p>
+
             <p className="mt-3 text-3xl font-black">
-              {totalSales.toLocaleString("en-GB")} EGP
+              {totalSales.toLocaleString(
+                "en-GB"
+              )}{" "}
+              EGP
             </p>
           </div>
         </section>
 
         <section className="mt-8 space-y-4">
-          <h2 className="text-2xl font-bold">Orders</h2>
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-2xl font-bold">
+              Orders
+            </h2>
+
+            <p className="text-sm text-gray-500">
+              {orders.length} total
+            </p>
+          </div>
 
           {orders.length === 0 ? (
             <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-gray-400">
@@ -357,7 +476,8 @@ async function resetAllOrders() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="text-sm text-gray-500">
-                      Order #{order.order_number}
+                      Order #
+                      {order.order_number}
                     </p>
 
                     <h3 className="mt-1 text-2xl font-bold">
@@ -369,44 +489,85 @@ async function resetAllOrders() {
                     </p>
                   </div>
 
-<select
-  value={order.status}
-  disabled={updatingOrderId === order.id}
-  onChange={(event) =>
-    updateOrderStatus(order.id, event.target.value)
-  }
-  className="rounded-full bg-white px-4 py-3 text-sm font-bold capitalize text-black outline-none disabled:opacity-50"
->
-  <option value="new">New</option>
-  <option value="confirmed">Confirmed</option>
-  <option value="shipped">Shipped</option>
-  <option value="delivered">Delivered</option>
-  <option value="cancelled">Cancelled</option>
-</select>
+                  <select
+                    value={order.status}
+                    disabled={
+                      updatingOrderId ===
+                      order.id
+                    }
+                    onChange={(event) =>
+                      updateOrderStatus(
+                        order.id,
+                        event.target.value
+                      )
+                    }
+                    className="rounded-full bg-white px-4 py-3 text-sm font-bold capitalize text-black outline-none disabled:opacity-50"
+                  >
+                    <option value="new">
+                      New
+                    </option>
+
+                    <option value="confirmed">
+                      Confirmed
+                    </option>
+
+                    <option value="shipped">
+                      Shipped
+                    </option>
+
+                    <option value="delivered">
+                      Delivered
+                    </option>
+
+                    <option value="cancelled">
+                      Cancelled
+                    </option>
+                  </select>
                 </div>
 
                 <div className="mt-6 grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
                   <div>
-                    <p className="text-gray-500">Colour</p>
-                    <p className="mt-1 font-semibold">{order.colour}</p>
+                    <p className="text-gray-500">
+                      Colour
+                    </p>
+
+                    <p className="mt-1 font-semibold">
+                      {order.colour}
+                    </p>
                   </div>
 
                   <div>
-                    <p className="text-gray-500">Quantity</p>
-                    <p className="mt-1 font-semibold">{order.quantity}</p>
+                    <p className="text-gray-500">
+                      Quantity
+                    </p>
+
+                    <p className="mt-1 font-semibold">
+                      {order.quantity}
+                    </p>
                   </div>
 
                   <div>
-                    <p className="text-gray-500">Governorate</p>
+                    <p className="text-gray-500">
+                      Governorate
+                    </p>
+
                     <p className="mt-1 font-semibold">
                       {order.governorate}
                     </p>
                   </div>
 
                   <div>
-                    <p className="text-gray-500">Total</p>
+                    <p className="text-gray-500">
+                      Total
+                    </p>
+
                     <p className="mt-1 font-semibold">
-                      {Number(order.total_price).toLocaleString("en-GB")} EGP
+                      {Number(
+                        order.total_price
+                      ).toLocaleString(
+                        "en-GB"
+                      )}{" "}
+                      EGP
                     </p>
                   </div>
                 </div>
@@ -416,11 +577,15 @@ async function resetAllOrders() {
                     Address
                   </p>
 
-                  <p className="mt-2 leading-7">{order.address}</p>
+                  <p className="mt-2 leading-7">
+                    {order.address}
+                  </p>
                 </div>
 
                 <p className="mt-4 text-xs text-gray-500">
-                  {new Date(order.created_at).toLocaleString("en-GB")}
+                  {new Date(
+                    order.created_at
+                  ).toLocaleString("en-GB")}
                 </p>
               </article>
             ))
