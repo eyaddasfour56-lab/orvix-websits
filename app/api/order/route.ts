@@ -2,11 +2,16 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 
 const resendApiKey = process.env.RESEND_API_KEY;
-const resend = resendApiKey ? new Resend(resendApiKey) : null;
+const resend = resendApiKey
+  ? new Resend(resendApiKey)
+  : null;
 
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
+const supabaseSecretKey =
+  process.env.SUPABASE_SECRET_KEY;
 
+const PRODUCT_NAME = "Google Fitbit Air";
+const PRODUCT_SLUG = "google-fitbit-air";
 const PRODUCT_PRICE = 7900;
 
 const deliveryAreas = [
@@ -41,6 +46,8 @@ type OrderData = {
   notes?: string;
   colour: string;
   quantity: number;
+  productName?: string;
+  productSlug?: string;
   productPrice?: number;
   deliveryFee?: number;
   originalDeliveryFee?: number;
@@ -104,12 +111,15 @@ async function findDiscountCode(
     );
   }
 
-  const rows = (await response.json()) as DiscountRow[];
+  const rows =
+    (await response.json()) as DiscountRow[];
 
   return rows[0] ?? null;
 }
 
-function validateDiscount(discount: DiscountRow) {
+function validateDiscount(
+  discount: DiscountRow
+) {
   if (!discount.active) {
     return "This discount code is inactive.";
   }
@@ -130,7 +140,10 @@ function validateDiscount(discount: DiscountRow) {
     return "This discount code has reached its usage limit.";
   }
 
-  if (discount.discount_type !== "free_delivery") {
+  if (
+    discount.discount_type !==
+    "free_delivery"
+  ) {
     return "This code cannot be used for free delivery.";
   }
 
@@ -144,7 +157,7 @@ async function increaseDiscountUsage(
     return;
   }
 
-  await fetch(
+  const response = await fetch(
     `${supabaseUrl}/rest/v1/delivery_discount_codes?id=eq.${discount.id}`,
     {
       method: "PATCH",
@@ -155,15 +168,27 @@ async function increaseDiscountUsage(
         Prefer: "return=minimal",
       },
       body: JSON.stringify({
-        times_used: Number(discount.times_used) + 1,
+        times_used:
+          Number(discount.times_used) + 1,
       }),
     }
   );
+
+  if (!response.ok) {
+    throw new Error(
+      "Could not update discount usage."
+    );
+  }
 }
 
-export async function POST(request: Request) {
+export async function POST(
+  request: Request
+) {
   try {
-    if (!supabaseUrl || !supabaseSecretKey) {
+    if (
+      !supabaseUrl ||
+      !supabaseSecretKey
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -195,18 +220,33 @@ export async function POST(request: Request) {
       );
     }
 
-    const fullName = String(order.fullName).trim();
-    const phone = String(order.phone).trim();
+    const fullName = String(
+      order.fullName
+    ).trim();
+
+    const phone = String(
+      order.phone
+    ).trim();
+
     const governorate = String(
       order.governorate
     ).trim();
-    const address = String(order.address).trim();
-    const notes = String(
-      order.notes || "No notes"
-    ).trim();
-    const colour = String(order.colour).trim();
 
-    const quantity = Number(order.quantity);
+    const address = String(
+      order.address
+    ).trim();
+
+    const notes =
+      String(order.notes || "").trim() ||
+      "No notes";
+
+    const colour = String(
+      order.colour
+    ).trim();
+
+    const quantity = Number(
+      order.quantity
+    );
 
     if (
       !Number.isInteger(quantity) ||
@@ -216,7 +256,8 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Invalid product quantity.",
+          message:
+            "Invalid product quantity.",
         },
         { status: 400 }
       );
@@ -224,7 +265,8 @@ export async function POST(request: Request) {
 
     const selectedDeliveryArea =
       deliveryAreas.find(
-        (area) => area.name === governorate
+        (area) =>
+          area.name === governorate
       );
 
     if (!selectedDeliveryArea) {
@@ -238,7 +280,15 @@ export async function POST(request: Request) {
       );
     }
 
+    /*
+      The server controls these values.
+      The customer cannot change the product
+      name, slug or price from the browser.
+    */
+    const productName = PRODUCT_NAME;
+    const productSlug = PRODUCT_SLUG;
     const productPrice = PRODUCT_PRICE;
+
     const productsTotal =
       productPrice * quantity;
 
@@ -250,25 +300,28 @@ export async function POST(request: Request) {
 
     let verifiedDeliveryDiscount = 0;
     let verifiedDiscountCode = "";
-    let verifiedDiscount: DiscountRow | null =
-      null;
 
-    const submittedDiscountCode = String(
-      order.discountCode || ""
-    )
-      .trim()
-      .toUpperCase();
+    let verifiedDiscount:
+      | DiscountRow
+      | null = null;
+
+    const submittedDiscountCode =
+      String(order.discountCode || "")
+        .trim()
+        .toUpperCase();
 
     if (submittedDiscountCode) {
-      const discount = await findDiscountCode(
-        submittedDiscountCode
-      );
+      const discount =
+        await findDiscountCode(
+          submittedDiscountCode
+        );
 
       if (!discount) {
         return NextResponse.json(
           {
             success: false,
-            message: "Invalid discount code.",
+            message:
+              "Invalid discount code.",
           },
           { status: 400 }
         );
@@ -288,46 +341,66 @@ export async function POST(request: Request) {
       }
 
       verifiedDiscount = discount;
-      verifiedDiscountCode = discount.code;
+      verifiedDiscountCode =
+        discount.code;
+
       verifiedDeliveryDiscount =
         originalDeliveryFee;
+
       verifiedDeliveryFee = 0;
     }
 
     const verifiedTotalPrice =
-      productsTotal + verifiedDeliveryFee;
+      productsTotal +
+      verifiedDeliveryFee;
 
-    const orderNumber = createOrderNumber();
+    const orderNumber =
+      createOrderNumber();
 
-    const supabaseResponse = await fetch(
-      `${supabaseUrl}/rest/v1/orders`,
-      {
-        method: "POST",
-        headers: {
-          apikey: supabaseSecretKey,
-          Authorization: `Bearer ${supabaseSecretKey}`,
-          "Content-Type": "application/json",
-          Prefer: "return=representation",
-        },
-        body: JSON.stringify({
-          order_number: orderNumber,
-          customer_name: fullName,
-          phone,
-          governorate,
-          address,
-          notes,
-          colour,
-          quantity,
-          product_price: productPrice,
-          products_total: productsTotal,
-          delivery_fee: verifiedDeliveryFee,
-          discount_amount:
-            verifiedDeliveryDiscount,
-          total_price: verifiedTotalPrice,
-          status: "new",
-        }),
-      }
-    );
+    const supabaseResponse =
+      await fetch(
+        `${supabaseUrl}/rest/v1/orders`,
+        {
+          method: "POST",
+          headers: {
+            apikey: supabaseSecretKey,
+            Authorization: `Bearer ${supabaseSecretKey}`,
+            "Content-Type":
+              "application/json",
+            Prefer:
+              "return=representation",
+          },
+          body: JSON.stringify({
+            order_number: orderNumber,
+
+            product_name: productName,
+            product_slug: productSlug,
+
+            customer_name: fullName,
+            phone,
+            governorate,
+            address,
+            notes,
+            colour,
+            quantity,
+
+            product_price: productPrice,
+            products_total:
+              productsTotal,
+
+            delivery_fee:
+              verifiedDeliveryFee,
+
+            discount_amount:
+              verifiedDeliveryDiscount,
+
+            total_price:
+              verifiedTotalPrice,
+
+            status: "new",
+          }),
+        }
+      );
 
     if (!supabaseResponse.ok) {
       const supabaseError =
@@ -364,107 +437,186 @@ export async function POST(request: Request) {
       }
     }
 
-    const safeFullName = escapeHtml(fullName);
-    const safePhone = escapeHtml(phone);
+    const safeProductName =
+      escapeHtml(productName);
+
+    const safeFullName =
+      escapeHtml(fullName);
+
+    const safePhone =
+      escapeHtml(phone);
+
     const safeGovernorate =
       escapeHtml(governorate);
-    const safeAddress = escapeHtml(address);
-    const safeNotes = escapeHtml(notes);
-    const safeColour = escapeHtml(colour);
-    const safeDiscountCode = escapeHtml(
-      verifiedDiscountCode || "None"
-    );
+
+    const safeAddress =
+      escapeHtml(address);
+
+    const safeNotes =
+      escapeHtml(notes);
+
+    const safeColour =
+      escapeHtml(colour);
+
+    const safeDiscountCode =
+      escapeHtml(
+        verifiedDiscountCode || "None"
+      );
 
     const notificationEmail =
-      process.env.ORDER_NOTIFICATION_EMAIL ||
+      process.env
+        .ORDER_NOTIFICATION_EMAIL ||
       process.env.RESEND_TO_EMAIL;
 
     if (resend && notificationEmail) {
       try {
-        await resend.emails.send({
-          from:
-            process.env.RESEND_FROM_EMAIL ||
-            "ORVIX Orders <onboarding@resend.dev>",
-          to: notificationEmail,
-          subject: `New ORVIX order — ${orderNumber}`,
-          html: `
-            <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;padding:24px;color:#111;">
-              <h1 style="margin-bottom:8px;">New ORVIX Order</h1>
+        const emailResult =
+          await resend.emails.send({
+            from:
+              process.env
+                .RESEND_FROM_EMAIL ||
+              "ORVIX Orders <onboarding@resend.dev>",
 
-              <p style="color:#666;margin-top:0;">
-                A new order has been placed on the website.
-              </p>
+            to: notificationEmail,
 
-              <div style="background:#f4f4f4;border-radius:16px;padding:20px;margin-top:24px;">
-                <p><strong>Order number:</strong> ${orderNumber}</p>
-                <p><strong>Customer:</strong> ${safeFullName}</p>
-                <p><strong>Phone:</strong> ${safePhone}</p>
-                <p><strong>Governorate:</strong> ${safeGovernorate}</p>
-                <p><strong>Address:</strong> ${safeAddress}</p>
-                <p><strong>Notes:</strong> ${safeNotes}</p>
-              </div>
+            subject: `New ORVIX order — ${orderNumber}`,
 
-              <div style="background:#f4f4f4;border-radius:16px;padding:20px;margin-top:16px;">
-                <p><strong>Product:</strong> Google Fitbit Air</p>
-                <p><strong>Colour:</strong> ${safeColour}</p>
-                <p><strong>Quantity:</strong> ${quantity}</p>
-                <p><strong>Product price:</strong> ${productPrice.toLocaleString(
-                  "en-GB"
-                )} EGP</p>
-                <p><strong>Products total:</strong> ${productsTotal.toLocaleString(
-                  "en-GB"
-                )} EGP</p>
-                <p><strong>Original delivery:</strong> ${originalDeliveryFee.toLocaleString(
-                  "en-GB"
-                )} EGP</p>
-                <p><strong>Discount code:</strong> ${safeDiscountCode}</p>
-                <p><strong>Delivery discount:</strong> ${verifiedDeliveryDiscount.toLocaleString(
-                  "en-GB"
-                )} EGP</p>
-                <p><strong>Final delivery:</strong> ${verifiedDeliveryFee.toLocaleString(
-                  "en-GB"
-                )} EGP</p>
+            html: `
+              <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;padding:24px;color:#111;">
+                <h1 style="margin-bottom:8px;">
+                  New ORVIX Order
+                </h1>
 
-                <p style="font-size:20px;">
-                  <strong>Final total: ${verifiedTotalPrice.toLocaleString(
-                    "en-GB"
-                  )} EGP</strong>
+                <p style="color:#666;margin-top:0;">
+                  A new order has been placed on the website.
                 </p>
+
+                <div style="background:#f4f4f4;border-radius:16px;padding:20px;margin-top:24px;">
+                  <p><strong>Order number:</strong> ${orderNumber}</p>
+                  <p><strong>Customer:</strong> ${safeFullName}</p>
+                  <p><strong>Phone:</strong> ${safePhone}</p>
+                  <p><strong>Governorate:</strong> ${safeGovernorate}</p>
+                  <p><strong>Address:</strong> ${safeAddress}</p>
+                  <p><strong>Notes:</strong> ${safeNotes}</p>
+                </div>
+
+                <div style="background:#f4f4f4;border-radius:16px;padding:20px;margin-top:16px;">
+                  <p><strong>Product:</strong> ${safeProductName}</p>
+                  <p><strong>Product slug:</strong> ${productSlug}</p>
+                  <p><strong>Colour:</strong> ${safeColour}</p>
+                  <p><strong>Quantity:</strong> ${quantity}</p>
+
+                  <p>
+                    <strong>Product price:</strong>
+                    ${productPrice.toLocaleString(
+                      "en-GB"
+                    )} EGP
+                  </p>
+
+                  <p>
+                    <strong>Products total:</strong>
+                    ${productsTotal.toLocaleString(
+                      "en-GB"
+                    )} EGP
+                  </p>
+
+                  <p>
+                    <strong>Original delivery:</strong>
+                    ${originalDeliveryFee.toLocaleString(
+                      "en-GB"
+                    )} EGP
+                  </p>
+
+                  <p>
+                    <strong>Discount code:</strong>
+                    ${safeDiscountCode}
+                  </p>
+
+                  <p>
+                    <strong>Delivery discount:</strong>
+                    ${verifiedDeliveryDiscount.toLocaleString(
+                      "en-GB"
+                    )} EGP
+                  </p>
+
+                  <p>
+                    <strong>Final delivery:</strong>
+                    ${verifiedDeliveryFee.toLocaleString(
+                      "en-GB"
+                    )} EGP
+                  </p>
+
+                  <p style="font-size:20px;">
+                    <strong>
+                      Final total:
+                      ${verifiedTotalPrice.toLocaleString(
+                        "en-GB"
+                      )} EGP
+                    </strong>
+                  </p>
+                </div>
               </div>
-            </div>
-          `,
-        });
+            `,
+          });
+
+        if (emailResult.error) {
+          console.error(
+            "Resend email error:",
+            emailResult.error
+          );
+        }
       } catch (emailError) {
         console.error(
           "Resend email error:",
           emailError
         );
       }
+    } else {
+      console.warn(
+        "Order saved, but email was not sent because Resend settings are missing."
+      );
     }
 
     return NextResponse.json({
       success: true,
-      message: "Order placed successfully.",
+      message:
+        "Order placed successfully.",
       orderNumber,
+
       order:
         Array.isArray(savedOrders) &&
         savedOrders.length > 0
           ? savedOrders[0]
           : null,
+
+      product: {
+        name: productName,
+        slug: productSlug,
+      },
+
       pricing: {
         productPrice,
         productsTotal,
         originalDeliveryFee,
+
         deliveryDiscount:
           verifiedDeliveryDiscount,
-        deliveryFee: verifiedDeliveryFee,
-        totalPrice: verifiedTotalPrice,
+
+        deliveryFee:
+          verifiedDeliveryFee,
+
+        totalPrice:
+          verifiedTotalPrice,
+
         discountCode:
           verifiedDiscountCode || null,
       },
     });
   } catch (error) {
-    console.error("Order API error:", error);
+    console.error(
+      "Order API error:",
+      error
+    );
 
     return NextResponse.json(
       {
