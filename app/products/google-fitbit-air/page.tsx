@@ -132,30 +132,17 @@ export default function GoogleFitbitAirPage() {
   </p>
 </div>
 
-              <div className="mt-4 flex justify-between">
-                <span className="text-gray-400">Delivery</span>
-                <strong>70 EGP</strong>
-              </div>
-
-              <div className="my-5 h-px bg-white/10" />
-
-              <div className="flex justify-between text-xl">
-                <strong>Final total</strong>
-                <strong>7,970 EGP</strong>
-              </div>
-            </div>
-
-            <Link
-              href={`/checkout?product=Google%20Fitbit%20Air&colour=${encodeURIComponent(
-                selectedColour.name
-              )}`}
-              className="mt-8 flex w-full justify-center rounded-full bg-white px-8 py-5 text-lg font-bold text-black"
-            >
-              Buy Now
-            </Link>
-          </div>
-        </div>
-      </section>
+<Link
+  href={`/checkout?product=Google%20Fitbit%20Air&colour=${encodeURIComponent(
+    selectedColour.name
+  )}`}
+  className="mt-8 flex w-full justify-center rounded-full bg-white px-8 py-5 text-lg font-bold text-black"
+>
+  Buy Now
+</Link>
+</div>
+</div>
+</section>
     </main>
   );
 }
