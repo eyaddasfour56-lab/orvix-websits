@@ -1,10 +1,16 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  FormEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 type Order = {
   id: string;
-  order_number: number;
+  order_number: string;
   customer_name: string;
   phone: string;
   governorate: string;
