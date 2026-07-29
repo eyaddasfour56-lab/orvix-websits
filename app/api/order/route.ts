@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 
 const resendApiKey = process.env.RESEND_API_KEY;
+
 const resend = resendApiKey
   ? new Resend(resendApiKey)
   : null;
 
 const supabaseUrl = process.env.SUPABASE_URL;
+
 const supabaseSecretKey =
   process.env.SUPABASE_SECRET_KEY;
 
@@ -41,19 +43,13 @@ const deliveryAreas = [
 type OrderData = {
   fullName: string;
   phone: string;
+  customerEmail: string;
   governorate: string;
   address: string;
   notes?: string;
   colour: string;
   quantity: number;
-  productName?: string;
-  productSlug?: string;
-  productPrice?: number;
-  deliveryFee?: number;
-  originalDeliveryFee?: number;
   discountCode?: string;
-  deliveryDiscount?: number;
-  totalPrice?: number;
 };
 
 type DiscountRow = {
@@ -74,6 +70,12 @@ function escapeHtml(value: string) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    value.trim()
+  );
 }
 
 function createOrderNumber() {
@@ -181,14 +183,9 @@ async function increaseDiscountUsage(
   }
 }
 
-export async function POST(
-  request: Request
-) {
+export async function POST(request: Request) {
   try {
-    if (
-      !supabaseUrl ||
-      !supabaseSecretKey
-    ) {
+    if (!supabaseUrl || !supabaseSecretKey) {
       return NextResponse.json(
         {
           success: false,
@@ -205,6 +202,7 @@ export async function POST(
     if (
       !order.fullName ||
       !order.phone ||
+      !order.customerEmail ||
       !order.governorate ||
       !order.address ||
       !order.colour ||
@@ -224,9 +222,13 @@ export async function POST(
       order.fullName
     ).trim();
 
-    const phone = String(
-      order.phone
-    ).trim();
+    const phone = String(order.phone).trim();
+
+    const customerEmail = String(
+      order.customerEmail
+    )
+      .trim()
+      .toLowerCase();
 
     const governorate = String(
       order.governorate
@@ -244,9 +246,18 @@ export async function POST(
       order.colour
     ).trim();
 
-    const quantity = Number(
-      order.quantity
-    );
+    const quantity = Number(order.quantity);
+
+    if (!isValidEmail(customerEmail)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Please enter a valid email address.",
+        },
+        { status: 400 }
+      );
+    }
 
     if (
       !Number.isInteger(quantity) ||
@@ -256,8 +267,7 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Invalid product quantity.",
+          message: "Invalid product quantity.",
         },
         { status: 400 }
       );
@@ -280,11 +290,6 @@ export async function POST(
       );
     }
 
-    /*
-      The server controls these values.
-      The customer cannot change the product
-      name, slug or price from the browser.
-    */
     const productName = PRODUCT_NAME;
     const productSlug = PRODUCT_SLUG;
     const productPrice = PRODUCT_PRICE;
@@ -305,10 +310,11 @@ export async function POST(
       | DiscountRow
       | null = null;
 
-    const submittedDiscountCode =
-      String(order.discountCode || "")
-        .trim()
-        .toUpperCase();
+    const submittedDiscountCode = String(
+      order.discountCode || ""
+    )
+      .trim()
+      .toUpperCase();
 
     if (submittedDiscountCode) {
       const discount =
@@ -320,8 +326,7 @@ export async function POST(
         return NextResponse.json(
           {
             success: false,
-            message:
-              "Invalid discount code.",
+            message: "Invalid discount code.",
           },
           { status: 400 }
         );
@@ -351,56 +356,53 @@ export async function POST(
     }
 
     const verifiedTotalPrice =
-      productsTotal +
-      verifiedDeliveryFee;
+      productsTotal + verifiedDeliveryFee;
 
     const orderNumber =
       createOrderNumber();
 
-    const supabaseResponse =
-      await fetch(
-        `${supabaseUrl}/rest/v1/orders`,
-        {
-          method: "POST",
-          headers: {
-            apikey: supabaseSecretKey,
-            Authorization: `Bearer ${supabaseSecretKey}`,
-            "Content-Type":
-              "application/json",
-            Prefer:
-              "return=representation",
-          },
-          body: JSON.stringify({
-            order_number: orderNumber,
+    const supabaseResponse = await fetch(
+      `${supabaseUrl}/rest/v1/orders`,
+      {
+        method: "POST",
+        headers: {
+          apikey: supabaseSecretKey,
+          Authorization: `Bearer ${supabaseSecretKey}`,
+          "Content-Type": "application/json",
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify({
+          order_number: orderNumber,
 
-            product_name: productName,
-            product_slug: productSlug,
+          product_name: productName,
+          product_slug: productSlug,
 
-            customer_name: fullName,
-            phone,
-            governorate,
-            address,
-            notes,
-            colour,
-            quantity,
+          customer_name: fullName,
+          phone,
+          customer_email: customerEmail,
 
-            product_price: productPrice,
-            products_total:
-              productsTotal,
+          governorate,
+          address,
+          notes,
+          colour,
+          quantity,
 
-            delivery_fee:
-              verifiedDeliveryFee,
+          product_price: productPrice,
+          products_total: productsTotal,
 
-            discount_amount:
-              verifiedDeliveryDiscount,
+          delivery_fee:
+            verifiedDeliveryFee,
 
-            total_price:
-              verifiedTotalPrice,
+          discount_amount:
+            verifiedDeliveryDiscount,
 
-            status: "new",
-          }),
-        }
-      );
+          total_price:
+            verifiedTotalPrice,
+
+          status: "new",
+        }),
+      }
+    );
 
     if (!supabaseResponse.ok) {
       const supabaseError =
@@ -437,6 +439,13 @@ export async function POST(
       }
     }
 
+    const requestOrigin =
+      new URL(request.url).origin;
+
+    const trackOrderUrl =
+      `${requestOrigin}/track-order?orderNumber=` +
+      encodeURIComponent(orderNumber);
+
     const safeProductName =
       escapeHtml(productName);
 
@@ -445,6 +454,9 @@ export async function POST(
 
     const safePhone =
       escapeHtml(phone);
+
+    const safeCustomerEmail =
+      escapeHtml(customerEmail);
 
     const safeGovernorate =
       escapeHtml(governorate);
@@ -463,124 +475,216 @@ export async function POST(
         verifiedDiscountCode || "None"
       );
 
+    const safeTrackOrderUrl =
+      escapeHtml(trackOrderUrl);
+
     const notificationEmail =
-      process.env
-        .ORDER_NOTIFICATION_EMAIL ||
+      process.env.ORDER_NOTIFICATION_EMAIL ||
       process.env.RESEND_TO_EMAIL;
 
-    if (resend && notificationEmail) {
+    const senderEmail =
+      process.env.RESEND_FROM_EMAIL ||
+      "ORVIX Orders <onboarding@resend.dev>";
+
+    let adminEmailSent = false;
+    let customerEmailSent = false;
+
+    if (resend) {
+      if (notificationEmail) {
+        try {
+          const adminEmailResult =
+            await resend.emails.send({
+              from: senderEmail,
+              to: notificationEmail,
+              subject: `New ORVIX order — ${orderNumber}`,
+              html: `
+                <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;padding:24px;color:#111;">
+                  <h1 style="margin-bottom:8px;">
+                    New ORVIX Order
+                  </h1>
+
+                  <p style="color:#666;margin-top:0;">
+                    A new order has been placed on the website.
+                  </p>
+
+                  <div style="background:#f4f4f4;border-radius:16px;padding:20px;margin-top:24px;">
+                    <p><strong>Order number:</strong> ${orderNumber}</p>
+                    <p><strong>Customer:</strong> ${safeFullName}</p>
+                    <p><strong>Phone:</strong> ${safePhone}</p>
+                    <p><strong>Email:</strong> ${safeCustomerEmail}</p>
+                    <p><strong>Governorate:</strong> ${safeGovernorate}</p>
+                    <p><strong>Address:</strong> ${safeAddress}</p>
+                    <p><strong>Notes:</strong> ${safeNotes}</p>
+                  </div>
+
+                  <div style="background:#f4f4f4;border-radius:16px;padding:20px;margin-top:16px;">
+                    <p><strong>Product:</strong> ${safeProductName}</p>
+                    <p><strong>Colour:</strong> ${safeColour}</p>
+                    <p><strong>Quantity:</strong> ${quantity}</p>
+                    <p><strong>Product price:</strong> ${productPrice.toLocaleString(
+                      "en-GB"
+                    )} EGP</p>
+                    <p><strong>Products total:</strong> ${productsTotal.toLocaleString(
+                      "en-GB"
+                    )} EGP</p>
+                    <p><strong>Original delivery:</strong> ${originalDeliveryFee.toLocaleString(
+                      "en-GB"
+                    )} EGP</p>
+                    <p><strong>Discount code:</strong> ${safeDiscountCode}</p>
+                    <p><strong>Discount:</strong> ${verifiedDeliveryDiscount.toLocaleString(
+                      "en-GB"
+                    )} EGP</p>
+                    <p><strong>Final delivery:</strong> ${verifiedDeliveryFee.toLocaleString(
+                      "en-GB"
+                    )} EGP</p>
+
+                    <p style="font-size:20px;">
+                      <strong>
+                        Final total:
+                        ${verifiedTotalPrice.toLocaleString(
+                          "en-GB"
+                        )} EGP
+                      </strong>
+                    </p>
+                  </div>
+                </div>
+              `,
+            });
+
+          if (adminEmailResult.error) {
+            console.error(
+              "Admin Resend email error:",
+              adminEmailResult.error
+            );
+          } else {
+            adminEmailSent = true;
+          }
+        } catch (adminEmailError) {
+          console.error(
+            "Admin Resend email error:",
+            adminEmailError
+          );
+        }
+      }
+
       try {
-        const emailResult =
+        const customerEmailResult =
           await resend.emails.send({
-            from:
-              process.env
-                .RESEND_FROM_EMAIL ||
-              "ORVIX Orders <onboarding@resend.dev>",
-
-            to: notificationEmail,
-
-            subject: `New ORVIX order — ${orderNumber}`,
-
+            from: senderEmail,
+            to: customerEmail,
+            subject: `Your ORVIX order — ${orderNumber}`,
             html: `
-              <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;padding:24px;color:#111;">
-                <h1 style="margin-bottom:8px;">
-                  New ORVIX Order
-                </h1>
+              <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;padding:24px;color:#111;background:#ffffff;">
+                <div style="text-align:center;padding:10px 0 24px;">
+                  <p style="letter-spacing:5px;font-weight:700;margin:0;">
+                    ORVIX
+                  </p>
 
-                <p style="color:#666;margin-top:0;">
-                  A new order has been placed on the website.
-                </p>
+                  <h1 style="margin:24px 0 8px;font-size:30px;">
+                    Order Received
+                  </h1>
 
-                <div style="background:#f4f4f4;border-radius:16px;padding:20px;margin-top:24px;">
-                  <p><strong>Order number:</strong> ${orderNumber}</p>
-                  <p><strong>Customer:</strong> ${safeFullName}</p>
-                  <p><strong>Phone:</strong> ${safePhone}</p>
-                  <p><strong>Governorate:</strong> ${safeGovernorate}</p>
-                  <p><strong>Address:</strong> ${safeAddress}</p>
-                  <p><strong>Notes:</strong> ${safeNotes}</p>
+                  <p style="color:#666;line-height:1.6;margin:0;">
+                    Thank you, ${safeFullName}. Your order has been received successfully.
+                  </p>
                 </div>
 
-                <div style="background:#f4f4f4;border-radius:16px;padding:20px;margin-top:16px;">
+                <div style="background:#111;color:#fff;border-radius:18px;padding:22px;text-align:center;">
+                  <p style="color:#aaa;margin:0;font-size:13px;">
+                    ORDER NUMBER
+                  </p>
+
+                  <p style="font-size:21px;font-weight:700;margin:10px 0 0;word-break:break-word;">
+                    ${orderNumber}
+                  </p>
+                </div>
+
+                <div style="background:#f5f5f5;border-radius:18px;padding:22px;margin-top:18px;">
+                  <h2 style="margin-top:0;font-size:20px;">
+                    Order summary
+                  </h2>
+
                   <p><strong>Product:</strong> ${safeProductName}</p>
-                  <p><strong>Product slug:</strong> ${productSlug}</p>
                   <p><strong>Colour:</strong> ${safeColour}</p>
                   <p><strong>Quantity:</strong> ${quantity}</p>
+                  <p><strong>Products total:</strong> ${productsTotal.toLocaleString(
+                    "en-GB"
+                  )} EGP</p>
+                  <p><strong>Delivery:</strong> ${
+                    verifiedDeliveryFee === 0
+                      ? "FREE"
+                      : `${verifiedDeliveryFee.toLocaleString(
+                          "en-GB"
+                        )} EGP`
+                  }</p>
 
-                  <p>
-                    <strong>Product price:</strong>
-                    ${productPrice.toLocaleString(
-                      "en-GB"
-                    )} EGP
-                  </p>
+                  ${
+                    verifiedDeliveryDiscount > 0
+                      ? `<p style="color:#16803a;"><strong>Discount:</strong> -${verifiedDeliveryDiscount.toLocaleString(
+                          "en-GB"
+                        )} EGP</p>`
+                      : ""
+                  }
 
-                  <p>
-                    <strong>Products total:</strong>
-                    ${productsTotal.toLocaleString(
-                      "en-GB"
-                    )} EGP
-                  </p>
-
-                  <p>
-                    <strong>Original delivery:</strong>
-                    ${originalDeliveryFee.toLocaleString(
-                      "en-GB"
-                    )} EGP
-                  </p>
-
-                  <p>
-                    <strong>Discount code:</strong>
-                    ${safeDiscountCode}
-                  </p>
-
-                  <p>
-                    <strong>Delivery discount:</strong>
-                    ${verifiedDeliveryDiscount.toLocaleString(
-                      "en-GB"
-                    )} EGP
-                  </p>
-
-                  <p>
-                    <strong>Final delivery:</strong>
-                    ${verifiedDeliveryFee.toLocaleString(
-                      "en-GB"
-                    )} EGP
-                  </p>
-
-                  <p style="font-size:20px;">
+                  <p style="font-size:21px;border-top:1px solid #ddd;padding-top:16px;margin-bottom:0;">
                     <strong>
-                      Final total:
-                      ${verifiedTotalPrice.toLocaleString(
+                      Total: ${verifiedTotalPrice.toLocaleString(
                         "en-GB"
                       )} EGP
                     </strong>
                   </p>
                 </div>
+
+                <div style="background:#f5f5f5;border-radius:18px;padding:22px;margin-top:18px;">
+                  <h2 style="margin-top:0;font-size:20px;">
+                    Delivery details
+                  </h2>
+
+                  <p><strong>Governorate:</strong> ${safeGovernorate}</p>
+                  <p><strong>Address:</strong> ${safeAddress}</p>
+                </div>
+
+                <a
+                  href="${safeTrackOrderUrl}"
+                  style="display:block;background:#111;color:#fff;text-decoration:none;text-align:center;font-weight:700;border-radius:999px;padding:17px 24px;margin-top:22px;"
+                >
+                  Track Your Order
+                </a>
+
+                <p style="color:#777;font-size:13px;line-height:1.6;text-align:center;margin-top:24px;">
+                  Keep your order number. You will need it with the phone number used during checkout to track your order.
+                </p>
+
+                <p style="color:#999;font-size:12px;text-align:center;margin-top:24px;">
+                  © 2026 ORVIX. All rights reserved.
+                </p>
               </div>
             `,
           });
 
-        if (emailResult.error) {
+        if (customerEmailResult.error) {
           console.error(
-            "Resend email error:",
-            emailResult.error
+            "Customer Resend email error:",
+            customerEmailResult.error
           );
+        } else {
+          customerEmailSent = true;
         }
-      } catch (emailError) {
+      } catch (customerEmailError) {
         console.error(
-          "Resend email error:",
-          emailError
+          "Customer Resend email error:",
+          customerEmailError
         );
       }
     } else {
       console.warn(
-        "Order saved, but email was not sent because Resend settings are missing."
+        "Order saved, but email was not sent because RESEND_API_KEY is missing."
       );
     }
 
     return NextResponse.json({
       success: true,
-      message:
-        "Order placed successfully.",
+      message: "Order placed successfully.",
       orderNumber,
 
       order:
@@ -598,25 +702,23 @@ export async function POST(
         productPrice,
         productsTotal,
         originalDeliveryFee,
-
         deliveryDiscount:
           verifiedDeliveryDiscount,
-
         deliveryFee:
           verifiedDeliveryFee,
-
         totalPrice:
           verifiedTotalPrice,
-
         discountCode:
           verifiedDiscountCode || null,
       },
+
+      email: {
+        adminSent: adminEmailSent,
+        customerSent: customerEmailSent,
+      },
     });
   } catch (error) {
-    console.error(
-      "Order API error:",
-      error
-    );
+    console.error("Order API error:", error);
 
     return NextResponse.json(
       {
