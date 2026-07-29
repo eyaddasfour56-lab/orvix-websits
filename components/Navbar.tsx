@@ -4,6 +4,25 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 
+const navigationLinks = [
+  {
+    label: "Products",
+    href: "/#products",
+  },
+  {
+    label: "About Us",
+    href: "/#about",
+  },
+  {
+    label: "FAQ",
+    href: "/#faq",
+  },
+  {
+    label: "Contact Us",
+    href: "/#contact",
+  },
+];
+
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -13,11 +32,11 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-black/90 text-white backdrop-blur-xl">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
         <Link
           href="/"
           onClick={closeMenu}
-          className="flex items-center gap-3"
+          className="flex shrink-0 items-center gap-3"
         >
           <Image
             src="/logo.jpeg"
@@ -33,13 +52,16 @@ export default function Navbar() {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-7 md:flex">
-          <Link
-            href="/"
-            className="text-sm font-bold text-gray-300 transition hover:text-white"
-          >
-            Products
-          </Link>
+        <nav className="hidden items-center gap-5 lg:flex">
+          {navigationLinks.map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              className="text-sm font-bold text-gray-300 transition hover:text-white"
+            >
+              {item.label}
+            </Link>
+          ))}
 
           <Link
             href="/track-order"
@@ -61,26 +83,33 @@ export default function Navbar() {
           onClick={() =>
             setMenuOpen((current) => !current)
           }
-          aria-label="Toggle navigation menu"
+          aria-label={
+            menuOpen
+              ? "Close navigation menu"
+              : "Open navigation menu"
+          }
           aria-expanded={menuOpen}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 md:hidden"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/15 transition hover:bg-white/10 lg:hidden"
         >
-          <span className="text-2xl leading-none">
+          <span className="text-3xl leading-none">
             {menuOpen ? "×" : "☰"}
           </span>
         </button>
       </div>
 
       {menuOpen && (
-        <nav className="border-t border-white/10 bg-black px-4 py-4 md:hidden">
+        <nav className="border-t border-white/10 bg-black px-4 py-5 lg:hidden">
           <div className="mx-auto grid max-w-7xl gap-3">
-            <Link
-              href="/"
-              onClick={closeMenu}
-              className="rounded-2xl border border-white/10 px-5 py-4 font-bold text-gray-200 transition hover:bg-white/10"
-            >
-              Products
-            </Link>
+            {navigationLinks.map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                onClick={closeMenu}
+                className="rounded-2xl border border-white/10 px-5 py-4 font-bold text-gray-200 transition hover:bg-white/10"
+              >
+                {item.label}
+              </Link>
+            ))}
 
             <Link
               href="/track-order"
@@ -93,7 +122,7 @@ export default function Navbar() {
             <Link
               href="/products/google-fitbit-air"
               onClick={closeMenu}
-              className="rounded-2xl bg-white px-5 py-4 text-center font-black text-black"
+              className="rounded-2xl bg-white px-5 py-4 text-center font-black text-black transition hover:bg-gray-200"
             >
               Shop Now
             </Link>
