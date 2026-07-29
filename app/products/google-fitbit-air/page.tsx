@@ -27,7 +27,7 @@ const features = [
   "Sleep & SpO₂",
   "Up to 7 Days Battery",
   "5 m Water Resistance",
-  "Fast Charging",
+  "0-100 in 90 mins",
   "iOS & Android",
 ];
 
@@ -120,11 +120,17 @@ export default function GoogleFitbitAirPage() {
               })}
             </div>
 
-            <div className="mt-10 rounded-3xl border border-white/10 bg-white/5 p-6">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Price</span>
-                <strong>7,900 EGP</strong>
-              </div>
+           <div className="mt-10 rounded-3xl border border-white/10 bg-white/5 p-6">
+  <div className="flex justify-between text-xl">
+    <span className="font-bold">Product price</span>
+    <strong>7,900 EGP</strong>
+  </div>
+
+  <p className="mt-4 text-sm leading-6 text-gray-400">
+    Delivery fees will be calculated at checkout after selecting your
+    governorate.
+  </p>
+</div>
 
               <div className="mt-4 flex justify-between">
                 <span className="text-gray-400">Delivery</span>
