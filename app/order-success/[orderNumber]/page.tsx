@@ -3,15 +3,34 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useState } from "react";
 
 export default function OrderSuccessPage() {
   const params = useParams<{
     orderNumber: string;
   }>();
 
+  const [copied, setCopied] = useState(false);
+
   const orderNumber = decodeURIComponent(
     params.orderNumber || ""
   );
+
+  async function copyOrderNumber() {
+    try {
+      await navigator.clipboard.writeText(
+        orderNumber
+      );
+
+      setCopied(true);
+
+      window.setTimeout(() => {
+        setCopied(false);
+      }, 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#070707] px-4 py-12 text-white">
@@ -59,6 +78,16 @@ export default function OrderSuccessPage() {
           <p className="mt-2 break-words text-xl font-black sm:text-2xl">
             {orderNumber}
           </p>
+
+          <button
+            type="button"
+            onClick={copyOrderNumber}
+            className="mt-5 flex w-full items-center justify-center rounded-full border border-white/15 bg-white px-6 py-4 font-bold text-black transition hover:bg-gray-200"
+          >
+            {copied
+              ? "Copied ✓"
+              : "Copy Order Number"}
+          </button>
         </div>
 
         <div className="mt-5 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm leading-6 text-yellow-200">
@@ -73,14 +102,14 @@ export default function OrderSuccessPage() {
           )}`}
           className="mt-7 flex w-full justify-center rounded-full bg-white px-8 py-5 font-bold text-black"
         >
-          Track your order
+          Track Your Order
         </Link>
 
         <Link
           href="/"
           className="mt-3 flex w-full justify-center rounded-full border border-white/15 px-8 py-5 font-bold text-white"
         >
-          Continue shopping
+          Continue Shopping
         </Link>
       </section>
     </main>
