@@ -30,11 +30,11 @@ export default function Navbar() {
     setMenuOpen(false);
   }
 
-  function goToSection(
+  function handleSectionClick(
     event: MouseEvent<HTMLAnchorElement>,
     sectionId: string
   ) {
-    closeMenu();
+    setMenuOpen(false);
 
     if (window.location.pathname === "/") {
       event.preventDefault();
@@ -42,18 +42,20 @@ export default function Navbar() {
       const section =
         document.getElementById(sectionId);
 
-      if (section) {
-        section.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-
-        window.history.replaceState(
-          null,
-          "",
-          `/#${sectionId}`
-        );
+      if (!section) {
+        return;
       }
+
+      section.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+
+      window.history.pushState(
+        {},
+        "",
+        `/#${sectionId}`
+      );
     }
   }
 
@@ -85,7 +87,10 @@ export default function Navbar() {
               key={item.id}
               href={`/#${item.id}`}
               onClick={(event) =>
-                goToSection(event, item.id)
+                handleSectionClick(
+                  event,
+                  item.id
+                )
               }
               className="text-sm font-bold text-gray-300 transition hover:text-white"
             >
@@ -135,7 +140,10 @@ export default function Navbar() {
                 key={item.id}
                 href={`/#${item.id}`}
                 onClick={(event) =>
-                  goToSection(event, item.id)
+                  handleSectionClick(
+                    event,
+                    item.id
+                  )
                 }
                 className="rounded-2xl border border-white/10 px-5 py-4 font-bold text-gray-200 transition hover:bg-white/10"
               >
@@ -154,7 +162,7 @@ export default function Navbar() {
             <Link
               href="/products/google-fitbit-air"
               onClick={closeMenu}
-              className="rounded-2xl bg-white px-5 py-4 text-center font-black text-black"
+              className="rounded-2xl bg-white px-5 py-4 text-center font-black text-black transition hover:bg-gray-200"
             >
               Shop Now
             </Link>
