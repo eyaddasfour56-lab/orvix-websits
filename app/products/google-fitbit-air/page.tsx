@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import Navbar from "@/components/Navbar";
 
 const colours = [
   {
@@ -178,39 +179,19 @@ const featureGroups = [
 export default function GoogleFitbitAirPage() {
   const [selectedColour, setSelectedColour] = useState(colours[0]);
 
+  const checkoutLink = `/checkout?product=Google%20Fitbit%20Air&colour=${encodeURIComponent(
+    selectedColour.name
+  )}`;
+
   return (
-    <main className="min-h-screen bg-[#070707] text-white">
-      {/* Header */}
-      <header className="border-b border-white/10 bg-black">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6">
-          <Link href="/" className="flex items-center gap-3">
-            <Image
-              src="/logo.jpeg"
-              alt="ORVIX"
-              width={42}
-              height={42}
-              className="rounded-full object-cover"
-            />
-
-            <span className="font-bold tracking-[0.3em]">
-              ORVIX
-            </span>
-          </Link>
-
-          <Link
-            href="/"
-            className="rounded-full border border-white/15 px-5 py-3 text-sm font-bold text-gray-300"
-          >
-            ← Our Products
-          </Link>
-        </div>
-      </header>
+    <main className="min-h-screen bg-[#070707] pb-28 text-white md:pb-0">
+      <Navbar />
 
       {/* Product */}
       <section className="py-14 sm:py-24">
         <div className="mx-auto grid max-w-7xl items-start gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:gap-20">
           {/* Image */}
-          <div className="rounded-[40px] bg-white p-6 sm:sticky sm:top-8 sm:p-8">
+          <div className="rounded-[40px] bg-white p-6 sm:sticky sm:top-28 sm:p-8">
             <Image
               key={selectedColour.name}
               src={selectedColour.image}
@@ -244,28 +225,33 @@ export default function GoogleFitbitAirPage() {
 
             <div className="mt-5 grid gap-3">
               {colours.map((colour) => {
-                const selected = selectedColour.name === colour.name;
+                const selected =
+                  selectedColour.name === colour.name;
 
                 return (
                   <button
                     key={colour.name}
                     type="button"
-                    onClick={() => setSelectedColour(colour)}
+                    onClick={() =>
+                      setSelectedColour(colour)
+                    }
                     className={`flex items-center justify-between rounded-2xl border p-5 font-bold transition ${
                       selected
                         ? "border-white bg-white text-black"
-                        : "border-white/15 bg-white/5 text-white"
+                        : "border-white/15 bg-white/5 text-white hover:border-white/30"
                     }`}
                   >
                     <span className="flex items-center gap-4">
                       <span
-                        className={`h-6 w-6 rounded-full border border-black/20 ${colour.dot}`}
+                        className={`h-6 w-6 rounded-full border border-white/20 ${colour.dot}`}
                       />
 
                       <span>{colour.name}</span>
                     </span>
 
-                    <span>{selected ? "Selected" : "Choose"}</span>
+                    <span>
+                      {selected ? "Selected" : "Choose"}
+                    </span>
                   </button>
                 );
               })}
@@ -273,8 +259,11 @@ export default function GoogleFitbitAirPage() {
 
             {/* Price */}
             <div className="mt-10 rounded-3xl border border-white/10 bg-white/5 p-6">
-              <div className="flex justify-between text-xl">
-                <span className="font-bold">Product price</span>
+              <div className="flex items-center justify-between gap-4 text-xl">
+                <span className="font-bold">
+                  Product price
+                </span>
+
                 <strong>7,900 EGP</strong>
               </div>
 
@@ -285,10 +274,8 @@ export default function GoogleFitbitAirPage() {
             </div>
 
             <Link
-              href={`/checkout?product=Google%20Fitbit%20Air&colour=${encodeURIComponent(
-                selectedColour.name
-              )}`}
-              className="mt-8 flex w-full justify-center rounded-full bg-white px-8 py-5 text-lg font-bold text-black"
+              href={checkoutLink}
+              className="mt-8 hidden w-full justify-center rounded-full bg-white px-8 py-5 text-lg font-black text-black transition hover:bg-gray-200 md:flex"
             >
               Buy Now
             </Link>
@@ -346,7 +333,9 @@ export default function GoogleFitbitAirPage() {
           </div>
 
           <div className="mt-16 rounded-3xl border border-white/10 bg-white/5 p-6">
-            <h3 className="text-xl font-black">What’s in the box</h3>
+            <h3 className="text-xl font-black">
+              What’s in the box
+            </h3>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               {[
@@ -377,11 +366,36 @@ export default function GoogleFitbitAirPage() {
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 text-sm text-gray-500 sm:px-6 md:flex-row">
           <p>© 2026 ORVIX. All rights reserved.</p>
 
-          <Link href="/" className="font-bold text-white">
+          <Link
+            href="/#products"
+            className="font-bold text-white"
+          >
             View all products
           </Link>
         </div>
       </footer>
+
+      {/* Sticky Buy Button - Mobile Only */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-black/95 p-3 backdrop-blur-xl md:hidden">
+        <div className="mx-auto flex max-w-lg items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-bold text-gray-400">
+              Google Fitbit Air · {selectedColour.name}
+            </p>
+
+            <p className="mt-1 text-lg font-black">
+              7,900 EGP
+            </p>
+          </div>
+
+          <Link
+            href={checkoutLink}
+            className="shrink-0 rounded-full bg-white px-7 py-4 font-black text-black transition active:scale-95"
+          >
+            Buy Now
+          </Link>
+        </div>
+      </div>
     </main>
   );
 }
