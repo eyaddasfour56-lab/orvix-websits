@@ -324,7 +324,7 @@ export async function POST(request: Request) {
           discount_amount:
             verifiedDeliveryDiscount,
           total_price: verifiedTotalPrice,
-          status: "New",
+          status: "pending",
         }),
       }
     );
