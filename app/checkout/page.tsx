@@ -58,6 +58,12 @@ const deliveryAreas = [
   },
 ];
 
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    value.trim()
+  );
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
 
@@ -71,6 +77,8 @@ export default function CheckoutPage() {
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [customerEmail, setCustomerEmail] =
+    useState("");
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -159,8 +167,7 @@ export default function CheckoutPage() {
         {
           method: "POST",
           headers: {
-            "Content-Type":
-              "application/json",
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             code: cleanCode,
@@ -247,6 +254,20 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (!customerEmail.trim()) {
+      setOrderError(
+        "Please enter your email address."
+      );
+      return;
+    }
+
+    if (!isValidEmail(customerEmail)) {
+      setOrderError(
+        "Please enter a valid email address."
+      );
+      return;
+    }
+
     if (!address.trim()) {
       setOrderError(
         "Please enter your full address."
@@ -262,12 +283,14 @@ export default function CheckoutPage() {
         {
           method: "POST",
           headers: {
-            "Content-Type":
-              "application/json",
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             fullName: fullName.trim(),
             phone: phone.trim(),
+            customerEmail: customerEmail
+              .trim()
+              .toLowerCase(),
             governorate: selectedArea.name,
             address: address.trim(),
             notes: notes.trim(),
@@ -307,6 +330,11 @@ export default function CheckoutPage() {
       sessionStorage.setItem(
         "orvixLastOrderPhone",
         phone.trim()
+      );
+
+      sessionStorage.setItem(
+        "orvixLastOrderEmail",
+        customerEmail.trim().toLowerCase()
       );
 
       router.push(
@@ -430,11 +458,10 @@ export default function CheckoutPage() {
                         key={colour.name}
                         type="button"
                         onClick={() =>
-                          setSelectedColour(
-                            colour
-                          )
+                          setSelectedColour(colour)
                         }
-                        className={`flex items-center gap-3 rounded-2xl border p-4 text-left font-bold transition ${
+                        disabled={isSending}
+                        className={`flex items-center gap-3 rounded-2xl border p-4 text-left font-bold transition disabled:opacity-50 ${
                           selected
                             ? "border-white bg-white text-black"
                             : "border-white/15 bg-black/20 text-white"
@@ -461,10 +488,7 @@ export default function CheckoutPage() {
                     type="button"
                     onClick={() =>
                       setQuantity((current) =>
-                        Math.max(
-                          1,
-                          current - 1
-                        )
+                        Math.max(1, current - 1)
                       )
                     }
                     disabled={isSending}
@@ -481,10 +505,7 @@ export default function CheckoutPage() {
                     type="button"
                     onClick={() =>
                       setQuantity((current) =>
-                        Math.min(
-                          10,
-                          current + 1
-                        )
+                        Math.min(10, current + 1)
                       )
                     }
                     disabled={isSending}
@@ -531,9 +552,7 @@ export default function CheckoutPage() {
                       type="tel"
                       value={phone}
                       onChange={(event) =>
-                        setPhone(
-                          event.target.value
-                        )
+                        setPhone(event.target.value)
                       }
                       placeholder="01XXXXXXXXX"
                       autoComplete="tel"
@@ -542,6 +561,34 @@ export default function CheckoutPage() {
                       required
                       className="w-full rounded-2xl border border-white/15 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
                     />
+                  </label>
+
+                  <label>
+                    <span className="mb-2 block text-sm font-bold text-gray-300">
+                      Email address
+                    </span>
+
+                    <input
+                      type="email"
+                      value={customerEmail}
+                      onChange={(event) =>
+                        setCustomerEmail(
+                          event.target.value
+                        )
+                      }
+                      placeholder="name@example.com"
+                      autoComplete="email"
+                      inputMode="email"
+                      disabled={isSending}
+                      required
+                      className="w-full rounded-2xl border border-white/15 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
+                    />
+
+                    <p className="mt-2 text-sm leading-6 text-gray-500">
+                      We will send your order number
+                      and tracking details to this
+                      email.
+                    </p>
                   </label>
                 </div>
               </section>
@@ -717,10 +764,7 @@ export default function CheckoutPage() {
                         event.target.value.toUpperCase()
                       );
 
-                      setAppliedDiscountCode(
-                        ""
-                      );
-
+                      setAppliedDiscountCode("");
                       setDiscountMessage("");
                     }}
                     placeholder="Enter code"
