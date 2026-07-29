@@ -24,6 +24,59 @@ type Order = {
   created_at: string;
 };
 
+function formatWhatsAppNumber(phone: string) {
+  let digits = String(phone || "").replace(/\D/g, "");
+
+  if (digits.startsWith("0020")) {
+    digits = digits.slice(2);
+  }
+
+  if (digits.startsWith("20")) {
+    return digits;
+  }
+
+  if (digits.startsWith("0")) {
+    return `20${digits.slice(1)}`;
+  }
+
+  return `20${digits}`;
+}
+
+function createWhatsAppLink(order: Order) {
+  const phoneNumber = formatWhatsAppNumber(
+    order.phone
+  );
+
+  const message = `Hello ${order.customer_name} 👋
+
+Thank you for ordering from ORVIX.
+
+Order Number: ${order.order_number}
+Colour: ${order.colour}
+Quantity: ${order.quantity}
+Governorate: ${order.governorate}
+Address: ${order.address}
+
+Products Total: ${Number(
+    order.products_total
+  ).toLocaleString("en-GB")} EGP
+Delivery Fee: ${Number(
+    order.delivery_fee
+  ).toLocaleString("en-GB")} EGP
+Total: ${Number(
+    order.total_price
+  ).toLocaleString("en-GB")} EGP
+
+Please reply with "Confirm" to confirm your order.
+
+Thank you,
+ORVIX`;
+
+  return `https://wa.me/${phoneNumber}?text=${encodeURIComponent(
+    message
+  )}`;
+}
+
 export default function AdminPage() {
   const [password, setPassword] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
@@ -581,6 +634,15 @@ export default function AdminPage() {
                     {order.address}
                   </p>
                 </div>
+
+                <a
+                  href={createWhatsAppLink(order)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-5 flex w-full items-center justify-center rounded-2xl bg-[#25D366] px-5 py-4 text-center font-black text-black transition hover:brightness-110"
+                >
+                  Confirm Order on WhatsApp
+                </a>
 
                 <p className="mt-4 text-xs text-gray-500">
                   {new Date(
