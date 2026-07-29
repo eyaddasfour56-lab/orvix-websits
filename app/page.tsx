@@ -375,7 +375,7 @@ export default function Home() {
 
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                   <a
-                    href="https://www.instagram.com/orvix.tech_/"
+                    href="https://www.instagram.com/orvix_tech/"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center justify-center rounded-full bg-white px-7 py-4 font-black text-black transition hover:bg-gray-200"
@@ -403,7 +403,7 @@ export default function Home() {
                   rel="noopener noreferrer"
                   className="mt-5 block break-words text-3xl font-black transition hover:text-gray-300"
                 >
-                  @orvix.tech_
+                  @orvix_tech
                 </a>
 
                 <p className="mt-5 leading-7 text-gray-400">
