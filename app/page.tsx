@@ -81,6 +81,8 @@ export default function Home() {
 
 const [selectedGarminColour, setSelectedGarminColour] =
   useState(garminColours[0]);
+const [selectedGarminSize, setSelectedGarminSize] =
+  useState("S-M");
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
