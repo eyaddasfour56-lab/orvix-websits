@@ -2,24 +2,24 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { MouseEvent, useState } from "react";
 
 const navigationLinks = [
   {
     label: "Products",
-    href: "/#products",
+    id: "products",
   },
   {
     label: "About Us",
-    href: "/#about",
+    id: "about",
   },
   {
     label: "FAQ",
-    href: "/#faq",
+    id: "faq",
   },
   {
     label: "Contact Us",
-    href: "/#contact",
+    id: "contact",
   },
 ];
 
@@ -28,6 +28,33 @@ export default function Navbar() {
 
   function closeMenu() {
     setMenuOpen(false);
+  }
+
+  function goToSection(
+    event: MouseEvent<HTMLAnchorElement>,
+    sectionId: string
+  ) {
+    closeMenu();
+
+    if (window.location.pathname === "/") {
+      event.preventDefault();
+
+      const section =
+        document.getElementById(sectionId);
+
+      if (section) {
+        section.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+
+        window.history.replaceState(
+          null,
+          "",
+          `/#${sectionId}`
+        );
+      }
+    }
   }
 
   return (
@@ -54,13 +81,16 @@ export default function Navbar() {
 
         <nav className="hidden items-center gap-5 lg:flex">
           {navigationLinks.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
+            <a
+              key={item.id}
+              href={`/#${item.id}`}
+              onClick={(event) =>
+                goToSection(event, item.id)
+              }
               className="text-sm font-bold text-gray-300 transition hover:text-white"
             >
               {item.label}
-            </Link>
+            </a>
           ))}
 
           <Link
@@ -101,14 +131,16 @@ export default function Navbar() {
         <nav className="border-t border-white/10 bg-black px-4 py-5 lg:hidden">
           <div className="mx-auto grid max-w-7xl gap-3">
             {navigationLinks.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                onClick={closeMenu}
+              <a
+                key={item.id}
+                href={`/#${item.id}`}
+                onClick={(event) =>
+                  goToSection(event, item.id)
+                }
                 className="rounded-2xl border border-white/10 px-5 py-4 font-bold text-gray-200 transition hover:bg-white/10"
               >
                 {item.label}
-              </Link>
+              </a>
             ))}
 
             <Link
@@ -122,7 +154,7 @@ export default function Navbar() {
             <Link
               href="/products/google-fitbit-air"
               onClick={closeMenu}
-              className="rounded-2xl bg-white px-5 py-4 text-center font-black text-black transition hover:bg-gray-200"
+              className="rounded-2xl bg-white px-5 py-4 text-center font-black text-black"
             >
               Shop Now
             </Link>
