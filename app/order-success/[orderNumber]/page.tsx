@@ -1,0 +1,88 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+
+export default function OrderSuccessPage() {
+  const params = useParams<{
+    orderNumber: string;
+  }>();
+
+  const orderNumber = decodeURIComponent(
+    params.orderNumber || ""
+  );
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#070707] px-4 py-12 text-white">
+      <section className="w-full max-w-xl rounded-[36px] border border-white/10 bg-white/5 p-7 text-center sm:p-12">
+        <Link
+          href="/"
+          className="mx-auto flex w-fit items-center gap-3"
+        >
+          <Image
+            src="/logo.jpeg"
+            alt="ORVIX"
+            width={48}
+            height={48}
+            className="rounded-full object-cover"
+          />
+
+          <span className="font-bold tracking-[0.3em]">
+            ORVIX
+          </span>
+        </Link>
+
+        <div className="mx-auto mt-9 flex h-20 w-20 items-center justify-center rounded-full bg-white text-4xl font-black text-black">
+          ✓
+        </div>
+
+        <p className="mt-8 text-sm uppercase tracking-[0.35em] text-gray-500">
+          Order received
+        </p>
+
+        <h1 className="mt-4 text-4xl font-black sm:text-5xl">
+          Thank you!
+        </h1>
+
+        <p className="mt-5 leading-7 text-gray-400">
+          Your order has been received successfully.
+          ORVIX will contact you to confirm the
+          delivery details.
+        </p>
+
+        <div className="mt-8 rounded-2xl border border-white/10 bg-black/30 p-5">
+          <p className="text-sm text-gray-500">
+            Your order number
+          </p>
+
+          <p className="mt-2 break-words text-xl font-black sm:text-2xl">
+            {orderNumber}
+          </p>
+        </div>
+
+        <div className="mt-5 rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-4 text-sm leading-6 text-yellow-200">
+          Save your order number. You will need it
+          with your phone number to track your
+          order.
+        </div>
+
+        <Link
+          href={`/track-order?orderNumber=${encodeURIComponent(
+            orderNumber
+          )}`}
+          className="mt-7 flex w-full justify-center rounded-full bg-white px-8 py-5 font-bold text-black"
+        >
+          Track your order
+        </Link>
+
+        <Link
+          href="/"
+          className="mt-3 flex w-full justify-center rounded-full border border-white/15 px-8 py-5 font-bold text-white"
+        >
+          Continue shopping
+        </Link>
+      </section>
+    </main>
+  );
+}
