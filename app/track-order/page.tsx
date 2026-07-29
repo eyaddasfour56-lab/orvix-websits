@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   FormEvent,
+  useEffect,
   useState,
 } from "react";
 
@@ -56,21 +57,63 @@ function getStatusIndex(status: string) {
   return index >= 0 ? index : 0;
 }
 
+function formatStatus(status: string) {
+  return status
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) =>
+      letter.toUpperCase()
+    );
+}
+
 export default function TrackOrderPage() {
   const [orderNumber, setOrderNumber] =
     useState("");
+
   const [phone, setPhone] = useState("");
+
   const [order, setOrder] =
     useState<TrackedOrder | null>(null);
+
   const [message, setMessage] = useState("");
+
   const [loading, setLoading] =
     useState(false);
 
-  async function handleSubmit(
-    event: FormEvent<HTMLFormElement>
-  ) {
-    event.preventDefault();
+  const [detailsLoaded, setDetailsLoaded] =
+    useState(false);
 
+  useEffect(() => {
+    const searchParams = new URLSearchParams(
+      window.location.search
+    );
+
+    const orderNumberFromUrl =
+      searchParams.get("orderNumber") || "";
+
+    const savedPhone =
+      sessionStorage.getItem(
+        "orvixLastOrderPhone"
+      ) || "";
+
+    if (orderNumberFromUrl) {
+      setOrderNumber(
+        orderNumberFromUrl
+          .trim()
+          .toUpperCase()
+      );
+    }
+
+    if (savedPhone) {
+      setPhone(savedPhone);
+    }
+
+    setDetailsLoaded(true);
+  }, []);
+
+  async function trackOrder(
+    submittedOrderNumber: string,
+    submittedPhone: string
+  ) {
     setLoading(true);
     setMessage("");
     setOrder(null);
@@ -85,10 +128,11 @@ export default function TrackOrderPage() {
               "application/json",
           },
           body: JSON.stringify({
-            orderNumber: orderNumber
-              .trim()
-              .toUpperCase(),
-            phone: phone.trim(),
+            orderNumber:
+              submittedOrderNumber
+                .trim()
+                .toUpperCase(),
+            phone: submittedPhone.trim(),
           }),
         }
       );
@@ -103,6 +147,11 @@ export default function TrackOrderPage() {
       }
 
       setOrder(result.order);
+
+      sessionStorage.setItem(
+        "orvixLastOrderPhone",
+        submittedPhone.trim()
+      );
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -114,17 +163,62 @@ export default function TrackOrderPage() {
     }
   }
 
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    if (
+      !orderNumber.trim() ||
+      !phone.trim()
+    ) {
+      setMessage(
+        "Please enter your order number and phone number."
+      );
+      return;
+    }
+
+    await trackOrder(orderNumber, phone);
+  }
+
+  function resetTracking() {
+    setOrder(null);
+    setMessage("");
+    setOrderNumber("");
+    setPhone("");
+
+    sessionStorage.removeItem(
+      "orvixLastOrderPhone"
+    );
+
+    window.history.replaceState(
+      {},
+      "",
+      "/track-order"
+    );
+  }
+
   const activeStatusIndex = order
     ? getStatusIndex(order.status)
     : 0;
 
+  if (!detailsLoaded) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#070707] px-4 text-white">
+        <p className="text-gray-400">
+          Loading tracking details...
+        </p>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-[#070707] text-white">
       <header className="border-b border-white/10 bg-black">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-5 sm:px-6">
           <Link
             href="/"
-            className="flex items-center gap-3"
+            className="flex shrink-0 items-center gap-3"
           >
             <Image
               src="/logo.jpeg"
@@ -141,9 +235,9 @@ export default function TrackOrderPage() {
 
           <Link
             href="/"
-            className="rounded-full border border-white/15 px-5 py-3 text-sm font-bold text-gray-300"
+            className="rounded-full border border-white/15 px-4 py-3 text-sm font-bold text-gray-300 transition hover:bg-white/10 sm:px-5"
           >
-            Back to products
+            Back to Products
           </Link>
         </div>
       </header>
@@ -152,11 +246,11 @@ export default function TrackOrderPage() {
         <div className="mx-auto max-w-3xl">
           <div className="text-center">
             <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
-              ORVIX order tracking
+              ORVIX Order Tracking
             </p>
 
             <h1 className="mt-4 text-4xl font-black sm:text-6xl">
-              Track your order
+              Track Your Order
             </h1>
 
             <p className="mx-auto mt-5 max-w-xl leading-7 text-gray-400">
@@ -172,42 +266,61 @@ export default function TrackOrderPage() {
             <div className="grid gap-5">
               <label>
                 <span className="mb-2 block text-sm font-bold text-gray-300">
-                  Order number
+                  Order Number
                 </span>
 
                 <input
                   type="text"
                   value={orderNumber}
-                  onChange={(event) =>
+                  onChange={(event) => {
                     setOrderNumber(
                       event.target.value.toUpperCase()
-                    )
-                  }
+                    );
+
+                    setMessage("");
+                    setOrder(null);
+                  }}
                   placeholder="ORVIX-..."
+                  autoComplete="off"
                   className="w-full rounded-2xl border border-white/15 bg-black/50 px-5 py-4 uppercase text-white outline-none placeholder:text-gray-600 focus:border-white"
                 />
               </label>
 
               <label>
                 <span className="mb-2 block text-sm font-bold text-gray-300">
-                  Phone number
+                  Phone Number
                 </span>
 
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(event) =>
-                    setPhone(event.target.value)
-                  }
+                  onChange={(event) => {
+                    setPhone(event.target.value);
+
+                    setMessage("");
+                    setOrder(null);
+                  }}
                   placeholder="01XXXXXXXXX"
                   autoComplete="tel"
+                  inputMode="tel"
                   className="w-full rounded-2xl border border-white/15 bg-black/50 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white"
                 />
               </label>
             </div>
 
+            {orderNumber && phone && !order && (
+              <p className="mt-5 rounded-2xl border border-green-500/20 bg-green-500/10 p-4 text-sm leading-6 text-green-300">
+                Your tracking details are ready.
+                Press the button below to view your
+                order status.
+              </p>
+            )}
+
             {message && (
-              <p className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+              <p
+                role="alert"
+                className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm leading-6 text-red-300"
+              >
                 {message}
               </p>
             )}
@@ -219,11 +332,11 @@ export default function TrackOrderPage() {
                 !orderNumber.trim() ||
                 !phone.trim()
               }
-              className="mt-6 flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-bold text-black disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-6 flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-bold text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading
-                ? "Checking order..."
-                : "Track order"}
+                ? "Checking Order..."
+                : "Track Your Order"}
             </button>
           </form>
 
@@ -235,7 +348,7 @@ export default function TrackOrderPage() {
                     Order
                   </p>
 
-                  <h2 className="mt-2 text-2xl font-black">
+                  <h2 className="mt-2 break-words text-xl font-black sm:text-2xl">
                     {order.orderNumber}
                   </h2>
 
@@ -244,8 +357,8 @@ export default function TrackOrderPage() {
                   </p>
                 </div>
 
-                <div className="w-fit rounded-full bg-white px-4 py-2 text-sm font-black capitalize text-black">
-                  {order.status}
+                <div className="w-fit rounded-full bg-white px-4 py-2 text-sm font-black text-black">
+                  {formatStatus(order.status)}
                 </div>
               </div>
 
@@ -254,6 +367,11 @@ export default function TrackOrderPage() {
                   <p className="font-bold text-red-300">
                     This order has been cancelled.
                   </p>
+
+                  <p className="mt-2 text-sm leading-6 text-red-200/70">
+                    Contact ORVIX if you believe
+                    this is a mistake.
+                  </p>
                 </div>
               ) : (
                 <div className="mt-8 space-y-6">
@@ -261,6 +379,9 @@ export default function TrackOrderPage() {
                     (step, index) => {
                       const completed =
                         index <= activeStatusIndex;
+
+                      const current =
+                        index === activeStatusIndex;
 
                       return (
                         <div
@@ -288,6 +409,12 @@ export default function TrackOrderPage() {
                               }`}
                             >
                               {step.title}
+
+                              {current && (
+                                <span className="ml-2 text-xs font-bold uppercase tracking-wider text-green-400">
+                                  Current
+                                </span>
+                              )}
                             </h3>
 
                             <p className="mt-1 text-sm leading-6 text-gray-500">
@@ -319,7 +446,7 @@ export default function TrackOrderPage() {
 
                 <div className="rounded-2xl bg-black/40 p-5">
                   <p className="text-sm text-gray-500">
-                    Delivery area
+                    Delivery Area
                   </p>
 
                   <p className="mt-2 font-bold">
@@ -330,7 +457,7 @@ export default function TrackOrderPage() {
 
               <div className="mt-4 rounded-2xl bg-black/40 p-5">
                 <div className="flex justify-between gap-5 text-gray-400">
-                  <span>Products total</span>
+                  <span>Products Total</span>
 
                   <span>
                     {order.productsTotal.toLocaleString(
@@ -384,10 +511,24 @@ export default function TrackOrderPage() {
                   order.createdAt
                 ).toLocaleString("en-GB")}
               </p>
+
+              <button
+                type="button"
+                onClick={resetTracking}
+                className="mt-6 flex w-full items-center justify-center rounded-full border border-white/15 px-8 py-4 font-bold text-white transition hover:bg-white/10"
+              >
+                Track Another Order
+              </button>
             </section>
           )}
         </div>
       </section>
+
+      <footer className="border-t border-white/10 py-8">
+        <p className="text-center text-sm text-gray-600">
+          © 2026 ORVIX. All rights reserved.
+        </p>
+      </footer>
     </main>
   );
 }
