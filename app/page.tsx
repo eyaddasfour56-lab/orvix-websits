@@ -26,8 +26,11 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#070707] text-white">
       <header className="border-b border-white/10 bg-black">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6">
-          <Link href="/" className="flex items-center gap-3">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-5 sm:px-6">
+          <Link
+            href="/"
+            className="flex shrink-0 items-center gap-3"
+          >
             <Image
               src="/logo.jpeg"
               alt="ORVIX"
@@ -41,9 +44,18 @@ export default function Home() {
             </span>
           </Link>
 
-          <span className="text-sm text-gray-500">
-            Fitness Technology
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="hidden text-sm text-gray-500 sm:block">
+              Fitness Technology
+            </span>
+
+            <Link
+              href="/track-order"
+              className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white px-4 py-3 text-sm font-bold text-black transition hover:bg-gray-200 sm:px-5"
+            >
+              Track Your Order
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -59,8 +71,9 @@ export default function Home() {
             </h1>
 
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-gray-400">
-              Explore our screen-free fitness trackers and choose the
-              product that fits your lifestyle.
+              Explore our screen-free fitness
+              trackers and choose the product that
+              fits your lifestyle.
             </p>
           </div>
 
@@ -102,7 +115,7 @@ export default function Home() {
                     {product.description}
                   </p>
 
-                  <div className="mt-7 flex items-center justify-between">
+                  <div className="mt-7 flex items-center justify-between gap-4">
                     <strong className="text-xl">
                       {product.price}
                     </strong>
@@ -115,6 +128,29 @@ export default function Home() {
               </Link>
             ))}
           </div>
+
+          <section className="mt-16 overflow-hidden rounded-[36px] border border-white/10 bg-white/5 p-7 text-center sm:p-12">
+            <p className="text-sm uppercase tracking-[0.35em] text-gray-500">
+              Already placed an order?
+            </p>
+
+            <h2 className="mt-4 text-3xl font-black sm:text-5xl">
+              Track your ORVIX order
+            </h2>
+
+            <p className="mx-auto mt-5 max-w-xl leading-7 text-gray-400">
+              Enter your order number and the phone
+              number used during checkout to see
+              your current order status.
+            </p>
+
+            <Link
+              href="/track-order"
+              className="mx-auto mt-8 flex w-full max-w-sm items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-bold text-black transition hover:bg-gray-200"
+            >
+              Track Your Order
+            </Link>
+          </section>
         </div>
       </section>
 
