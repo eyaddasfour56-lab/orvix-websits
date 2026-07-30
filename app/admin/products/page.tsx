@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  ChangeEvent,
   FormEvent,
   useEffect,
   useMemo,
@@ -55,7 +56,7 @@ const emptyProductForm: ProductForm = {
   shortDescription: "",
   description: "",
   price: "0",
-  image: "/black.png",
+  image: "",
   status: "available",
   stockQuantity: "0",
   lowStockLimit: "5",
@@ -87,6 +88,16 @@ const statusOptions: {
   },
 ];
 
+function createSlug(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 function formatStatus(status: ProductStatus) {
   return (
     statusOptions.find(
@@ -95,9 +106,7 @@ function formatStatus(status: ProductStatus) {
   );
 }
 
-function getStatusClasses(
-  status: ProductStatus
-) {
+function getStatusClasses(status: ProductStatus) {
   if (status === "available") {
     return "border-green-500/20 bg-green-500/10 text-green-300";
   }
@@ -113,20 +122,15 @@ function getStatusClasses(
   return "border-white/10 bg-white/5 text-gray-400";
 }
 
-function createSlug(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-}
-
-function normaliseProduct(
-  product: Product
-): Product {
+function normaliseProduct(product: Product): Product {
   return {
     ...product,
+    name: product.name || "",
+    slug: product.slug || "",
+    short_description:
+      product.short_description || "",
+    description: product.description || "",
+    image: product.image || "",
     price: Number(product.price || 0),
     stock_quantity: Number(
       product.stock_quantity || 0
@@ -149,6 +153,48 @@ function normaliseProduct(
   };
 }
 
+async function uploadImage(file: File) {
+  if (!file.type.startsWith("image/")) {
+    throw new Error(
+      "Please select a valid image file."
+    );
+  }
+
+  if (file.size > 20 * 1024 * 1024) {
+    throw new Error(
+      "The image must be 20 MB or smaller."
+    );
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(
+    "/api/admin/products/upload",
+    {
+      method: "POST",
+      body: formData,
+    }
+  );
+
+  const result = await response.json();
+
+  if (!response.ok || !result.success) {
+    throw new Error(
+      result.message ||
+        "Could not upload the image."
+    );
+  }
+
+  if (!result.imageUrl) {
+    throw new Error(
+      "The uploaded image URL is missing."
+    );
+  }
+
+  return String(result.imageUrl);
+}
+
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<
     Product[]
@@ -161,9 +207,7 @@ export default function AdminProductsPage() {
     useState("");
 
   const [messageType, setMessageType] =
-    useState<"success" | "error" | "">(
-      ""
-    );
+    useState<"success" | "error" | "">("");
 
   const [showAddForm, setShowAddForm] =
     useState(false);
@@ -175,6 +219,14 @@ export default function AdminProductsPage() {
 
   const [creating, setCreating] =
     useState(false);
+
+  const [uploadingNewImage, setUploadingNewImage] =
+    useState(false);
+
+  const [
+    uploadingProductId,
+    setUploadingProductId,
+  ] = useState<string | null>(null);
 
   const [
     savingProductId,
@@ -206,14 +258,11 @@ export default function AdminProductsPage() {
 
       if (response.status === 401) {
         throw new Error(
-          "Your admin session expired. Return to the dashboard and sign in again."
+          "Your admin session expired. Sign in again."
         );
       }
 
-      if (
-        !response.ok ||
-        !result.success
-      ) {
+      if (!response.ok || !result.success) {
         throw new Error(
           result.message ||
             "Could not load products."
@@ -247,6 +296,26 @@ export default function AdminProductsPage() {
     loadProducts();
   }, []);
 
+  function showSuccess(messageText: string) {
+    setMessage(messageText);
+    setMessageType("success");
+  }
+
+  function showError(messageText: string) {
+    setMessage(messageText);
+    setMessageType("error");
+  }
+
+  function updateNewProduct(
+    field: keyof ProductForm,
+    value: string | boolean
+  ) {
+    setNewProduct((currentProduct) => ({
+      ...currentProduct,
+      [field]: value,
+    }));
+  }
+
   function updateProduct(
     productId: string,
     field: keyof Product,
@@ -264,20 +333,100 @@ export default function AdminProductsPage() {
     );
   }
 
-  function updateNewProduct(
-    field: keyof ProductForm,
-    value: string | boolean
+  async function handleNewImageUpload(
+    event: ChangeEvent<HTMLInputElement>
   ) {
-    setNewProduct((currentProduct) => ({
-      ...currentProduct,
-      [field]: value,
-    }));
+    const file = event.target.files?.[0];
+
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    setUploadingNewImage(true);
+    setMessage("");
+    setMessageType("");
+
+    try {
+      const imageUrl = await uploadImage(file);
+
+      updateNewProduct("image", imageUrl);
+
+      showSuccess(
+        "Image uploaded successfully. Complete the form and create the product."
+      );
+    } catch (error) {
+      showError(
+        error instanceof Error
+          ? error.message
+          : "Could not upload the image."
+      );
+    } finally {
+      setUploadingNewImage(false);
+    }
+  }
+
+  async function handleExistingImageUpload(
+    productId: string,
+    event: ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0];
+
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    setUploadingProductId(productId);
+    setMessage("");
+    setMessageType("");
+
+    try {
+      const imageUrl = await uploadImage(file);
+
+      updateProduct(
+        productId,
+        "image",
+        imageUrl
+      );
+
+      showSuccess(
+        "Image uploaded. Press Save Product to keep the new image."
+      );
+    } catch (error) {
+      showError(
+        error instanceof Error
+          ? error.message
+          : "Could not upload the image."
+      );
+    } finally {
+      setUploadingProductId(null);
+    }
   }
 
   async function createProduct(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
+
+    if (!newProduct.name.trim()) {
+      showError("Product name is required.");
+      return;
+    }
+
+    if (!newProduct.slug.trim()) {
+      showError("Product slug is required.");
+      return;
+    }
+
+    if (!newProduct.image.trim()) {
+      showError(
+        "Please upload a product image."
+      );
+      return;
+    }
 
     setCreating(true);
     setMessage("");
@@ -293,22 +442,29 @@ export default function AdminProductsPage() {
               "application/json",
           },
           body: JSON.stringify({
-            name: newProduct.name,
-            slug: newProduct.slug,
+            name: newProduct.name.trim(),
+            slug: newProduct.slug.trim(),
             shortDescription:
-              newProduct.shortDescription,
+              newProduct.shortDescription.trim(),
             description:
-              newProduct.description,
-            price: Number(
-              newProduct.price || 0
+              newProduct.description.trim(),
+            price: Math.max(
+              0,
+              Number(newProduct.price || 0)
             ),
-            image: newProduct.image,
+            image: newProduct.image.trim(),
             status: newProduct.status,
-            stockQuantity: Number(
-              newProduct.stockQuantity || 0
+            stockQuantity: Math.max(
+              0,
+              Number(
+                newProduct.stockQuantity || 0
+              )
             ),
-            lowStockLimit: Number(
-              newProduct.lowStockLimit || 0
+            lowStockLimit: Math.max(
+              0,
+              Number(
+                newProduct.lowStockLimit || 0
+              )
             ),
             showOnHomepage:
               newProduct.showOnHomepage,
@@ -325,43 +481,27 @@ export default function AdminProductsPage() {
 
       const result = await response.json();
 
-      if (
-        !response.ok ||
-        !result.success
-      ) {
+      if (!response.ok || !result.success) {
         throw new Error(
           result.message ||
             "Could not create product."
         );
       }
 
-      if (result.product) {
-        setProducts((currentProducts) => [
-          ...currentProducts,
-          normaliseProduct(
-            result.product
-          ),
-        ]);
-      }
-
       setNewProduct(emptyProductForm);
       setShowAddForm(false);
 
-      setMessage(
+      await loadProducts();
+
+      showSuccess(
         "Product created successfully."
       );
-
-      setMessageType("success");
-
-      await loadProducts();
     } catch (error) {
-      setMessage(
+      showError(
         error instanceof Error
           ? error.message
           : "Could not create product."
       );
-
-      setMessageType("error");
     } finally {
       setCreating(false);
     }
@@ -370,6 +510,23 @@ export default function AdminProductsPage() {
   async function saveProduct(
     product: Product
   ) {
+    if (!product.name.trim()) {
+      showError("Product name is required.");
+      return;
+    }
+
+    if (!product.slug.trim()) {
+      showError("Product slug is required.");
+      return;
+    }
+
+    if (!product.image.trim()) {
+      showError(
+        "Please upload a product image."
+      );
+      return;
+    }
+
     setSavingProductId(product.id);
     setMessage("");
     setMessageType("");
@@ -386,22 +543,29 @@ export default function AdminProductsPage() {
               "application/json",
           },
           body: JSON.stringify({
-            name: product.name,
-            slug: product.slug,
+            name: product.name.trim(),
+            slug: product.slug.trim(),
             shortDescription:
-              product.short_description,
+              product.short_description.trim(),
             description:
-              product.description,
-            price: Number(
-              product.price || 0
+              product.description.trim(),
+            price: Math.max(
+              0,
+              Number(product.price || 0)
             ),
-            image: product.image,
+            image: product.image.trim(),
             status: product.status,
-            stockQuantity: Number(
-              product.stock_quantity || 0
+            stockQuantity: Math.max(
+              0,
+              Number(
+                product.stock_quantity || 0
+              )
             ),
-            lowStockLimit: Number(
-              product.low_stock_limit || 0
+            lowStockLimit: Math.max(
+              0,
+              Number(
+                product.low_stock_limit || 0
+              )
             ),
             showOnHomepage:
               product.show_on_homepage,
@@ -418,10 +582,7 @@ export default function AdminProductsPage() {
 
       const result = await response.json();
 
-      if (
-        !response.ok ||
-        !result.success
-      ) {
+      if (!response.ok || !result.success) {
         throw new Error(
           result.message ||
             "Could not update product."
@@ -442,19 +603,15 @@ export default function AdminProductsPage() {
         );
       }
 
-      setMessage(
+      showSuccess(
         `${product.name} updated successfully.`
       );
-
-      setMessageType("success");
     } catch (error) {
-      setMessage(
+      showError(
         error instanceof Error
           ? error.message
           : "Could not update product."
       );
-
-      setMessageType("error");
     } finally {
       setSavingProductId(null);
     }
@@ -472,11 +629,9 @@ export default function AdminProductsPage() {
       `DELETE ${product.name}`
     ) {
       if (confirmation !== null) {
-        setMessage(
-          "Product was not deleted because the confirmation text was incorrect."
+        showError(
+          "The confirmation text was incorrect."
         );
-
-        setMessageType("error");
       }
 
       return;
@@ -498,10 +653,7 @@ export default function AdminProductsPage() {
 
       const result = await response.json();
 
-      if (
-        !response.ok ||
-        !result.success
-      ) {
+      if (!response.ok || !result.success) {
         throw new Error(
           result.message ||
             "Could not delete product."
@@ -516,19 +668,15 @@ export default function AdminProductsPage() {
         )
       );
 
-      setMessage(
+      showSuccess(
         `${product.name} deleted successfully.`
       );
-
-      setMessageType("success");
     } catch (error) {
-      setMessage(
+      showError(
         error instanceof Error
           ? error.message
           : "Could not delete product."
       );
-
-      setMessageType("error");
     } finally {
       setDeletingProductId(null);
     }
@@ -548,29 +696,24 @@ export default function AdminProductsPage() {
   const statistics = useMemo(
     () => ({
       total: products.length,
-
       available: products.filter(
         (product) =>
           product.status === "available"
       ).length,
-
       comingSoon: products.filter(
         (product) =>
           product.status ===
           "coming_soon"
       ).length,
-
       outOfStock: products.filter(
         (product) =>
           product.status ===
           "out_of_stock"
       ).length,
-
       hidden: products.filter(
         (product) =>
           product.status === "hidden"
       ).length,
-
       totalStock: products.reduce(
         (total, product) =>
           total +
@@ -611,10 +754,9 @@ export default function AdminProductsPage() {
             </h1>
 
             <p className="mt-4 max-w-2xl leading-7 text-gray-400">
-              Add products, update prices,
-              control stock and choose whether
-              products are available, coming
-              soon, out of stock or hidden.
+              Add products, upload images,
+              update prices, control stock and
+              manage product availability.
             </p>
           </div>
 
@@ -663,65 +805,45 @@ export default function AdminProductsPage() {
         )}
 
         <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <p className="text-gray-400">
-              Products
-            </p>
+          {[
+            {
+              label: "Products",
+              value: statistics.total,
+            },
+            {
+              label: "Available",
+              value: statistics.available,
+            },
+            {
+              label: "Coming Soon",
+              value: statistics.comingSoon,
+            },
+            {
+              label: "Out of Stock",
+              value: statistics.outOfStock,
+            },
+            {
+              label: "Hidden",
+              value: statistics.hidden,
+            },
+            {
+              label: "Total Stock",
+              value: statistics.totalStock,
+            },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className="rounded-3xl border border-white/10 bg-white/5 p-6"
+            >
+              <p className="text-gray-400">
+                {item.label}
+              </p>
 
-            <p className="mt-3 text-4xl font-black">
-              {statistics.total}
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-green-500/20 bg-green-500/10 p-6">
-            <p className="text-green-200">
-              Available
-            </p>
-
-            <p className="mt-3 text-4xl font-black text-green-300">
-              {statistics.available}
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-yellow-500/20 bg-yellow-500/10 p-6">
-            <p className="text-yellow-200">
-              Coming Soon
-            </p>
-
-            <p className="mt-3 text-4xl font-black text-yellow-300">
-              {statistics.comingSoon}
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-6">
-            <p className="text-red-200">
-              Out of Stock
-            </p>
-
-            <p className="mt-3 text-4xl font-black text-red-300">
-              {statistics.outOfStock}
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <p className="text-gray-400">
-              Hidden
-            </p>
-
-            <p className="mt-3 text-4xl font-black">
-              {statistics.hidden}
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-            <p className="text-gray-400">
-              Total Stock
-            </p>
-
-            <p className="mt-3 text-4xl font-black">
-              {statistics.totalStock}
-            </p>
-          </div>
+              <p className="mt-3 text-4xl font-black">
+                {item.value}
+              </p>
+            </div>
+          ))}
         </section>
 
         {showAddForm && (
@@ -729,15 +851,13 @@ export default function AdminProductsPage() {
             onSubmit={createProduct}
             className="mt-8 rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-8"
           >
-            <div>
-              <p className="text-sm uppercase tracking-[0.3em] text-gray-500">
-                New Product
-              </p>
+            <p className="text-sm uppercase tracking-[0.3em] text-gray-500">
+              New Product
+            </p>
 
-              <h2 className="mt-3 text-3xl font-black">
-                Add Product
-              </h2>
-            </div>
+            <h2 className="mt-3 text-3xl font-black">
+              Add Product
+            </h2>
 
             <div className="mt-7 grid gap-5 md:grid-cols-2">
               <div>
@@ -749,29 +869,29 @@ export default function AdminProductsPage() {
                   type="text"
                   value={newProduct.name}
                   onChange={(event) => {
+                    const previousSlug =
+                      createSlug(
+                        newProduct.name
+                      );
+
                     const name =
                       event.target.value;
 
-                    updateNewProduct(
-                      "name",
-                      name
+                    setNewProduct(
+                      (currentProduct) => ({
+                        ...currentProduct,
+                        name,
+                        slug:
+                          !currentProduct.slug ||
+                          currentProduct.slug ===
+                            previousSlug
+                            ? createSlug(name)
+                            : currentProduct.slug,
+                      })
                     );
-
-                    if (
-                      !newProduct.slug ||
-                      newProduct.slug ===
-                        createSlug(
-                          newProduct.name
-                        )
-                    ) {
-                      updateNewProduct(
-                        "slug",
-                        createSlug(name)
-                      );
-                    }
                   }}
                   required
-                  className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none focus:border-white"
+                  className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
                 />
               </div>
 
@@ -793,11 +913,10 @@ export default function AdminProductsPage() {
                   }
                   required
                   placeholder="product-name"
-                  className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none focus:border-white"
+                  className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
                 />
 
                 <p className="mt-2 text-xs text-gray-600">
-                  Product URL:
                   /products/
                   {newProduct.slug ||
                     "product-name"}
@@ -820,7 +939,7 @@ export default function AdminProductsPage() {
                     )
                   }
                   rows={2}
-                  className="mt-3 w-full resize-none rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none focus:border-white"
+                  className="mt-3 w-full resize-none rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
                 />
               </div>
 
@@ -840,7 +959,7 @@ export default function AdminProductsPage() {
                     )
                   }
                   rows={4}
-                  className="mt-3 w-full resize-none rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none focus:border-white"
+                  className="mt-3 w-full resize-none rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
                 />
               </div>
 
@@ -860,26 +979,7 @@ export default function AdminProductsPage() {
                       event.target.value
                     )
                   }
-                  className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none focus:border-white"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-black text-gray-300">
-                  Image Path
-                </label>
-
-                <input
-                  type="text"
-                  value={newProduct.image}
-                  onChange={(event) =>
-                    updateNewProduct(
-                      "image",
-                      event.target.value
-                    )
-                  }
-                  placeholder="/product-image.png"
-                  className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none focus:border-white"
+                  className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
                 />
               </div>
 
@@ -897,7 +997,7 @@ export default function AdminProductsPage() {
                         .value as ProductStatus
                     )
                   }
-                  className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none focus:border-white"
+                  className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
                 >
                   {statusOptions.map(
                     (status) => (
@@ -912,25 +1012,66 @@ export default function AdminProductsPage() {
                 </select>
               </div>
 
-              <div>
+              <div className="md:col-span-2">
                 <label className="text-sm font-black text-gray-300">
-                  Display Order
+                  Product Picture
                 </label>
 
-                <input
-                  type="number"
-                  step="1"
-                  value={
-                    newProduct.displayOrder
-                  }
-                  onChange={(event) =>
-                    updateNewProduct(
-                      "displayOrder",
-                      event.target.value
-                    )
-                  }
-                  className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none focus:border-white"
-                />
+                <div className="mt-3 grid gap-4 rounded-3xl border border-white/10 bg-black/40 p-5 md:grid-cols-[220px_1fr] md:items-center">
+                  <div className="flex aspect-square items-center justify-center overflow-hidden rounded-2xl bg-white">
+                    {newProduct.image ? (
+                      <img
+                        src={newProduct.image}
+                        alt="New product preview"
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <p className="px-4 text-center text-sm font-bold text-gray-500">
+                        No image uploaded
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="flex cursor-pointer items-center justify-center rounded-2xl bg-white px-5 py-4 text-center font-black text-black transition hover:bg-gray-200">
+                      {uploadingNewImage
+                        ? "Uploading..."
+                        : "Choose and Upload Picture"}
+
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={
+                          uploadingNewImage
+                        }
+                        onChange={
+                          handleNewImageUpload
+                        }
+                        className="hidden"
+                      />
+                    </label>
+
+                    <p className="mt-3 text-sm leading-6 text-gray-500">
+                      JPG, PNG or WebP. Maximum
+                      file size: 20 MB.
+                    </p>
+
+                    {newProduct.image && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateNewProduct(
+                            "image",
+                            ""
+                          )
+                        }
+                        className="mt-3 text-sm font-bold text-red-300"
+                      >
+                        Remove Picture
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -951,7 +1092,7 @@ export default function AdminProductsPage() {
                       event.target.value
                     )
                   }
-                  className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none focus:border-white"
+                  className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
                 />
               </div>
 
@@ -973,7 +1114,28 @@ export default function AdminProductsPage() {
                       event.target.value
                     )
                   }
-                  className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none focus:border-white"
+                  className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-black text-gray-300">
+                  Display Order
+                </label>
+
+                <input
+                  type="number"
+                  step="1"
+                  value={
+                    newProduct.displayOrder
+                  }
+                  onChange={(event) =>
+                    updateNewProduct(
+                      "displayOrder",
+                      event.target.value
+                    )
+                  }
+                  className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
                 />
               </div>
             </div>
@@ -1026,8 +1188,10 @@ export default function AdminProductsPage() {
               type="submit"
               disabled={
                 creating ||
+                uploadingNewImage ||
                 !newProduct.name.trim() ||
-                !newProduct.slug.trim()
+                !newProduct.slug.trim() ||
+                !newProduct.image.trim()
               }
               className="mt-7 w-full rounded-2xl bg-white px-6 py-4 font-black text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -1074,17 +1238,11 @@ export default function AdminProductsPage() {
             </div>
           </div>
 
-          {filteredProducts.length ===
-          0 ? (
+          {filteredProducts.length === 0 ? (
             <div className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-10 text-center">
               <h3 className="text-2xl font-black">
                 No products found
               </h3>
-
-              <p className="mt-3 text-gray-400">
-                Add a product or change the
-                selected filter.
-              </p>
             </div>
           ) : (
             <div className="mt-6 space-y-6">
@@ -1096,6 +1254,10 @@ export default function AdminProductsPage() {
 
                   const isDeleting =
                     deletingProductId ===
+                    product.id;
+
+                  const isUploading =
+                    uploadingProductId ===
                     product.id;
 
                   return (
@@ -1126,286 +1288,272 @@ export default function AdminProductsPage() {
                         </span>
                       </div>
 
-                      <div className="mt-7 grid gap-5 md:grid-cols-2">
+                      <div className="mt-7 grid gap-6 lg:grid-cols-[260px_1fr]">
                         <div>
-                          <label className="text-sm font-black text-gray-300">
-                            Product Name
-                          </label>
-
-                          <input
-                            type="text"
-                            value={product.name}
-                            onChange={(event) =>
-                              updateProduct(
-                                product.id,
-                                "name",
-                                event.target.value
-                              )
-                            }
-                            className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none focus:border-white"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-sm font-black text-gray-300">
-                            Slug
-                          </label>
-
-                          <input
-                            type="text"
-                            value={product.slug}
-                            onChange={(event) =>
-                              updateProduct(
-                                product.id,
-                                "slug",
-                                createSlug(
-                                  event.target
-                                    .value
-                                )
-                              )
-                            }
-                            className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none focus:border-white"
-                          />
-                        </div>
-
-                        <div className="md:col-span-2">
-                          <label className="text-sm font-black text-gray-300">
-                            Short Description
-                          </label>
-
-                          <textarea
-                            value={
-                              product.short_description
-                            }
-                            onChange={(event) =>
-                              updateProduct(
-                                product.id,
-                                "short_description",
-                                event.target.value
-                              )
-                            }
-                            rows={2}
-                            className="mt-3 w-full resize-none rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none focus:border-white"
-                          />
-                        </div>
-
-                        <div className="md:col-span-2">
-                          <label className="text-sm font-black text-gray-300">
-                            Full Description
-                          </label>
-
-                          <textarea
-                            value={
-                              product.description
-                            }
-                            onChange={(event) =>
-                              updateProduct(
-                                product.id,
-                                "description",
-                                event.target.value
-                              )
-                            }
-                            rows={4}
-                            className="mt-3 w-full resize-none rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none focus:border-white"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-sm font-black text-gray-300">
-                            Price in EGP
-                          </label>
-
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={product.price}
-                            onChange={(event) =>
-                              updateProduct(
-                                product.id,
-                                "price",
-                                Math.max(
-                                  0,
-                                  Number(
-                                    event.target
-                                      .value || 0
-                                  )
-                                )
-                              )
-                            }
-                            className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none focus:border-white"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-sm font-black text-gray-300">
-                            Image Path
-                          </label>
-
-                          <input
-                            type="text"
-                            value={product.image}
-                            onChange={(event) =>
-                              updateProduct(
-                                product.id,
-                                "image",
-                                event.target.value
-                              )
-                            }
-                            className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none focus:border-white"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-sm font-black text-gray-300">
-                            Product Status
-                          </label>
-
-                          <select
-                            value={product.status}
-                            onChange={(event) =>
-                              updateProduct(
-                                product.id,
-                                "status",
-                                event.target
-                                  .value as ProductStatus
-                              )
-                            }
-                            className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none focus:border-white"
-                          >
-                            {statusOptions.map(
-                              (status) => (
-                                <option
-                                  key={
-                                    status.value
-                                  }
-                                  value={
-                                    status.value
-                                  }
-                                >
-                                  {status.label}
-                                </option>
-                              )
+                          <div className="flex aspect-square items-center justify-center overflow-hidden rounded-3xl bg-white p-3">
+                            {product.image ? (
+                              <img
+                                src={product.image}
+                                alt={product.name}
+                                className="h-full w-full object-contain"
+                              />
+                            ) : (
+                              <p className="text-center text-sm font-bold text-gray-500">
+                                No image
+                              </p>
                             )}
-                          </select>
-                        </div>
+                          </div>
 
-                        <div>
-                          <label className="text-sm font-black text-gray-300">
-                            Display Order
-                          </label>
+                          <label className="mt-4 flex cursor-pointer items-center justify-center rounded-2xl border border-white/15 px-5 py-4 text-center font-black transition hover:bg-white/10">
+                            {isUploading
+                              ? "Uploading..."
+                              : "Upload New Picture"}
 
-                          <input
-                            type="number"
-                            step="1"
-                            value={
-                              product.display_order
-                            }
-                            onChange={(event) =>
-                              updateProduct(
-                                product.id,
-                                "display_order",
-                                Number(
-                                  event.target
-                                    .value || 0
+                            <input
+                              type="file"
+                              accept="image/*"
+                              disabled={isUploading}
+                              onChange={(event) =>
+                                handleExistingImageUpload(
+                                  product.id,
+                                  event
                                 )
-                              )
-                            }
-                            className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none focus:border-white"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-sm font-black text-gray-300">
-                            Stock Quantity
+                              }
+                              className="hidden"
+                            />
                           </label>
 
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={
-                              product.stock_quantity
-                            }
-                            onChange={(event) =>
-                              updateProduct(
-                                product.id,
-                                "stock_quantity",
-                                Math.max(
-                                  0,
-                                  Number(
+                          <p className="mt-3 text-center text-xs leading-5 text-gray-500">
+                            Press Save Product
+                            after uploading.
+                          </p>
+                        </div>
+
+                        <div className="grid gap-5 md:grid-cols-2">
+                          <div>
+                            <label className="text-sm font-black text-gray-300">
+                              Product Name
+                            </label>
+
+                            <input
+                              type="text"
+                              value={product.name}
+                              onChange={(event) =>
+                                updateProduct(
+                                  product.id,
+                                  "name",
+                                  event.target.value
+                                )
+                              }
+                              className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-sm font-black text-gray-300">
+                              Slug
+                            </label>
+
+                            <input
+                              type="text"
+                              value={product.slug}
+                              onChange={(event) =>
+                                updateProduct(
+                                  product.id,
+                                  "slug",
+                                  createSlug(
                                     event.target
-                                      .value || 0
+                                      .value
                                   )
                                 )
-                              )
-                            }
-                            className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none focus:border-white"
-                          />
+                              }
+                              className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
+                            />
+                          </div>
 
-                          <div className="mt-3 grid grid-cols-2 gap-2">
-                            <button
-                              type="button"
-                              onClick={() =>
+                          <div className="md:col-span-2">
+                            <label className="text-sm font-black text-gray-300">
+                              Short Description
+                            </label>
+
+                            <textarea
+                              value={
+                                product.short_description
+                              }
+                              onChange={(event) =>
+                                updateProduct(
+                                  product.id,
+                                  "short_description",
+                                  event.target.value
+                                )
+                              }
+                              rows={2}
+                              className="mt-3 w-full resize-none rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
+                            />
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <label className="text-sm font-black text-gray-300">
+                              Full Description
+                            </label>
+
+                            <textarea
+                              value={
+                                product.description
+                              }
+                              onChange={(event) =>
+                                updateProduct(
+                                  product.id,
+                                  "description",
+                                  event.target.value
+                                )
+                              }
+                              rows={4}
+                              className="mt-3 w-full resize-none rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-sm font-black text-gray-300">
+                              Price in EGP
+                            </label>
+
+                            <input
+                              type="number"
+                              min="0"
+                              value={product.price}
+                              onChange={(event) =>
+                                updateProduct(
+                                  product.id,
+                                  "price",
+                                  Math.max(
+                                    0,
+                                    Number(
+                                      event.target
+                                        .value || 0
+                                    )
+                                  )
+                                )
+                              }
+                              className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-sm font-black text-gray-300">
+                              Product Status
+                            </label>
+
+                            <select
+                              value={product.status}
+                              onChange={(event) =>
+                                updateProduct(
+                                  product.id,
+                                  "status",
+                                  event.target
+                                    .value as ProductStatus
+                                )
+                              }
+                              className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
+                            >
+                              {statusOptions.map(
+                                (status) => (
+                                  <option
+                                    key={
+                                      status.value
+                                    }
+                                    value={
+                                      status.value
+                                    }
+                                  >
+                                    {
+                                      status.label
+                                    }
+                                  </option>
+                                )
+                              )}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="text-sm font-black text-gray-300">
+                              Stock Quantity
+                            </label>
+
+                            <input
+                              type="number"
+                              min="0"
+                              value={
+                                product.stock_quantity
+                              }
+                              onChange={(event) =>
                                 updateProduct(
                                   product.id,
                                   "stock_quantity",
                                   Math.max(
                                     0,
-                                    product.stock_quantity -
-                                      1
+                                    Number(
+                                      event.target
+                                        .value || 0
+                                    )
                                   )
                                 )
                               }
-                              className="rounded-xl border border-white/15 px-4 py-3 font-black transition hover:bg-white/10"
-                            >
-                              − 1
-                            </button>
+                              className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
+                            />
+                          </div>
 
-                            <button
-                              type="button"
-                              onClick={() =>
+                          <div>
+                            <label className="text-sm font-black text-gray-300">
+                              Low Stock Limit
+                            </label>
+
+                            <input
+                              type="number"
+                              min="0"
+                              value={
+                                product.low_stock_limit
+                              }
+                              onChange={(event) =>
                                 updateProduct(
                                   product.id,
-                                  "stock_quantity",
-                                  product.stock_quantity +
-                                    1
+                                  "low_stock_limit",
+                                  Math.max(
+                                    0,
+                                    Number(
+                                      event.target
+                                        .value || 0
+                                    )
+                                  )
                                 )
                               }
-                              className="rounded-xl bg-white px-4 py-3 font-black text-black transition hover:bg-gray-200"
-                            >
-                              + 1
-                            </button>
+                              className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
+                            />
                           </div>
-                        </div>
 
-                        <div>
-                          <label className="text-sm font-black text-gray-300">
-                            Low Stock Limit
-                          </label>
+                          <div>
+                            <label className="text-sm font-black text-gray-300">
+                              Display Order
+                            </label>
 
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={
-                              product.low_stock_limit
-                            }
-                            onChange={(event) =>
-                              updateProduct(
-                                product.id,
-                                "low_stock_limit",
-                                Math.max(
-                                  0,
+                            <input
+                              type="number"
+                              value={
+                                product.display_order
+                              }
+                              onChange={(event) =>
+                                updateProduct(
+                                  product.id,
+                                  "display_order",
                                   Number(
                                     event.target
                                       .value || 0
                                   )
                                 )
-                              )
-                            }
-                            className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none focus:border-white"
-                          />
+                              }
+                              className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
+                            />
+                          </div>
                         </div>
                       </div>
 
@@ -1449,9 +1597,7 @@ export default function AdminProductsPage() {
                               checked={
                                 option.value
                               }
-                              onChange={(
-                                event
-                              ) =>
+                              onChange={(event) =>
                                 updateProduct(
                                   product.id,
                                   option.field as keyof Product,
@@ -1463,53 +1609,6 @@ export default function AdminProductsPage() {
                             />
                           </label>
                         ))}
-                      </div>
-
-                      <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-5">
-                        <p className="text-xs uppercase tracking-wider text-gray-500">
-                          Customer View
-                        </p>
-
-                        <p
-                          className={`mt-3 text-lg font-black ${
-                            product.status ===
-                            "available"
-                              ? product.stock_quantity <=
-                                  product.low_stock_limit
-                                ? "text-orange-300"
-                                : "text-green-300"
-                              : product.status ===
-                                  "coming_soon"
-                                ? "text-yellow-300"
-                                : product.status ===
-                                    "out_of_stock"
-                                  ? "text-red-300"
-                                  : "text-gray-500"
-                          }`}
-                        >
-                          {product.status ===
-                          "available"
-                            ? product.stock_quantity ===
-                              0
-                              ? "Available status, but stock is zero"
-                              : product.stock_quantity <=
-                                  product.low_stock_limit
-                                ? `Only ${product.stock_quantity} left`
-                                : `${product.stock_quantity} pieces in stock`
-                            : formatStatus(
-                                product.status
-                              )}
-                        </p>
-
-                        <p className="mt-3 text-sm text-gray-500">
-                          Price:{" "}
-                          {Number(
-                            product.price
-                          ).toLocaleString(
-                            "en-GB"
-                          )}{" "}
-                          EGP
-                        </p>
                       </div>
 
                       <div className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -1530,9 +1629,10 @@ export default function AdminProductsPage() {
                           }
                           disabled={
                             isSaving ||
-                            isDeleting
+                            isDeleting ||
+                            isUploading
                           }
-                          className="rounded-2xl bg-white px-5 py-4 font-black text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="rounded-2xl bg-white px-5 py-4 font-black text-black transition hover:bg-gray-200 disabled:opacity-40"
                         >
                           {isSaving
                             ? "Saving..."
@@ -1542,30 +1642,20 @@ export default function AdminProductsPage() {
                         <button
                           type="button"
                           onClick={() =>
-                            deleteProduct(
-                              product
-                            )
+                            deleteProduct(product)
                           }
                           disabled={
                             isSaving ||
-                            isDeleting
+                            isDeleting ||
+                            isUploading
                           }
-                          className="rounded-2xl bg-red-600 px-5 py-4 font-black text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="rounded-2xl bg-red-600 px-5 py-4 font-black text-white transition hover:bg-red-500 disabled:opacity-40"
                         >
                           {isDeleting
                             ? "Deleting..."
                             : "Delete Product"}
                         </button>
                       </div>
-
-                      <p className="mt-4 text-xs text-gray-600">
-                        Last updated:{" "}
-                        {new Date(
-                          product.updated_at
-                        ).toLocaleString(
-                          "en-GB"
-                        )}
-                      </p>
                     </article>
                   );
                 }
