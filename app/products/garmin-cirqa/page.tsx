@@ -2,7 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import {
+  FormEvent,
+  useState,
+} from "react";
+import Navbar from "@/components/Navbar";
 
 const colours = [
   {
@@ -104,7 +108,8 @@ const featureGroups = [
     title: "Fitness",
     features: [
       {
-        title: "Automatic Activity Detection",
+        title:
+          "Automatic Activity Detection",
         description:
           "Automatically detects activities such as walking and running.",
       },
@@ -172,43 +177,171 @@ const featureGroups = [
   },
 ];
 
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    value.trim()
+  );
+}
+
 export default function GarminCirqaPage() {
-  const [selectedColour, setSelectedColour] = useState(colours[0]);
-  const [selectedSize, setSelectedSize] = useState(sizes[0]);
+  const [
+    selectedColour,
+    setSelectedColour,
+  ] = useState(colours[0]);
+
+  const [
+    selectedSize,
+    setSelectedSize,
+  ] = useState(sizes[0]);
+
+  const [
+    notificationFormOpen,
+    setNotificationFormOpen,
+  ] = useState(false);
+
+  const [
+    customerName,
+    setCustomerName,
+  ] = useState("");
+
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+
+  const [submitting, setSubmitting] =
+    useState(false);
+
+  const [message, setMessage] =
+    useState("");
+
+  const [success, setSuccess] =
+    useState(false);
+
+  async function handleNotifySubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    if (submitting) {
+      return;
+    }
+
+    setMessage("");
+    setSuccess(false);
+
+    if (!customerName.trim()) {
+      setMessage(
+        "Please enter your name."
+      );
+
+      return;
+    }
+
+    if (!email.trim() && !phone.trim()) {
+      setMessage(
+        "Please enter your email or phone number."
+      );
+
+      return;
+    }
+
+    if (
+      email.trim() &&
+      !isValidEmail(email)
+    ) {
+      setMessage(
+        "Please enter a valid email address."
+      );
+
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const response = await fetch(
+        "/api/waitlist",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            customerName:
+              customerName.trim(),
+
+            email: email
+              .trim()
+              .toLowerCase(),
+
+            phone: phone.trim(),
+
+            colour:
+              selectedColour.name,
+
+            size: selectedSize,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.message ||
+            "Could not join the notification list."
+        );
+      }
+
+      setSuccess(true);
+
+      setMessage(
+        result.message ||
+          "You are on the notification list."
+      );
+
+      setCustomerName("");
+      setEmail("");
+      setPhone("");
+    } catch (error) {
+      setSuccess(false);
+
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not join the notification list."
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function openNotificationForm() {
+    setNotificationFormOpen(true);
+    setMessage("");
+    setSuccess(false);
+
+    window.setTimeout(() => {
+      document
+        .getElementById(
+          "garmin-notification-form"
+        )
+        ?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+    }, 100);
+  }
 
   return (
     <main className="min-h-screen bg-[#070707] text-white">
-      {/* Header */}
-      <header className="border-b border-white/10 bg-black">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6">
-          <Link href="/" className="flex items-center gap-3">
-            <Image
-              src="/logo.jpeg"
-              alt="ORVIX"
-              width={42}
-              height={42}
-              className="rounded-full object-cover"
-            />
-
-            <span className="font-bold tracking-[0.3em]">
-              ORVIX
-            </span>
-          </Link>
-
-          <Link
-            href="/"
-            className="rounded-full border border-white/15 px-5 py-3 text-sm font-bold text-gray-300"
-          >
-            ← Our Products
-          </Link>
-        </div>
-      </header>
+      <Navbar />
 
       {/* Product */}
       <section className="py-14 sm:py-24">
         <div className="mx-auto grid max-w-7xl items-start gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:gap-20">
           {/* Product image */}
-          <div className="rounded-[40px] bg-white p-6 sm:sticky sm:top-8 sm:p-8">
+          <div className="rounded-[40px] bg-white p-6 sm:sticky sm:top-28 sm:p-8">
             <Image
               key={selectedColour.name}
               src={selectedColour.image}
@@ -235,8 +368,10 @@ export default function GarminCirqaPage() {
             </h1>
 
             <p className="mt-6 max-w-xl text-lg leading-8 text-gray-400">
-              A screen-free smart band designed to track your health,
-              sleep, recovery and daily activity through Garmin Connect.
+              A screen-free smart band
+              designed to track your health,
+              sleep, recovery and daily
+              activity through Garmin Connect.
             </p>
 
             {/* Colour selector */}
@@ -246,21 +381,31 @@ export default function GarminCirqaPage() {
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               {colours.map((colour) => {
-                const selected = selectedColour.name === colour.name;
+                const selected =
+                  selectedColour.name ===
+                  colour.name;
 
                 return (
                   <button
                     key={colour.name}
                     type="button"
-                    onClick={() => setSelectedColour(colour)}
+                    onClick={() =>
+                      setSelectedColour(
+                        colour
+                      )
+                    }
                     className={`flex items-center gap-3 rounded-2xl border p-4 text-left font-bold transition ${
                       selected
                         ? "border-white bg-white text-black"
-                        : "border-white/15 bg-white/5 text-white"
+                        : "border-white/15 bg-white/5 text-white hover:border-white/30"
                     }`}
                   >
                     <span
-                      className={`h-5 w-5 shrink-0 rounded-full border border-black/20 ${colour.dot}`}
+                      className={`h-5 w-5 shrink-0 rounded-full border ${
+                        selected
+                          ? "border-black/20"
+                          : "border-white/20"
+                      } ${colour.dot}`}
                     />
 
                     <span>{colour.name}</span>
@@ -276,17 +421,20 @@ export default function GarminCirqaPage() {
 
             <div className="mt-5 grid grid-cols-2 gap-3">
               {sizes.map((size) => {
-                const selected = selectedSize === size;
+                const selected =
+                  selectedSize === size;
 
                 return (
                   <button
                     key={size}
                     type="button"
-                    onClick={() => setSelectedSize(size)}
+                    onClick={() =>
+                      setSelectedSize(size)
+                    }
                     className={`rounded-2xl border p-4 text-center font-bold transition ${
                       selected
                         ? "border-white bg-white text-black"
-                        : "border-white/15 bg-white/5 text-white"
+                        : "border-white/15 bg-white/5 text-white hover:border-white/30"
                     }`}
                   >
                     {size}
@@ -302,21 +450,231 @@ export default function GarminCirqaPage() {
               </p>
 
               <p className="mt-3 text-xl font-bold">
-                {selectedColour.name} · {selectedSize}
+                {selectedColour.name} ·{" "}
+                {selectedSize}
               </p>
 
               <p className="mt-3 text-sm leading-6 text-gray-400">
-                Price and launch date will be announced soon.
+                Price and launch date will be
+                announced soon.
               </p>
             </div>
 
             <button
               type="button"
-              disabled
-              className="mt-8 flex w-full cursor-not-allowed justify-center rounded-full border border-white/15 bg-white/5 px-8 py-5 text-lg font-bold text-gray-500"
+              onClick={openNotificationForm}
+              className="mt-8 flex w-full items-center justify-center gap-3 rounded-full bg-white px-8 py-5 text-lg font-black text-black transition hover:bg-gray-200 active:scale-[0.99]"
             >
-              Coming Soon
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+                className="h-6 w-6"
+              >
+                <path
+                  d="M18 8C18 4.69 15.31 2 12 2C8.69 2 6 4.69 6 8V11.5C6 13.3 5.4 15.05 4.3 16.48L3 18H21L19.7 16.48C18.6 15.05 18 13.3 18 11.5V8Z"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+
+                <path
+                  d="M10 21H14"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
+
+              Notify Me When Available
             </button>
+
+            <p className="mt-4 text-center text-sm leading-6 text-gray-500">
+              Join the list and we will contact
+              you by email or phone when Garmin
+              CIRQA launches.
+            </p>
+
+            {notificationFormOpen && (
+              <form
+                id="garmin-notification-form"
+                onSubmit={handleNotifySubmit}
+                className="mt-8 rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.3em] text-gray-500">
+                      Launch Notification
+                    </p>
+
+                    <h2 className="mt-3 text-2xl font-black">
+                      Join the Garmin CIRQA List
+                    </h2>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotificationFormOpen(
+                        false
+                      );
+
+                      setMessage("");
+                      setSuccess(false);
+                    }}
+                    aria-label="Close notification form"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/15 text-2xl transition hover:bg-white/10"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-gray-500">
+                    Your selection
+                  </p>
+
+                  <p className="mt-2 font-black">
+                    {selectedColour.name} ·{" "}
+                    {selectedSize}
+                  </p>
+                </div>
+
+                <div className="mt-6 grid gap-5">
+                  <label>
+                    <span className="mb-2 block text-sm font-bold text-gray-300">
+                      Name
+                    </span>
+
+                    <input
+                      type="text"
+                      value={customerName}
+                      onChange={(event) => {
+                        setCustomerName(
+                          event.target.value
+                        );
+
+                        setMessage("");
+                        setSuccess(false);
+                      }}
+                      placeholder="Enter your name"
+                      autoComplete="name"
+                      disabled={submitting}
+                      required
+                      className="w-full rounded-2xl border border-white/15 bg-black/50 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
+                    />
+                  </label>
+
+                  <label>
+                    <span className="mb-2 block text-sm font-bold text-gray-300">
+                      Email address
+                    </span>
+
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(event) => {
+                        setEmail(
+                          event.target.value
+                        );
+
+                        setMessage("");
+                        setSuccess(false);
+                      }}
+                      placeholder="name@example.com"
+                      autoComplete="email"
+                      inputMode="email"
+                      disabled={submitting}
+                      className="w-full rounded-2xl border border-white/15 bg-black/50 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
+                    />
+                  </label>
+
+                  <div className="flex items-center gap-4">
+                    <div className="h-px flex-1 bg-white/10" />
+
+                    <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-600">
+                      Or
+                    </span>
+
+                    <div className="h-px flex-1 bg-white/10" />
+                  </div>
+
+                  <label>
+                    <span className="mb-2 block text-sm font-bold text-gray-300">
+                      Phone number
+                    </span>
+
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(event) => {
+                        setPhone(
+                          event.target.value
+                        );
+
+                        setMessage("");
+                        setSuccess(false);
+                      }}
+                      placeholder="01XXXXXXXXX"
+                      autoComplete="tel"
+                      inputMode="tel"
+                      disabled={submitting}
+                      className="w-full rounded-2xl border border-white/15 bg-black/50 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
+                    />
+                  </label>
+                </div>
+
+                <p className="mt-4 text-xs leading-6 text-gray-500">
+                  Enter at least one contact
+                  method: email or phone number.
+                </p>
+
+                {message && (
+                  <p
+                    role="alert"
+                    className={`mt-5 rounded-2xl border p-4 text-sm leading-6 ${
+                      success
+                        ? "border-green-500/20 bg-green-500/10 text-green-300"
+                        : "border-red-500/20 bg-red-500/10 text-red-300"
+                    }`}
+                  >
+                    {message}
+                  </p>
+                )}
+
+                {!success && (
+                  <button
+                    type="submit"
+                    disabled={
+                      submitting ||
+                      !customerName.trim() ||
+                      (!email.trim() &&
+                        !phone.trim())
+                    }
+                    className="mt-6 flex w-full items-center justify-center rounded-full bg-white px-7 py-5 font-black text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {submitting
+                      ? "Joining List..."
+                      : "Notify Me at Launch"}
+                  </button>
+                )}
+
+                {success && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setNotificationFormOpen(
+                        false
+                      )
+                    }
+                    className="mt-6 flex w-full items-center justify-center rounded-full border border-white/15 px-7 py-4 font-black transition hover:bg-white/10"
+                  >
+                    Done
+                  </button>
+                )}
+              </form>
+            )}
           </div>
         </div>
       </section>
@@ -334,56 +692,70 @@ export default function GarminCirqaPage() {
             </h2>
 
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-gray-400">
-              The most important health, sleep and fitness features,
-              organised into simple cards.
+              The most important health, sleep
+              and fitness features, organised
+              into simple cards.
             </p>
           </div>
 
           <div className="mt-16 space-y-16">
-            {featureGroups.map((group) => (
-              <section key={group.title}>
-                <div className="flex items-center gap-5">
-                  <h3 className="shrink-0 text-2xl font-black uppercase tracking-[0.15em] sm:text-3xl">
-                    {group.title}
-                  </h3>
+            {featureGroups.map(
+              (group) => (
+                <section key={group.title}>
+                  <div className="flex items-center gap-5">
+                    <h3 className="shrink-0 text-2xl font-black uppercase tracking-[0.15em] sm:text-3xl">
+                      {group.title}
+                    </h3>
 
-                  <div className="h-px flex-1 bg-white/15" />
-                </div>
+                    <div className="h-px flex-1 bg-white/15" />
+                  </div>
 
-                <div className="mt-7 grid grid-cols-2 gap-3 lg:grid-cols-3">
-                  {group.features.map((feature) => (
-                    <article
-                      key={feature.title}
-                      className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6"
-                    >
-                      <h4 className="font-bold leading-6 text-white sm:text-lg">
-                        {feature.title}
-                      </h4>
+                  <div className="mt-7 grid grid-cols-2 gap-3 lg:grid-cols-3">
+                    {group.features.map(
+                      (feature) => (
+                        <article
+                          key={
+                            feature.title
+                          }
+                          className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6"
+                        >
+                          <h4 className="font-bold leading-6 text-white sm:text-lg">
+                            {feature.title}
+                          </h4>
 
-                      <p className="mt-3 text-sm leading-6 text-gray-400">
-                        {feature.description}
-                      </p>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            ))}
+                          <p className="mt-3 text-sm leading-6 text-gray-400">
+                            {
+                              feature.description
+                            }
+                          </p>
+                        </article>
+                      )
+                    )}
+                  </div>
+                </section>
+              )
+            )}
           </div>
 
           <p className="mx-auto mt-16 max-w-3xl text-center text-xs leading-6 text-gray-600">
-            Feature availability may depend on your country, compatible
-            device, Garmin Connect version or a Garmin Connect+
-            subscription.
+            Feature availability may depend on
+            your country, compatible device,
+            Garmin Connect version or a Garmin
+            Connect+ subscription.
           </p>
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="border-t border-white/10 py-8">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 text-sm text-gray-500 sm:px-6 md:flex-row">
-          <p>© 2026 ORVIX. All rights reserved.</p>
+          <p>
+            © 2026 ORVIX. All rights reserved.
+          </p>
 
-          <Link href="/" className="font-bold text-white">
+          <Link
+            href="/#products"
+            className="font-bold text-white"
+          >
             View all products
           </Link>
         </div>
