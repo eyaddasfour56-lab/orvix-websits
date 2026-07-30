@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   FormEvent,
   useEffect,
@@ -111,7 +112,8 @@ export default function TrackOrderPage() {
   const [order, setOrder] =
     useState<TrackedOrder | null>(null);
 
-  const [message, setMessage] = useState("");
+  const [message, setMessage] =
+    useState("");
 
   const [loading, setLoading] =
     useState(false);
@@ -258,11 +260,14 @@ export default function TrackOrderPage() {
   const isCancelled =
     normalisedOrderStatus === "cancelled";
 
-  const contactMessage = order
-    ? encodeURIComponent(
-        `Hello ORVIX, I need help with my order ${order.orderNumber}.`
-      )
-    : "";
+  const isDelivered =
+    normalisedOrderStatus === "delivered";
+
+  const reviewLink = order
+    ? `/leave-review?orderNumber=${encodeURIComponent(
+        order.orderNumber
+      )}`
+    : "/leave-review";
 
   if (!detailsLoaded) {
     return (
@@ -381,7 +386,6 @@ export default function TrackOrderPage() {
 
           {order && (
             <section className="mt-8 overflow-hidden rounded-[36px] border border-white/10 bg-white/5">
-              {/* Order heading */}
               <div className="p-5 sm:p-8">
                 <div className="flex flex-col gap-5 border-b border-white/10 pb-7 sm:flex-row sm:items-start sm:justify-between">
                   <div>
@@ -402,8 +406,7 @@ export default function TrackOrderPage() {
                     className={`w-fit rounded-full border px-5 py-3 text-sm font-black ${
                       isCancelled
                         ? "border-red-500/20 bg-red-500/10 text-red-300"
-                        : normalisedOrderStatus ===
-                            "delivered"
+                        : isDelivered
                           ? "border-green-500/20 bg-green-500/10 text-green-300"
                           : "border-white bg-white text-black"
                     }`}
@@ -412,7 +415,6 @@ export default function TrackOrderPage() {
                   </div>
                 </div>
 
-                {/* Cancelled status */}
                 {isCancelled ? (
                   <div className="mt-8 rounded-[28px] border border-red-500/20 bg-red-500/10 p-6">
                     <div className="flex items-start gap-4">
@@ -435,7 +437,6 @@ export default function TrackOrderPage() {
                     </div>
                   </div>
                 ) : (
-                  /* Professional timeline */
                   <div className="mt-9">
                     <p className="text-sm font-black uppercase tracking-[0.3em] text-gray-500">
                       Order Progress
@@ -539,7 +540,32 @@ export default function TrackOrderPage() {
                   </div>
                 )}
 
-                {/* Order details */}
+                {isDelivered && (
+                  <div className="mt-9 rounded-[28px] border border-yellow-400/20 bg-yellow-400/10 p-6 text-center">
+                    <div className="text-4xl">
+                      ★★★★★
+                    </div>
+
+                    <h3 className="mt-4 text-2xl font-black">
+                      How was your experience?
+                    </h3>
+
+                    <p className="mx-auto mt-3 max-w-xl leading-7 text-gray-300">
+                      Your order has been delivered.
+                      Share your experience and help
+                      other customers shop with
+                      confidence.
+                    </p>
+
+                    <Link
+                      href={reviewLink}
+                      className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-white px-8 py-4 font-black text-black transition hover:bg-gray-200 sm:w-auto"
+                    >
+                      Leave a Review
+                    </Link>
+                  </div>
+                )}
+
                 <div className="mt-9 border-t border-white/10 pt-8">
                   <h3 className="text-xl font-black">
                     Order Details
@@ -578,7 +604,6 @@ export default function TrackOrderPage() {
                   </div>
                 </div>
 
-                {/* Price summary */}
                 <div className="mt-4 rounded-3xl border border-white/10 bg-black/40 p-5 sm:p-6">
                   <div className="flex justify-between gap-5 text-gray-400">
                     <span>Products Total</span>
@@ -635,13 +660,27 @@ export default function TrackOrderPage() {
                   ).toLocaleString("en-GB")}
                 </p>
 
-                {/* Support actions */}
-                <div className="mt-7 grid gap-3 sm:grid-cols-2">
+                <div
+                  className={`mt-7 grid gap-3 ${
+                    isDelivered
+                      ? "sm:grid-cols-3"
+                      : "sm:grid-cols-2"
+                  }`}
+                >
+                  {isDelivered && (
+                    <Link
+                      href={reviewLink}
+                      className="flex items-center justify-center rounded-full bg-white px-7 py-4 text-center font-black text-black transition hover:bg-gray-200"
+                    >
+                      Leave a Review
+                    </Link>
+                  )}
+
                   <a
-                    href={`https://www.instagram.com/orvix_tech/?text=${contactMessage}`}
+                    href="https://www.instagram.com/orvix_tech/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center rounded-full bg-white px-7 py-4 font-black text-black transition hover:bg-gray-200"
+                    className="flex items-center justify-center rounded-full border border-white/15 px-7 py-4 text-center font-black text-white transition hover:bg-white/10"
                   >
                     Contact ORVIX
                   </a>
