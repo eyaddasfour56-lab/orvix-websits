@@ -2,11 +2,15 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 import Navbar from "@/components/Navbar";
 
 const PRODUCT_PRICE = 7900;
 const CART_STORAGE_KEY = "orvixCart";
+const PRODUCT_SLUG = "google-fitbit-air";
 
 type CartItem = {
   id: string;
@@ -16,6 +20,19 @@ type CartItem = {
   price: number;
   quantity: number;
   slug: string;
+};
+
+type ProductReview = {
+  id: string;
+  customer_name: string;
+  rating: number;
+  review_text: string;
+  created_at: string;
+};
+
+type ReviewStatistics = {
+  totalReviews: number;
+  averageRating: number;
 };
 
 const colours = [
@@ -191,9 +208,10 @@ const featureGroups = [
 
 function readCart(): CartItem[] {
   try {
-    const savedCart = window.localStorage.getItem(
-      CART_STORAGE_KEY
-    );
+    const savedCart =
+      window.localStorage.getItem(
+        CART_STORAGE_KEY
+      );
 
     if (!savedCart) {
       return [];
@@ -209,14 +227,145 @@ function readCart(): CartItem[] {
   }
 }
 
+function renderStars(rating: number) {
+  const roundedRating = Math.round(rating);
+
+  return [1, 2, 3, 4, 5].map(
+    (star) => (
+      <span key={star}>
+        {star <= roundedRating
+          ? "★"
+          : "☆"}
+      </span>
+    )
+  );
+}
+
+function formatReviewDate(date: string) {
+  const parsedDate = new Date(date);
+
+  if (
+    Number.isNaN(parsedDate.getTime())
+  ) {
+    return "";
+  }
+
+  return parsedDate.toLocaleDateString(
+    "en-GB",
+    {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }
+  );
+}
+
 export default function GoogleFitbitAirPage() {
   const [selectedColour, setSelectedColour] =
     useState(colours[0]);
 
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] =
+    useState(1);
 
-  const [showAddedMessage, setShowAddedMessage] =
-    useState(false);
+  const [
+    showAddedMessage,
+    setShowAddedMessage,
+  ] = useState(false);
+
+  const [reviews, setReviews] = useState<
+    ProductReview[]
+  >([]);
+
+  const [
+    reviewStatistics,
+    setReviewStatistics,
+  ] = useState<ReviewStatistics>({
+    totalReviews: 0,
+    averageRating: 0,
+  });
+
+  const [
+    reviewsLoading,
+    setReviewsLoading,
+  ] = useState(true);
+
+  const [reviewsError, setReviewsError] =
+    useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadReviews() {
+      setReviewsLoading(true);
+      setReviewsError("");
+
+      try {
+        const response = await fetch(
+          `/api/reviews?productSlug=${encodeURIComponent(
+            PRODUCT_SLUG
+          )}`,
+          {
+            cache: "no-store",
+          }
+        );
+
+        const result =
+          await response.json();
+
+        if (
+          !response.ok ||
+          !result.success
+        ) {
+          throw new Error(
+            result.message ||
+              "Could not load reviews."
+          );
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        setReviews(
+          Array.isArray(result.reviews)
+            ? result.reviews
+            : []
+        );
+
+        setReviewStatistics({
+          totalReviews: Number(
+            result.statistics
+              ?.totalReviews || 0
+          ),
+
+          averageRating: Number(
+            result.statistics
+              ?.averageRating || 0
+          ),
+        });
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        setReviewsError(
+          error instanceof Error
+            ? error.message
+            : "Could not load reviews."
+        );
+      } finally {
+        if (!cancelled) {
+          setReviewsLoading(false);
+        }
+      }
+    }
+
+    loadReviews();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function openCartDrawer() {
     window.setTimeout(() => {
@@ -232,7 +381,8 @@ export default function GoogleFitbitAirPage() {
   function addToCart() {
     const currentCart = readCart();
 
-    const itemId = `google-fitbit-air-${selectedColour.name.toLowerCase()}`;
+    const itemId =
+      `google-fitbit-air-${selectedColour.name.toLowerCase()}`;
 
     const existingItemIndex =
       currentCart.findIndex(
@@ -247,7 +397,9 @@ export default function GoogleFitbitAirPage() {
           index === existingItemIndex
             ? {
                 ...item,
-                image: selectedColour.image,
+                image:
+                  selectedColour.image,
+
                 quantity: Math.min(
                   item.quantity + quantity,
                   10
@@ -263,10 +415,13 @@ export default function GoogleFitbitAirPage() {
         image: selectedColour.image,
         price: PRODUCT_PRICE,
         quantity,
-        slug: "google-fitbit-air",
+        slug: PRODUCT_SLUG,
       };
 
-      updatedCart = [...currentCart, newItem];
+      updatedCart = [
+        ...currentCart,
+        newItem,
+      ];
     }
 
     window.localStorage.setItem(
@@ -294,10 +449,11 @@ export default function GoogleFitbitAirPage() {
       {/* Added-to-cart notification */}
       <div
         role="status"
+        aria-live="polite"
         className={`fixed left-1/2 top-24 z-[100] -translate-x-1/2 transition duration-300 ${
           showAddedMessage
             ? "translate-y-0 opacity-100"
-            : "-translate-y-4 pointer-events-none opacity-0"
+            : "pointer-events-none -translate-y-4 opacity-0"
         }`}
       >
         <div className="flex items-center gap-3 whitespace-nowrap rounded-full border border-white/15 bg-white px-5 py-3 font-black text-black shadow-2xl">
@@ -341,6 +497,39 @@ export default function GoogleFitbitAirPage() {
               Google Fitbit Air
             </h1>
 
+            {/* Rating under product name */}
+            <a
+              href="#customer-reviews"
+              className="mt-5 flex w-fit flex-wrap items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-3 transition hover:border-white/25 hover:bg-white/10"
+            >
+              <div className="flex items-center gap-1 text-xl text-yellow-300">
+                {renderStars(
+                  reviewStatistics.averageRating
+                )}
+              </div>
+
+              <strong className="text-sm">
+                {reviewStatistics.averageRating >
+                0
+                  ? reviewStatistics.averageRating.toFixed(
+                      1
+                    )
+                  : "No rating yet"}
+              </strong>
+
+              <span className="text-sm text-gray-500">
+                (
+                {
+                  reviewStatistics.totalReviews
+                }{" "}
+                {reviewStatistics.totalReviews ===
+                1
+                  ? "review"
+                  : "reviews"}
+                )
+              </span>
+            </a>
+
             <p className="mt-6 max-w-xl text-lg leading-8 text-gray-400">
               A lightweight screen-free tracker
               designed to monitor your daily
@@ -364,7 +553,9 @@ export default function GoogleFitbitAirPage() {
                     key={colour.name}
                     type="button"
                     onClick={() =>
-                      setSelectedColour(colour)
+                      setSelectedColour(
+                        colour
+                      )
                     }
                     className={`flex items-center justify-between rounded-2xl border p-5 font-bold transition ${
                       selected
@@ -381,7 +572,9 @@ export default function GoogleFitbitAirPage() {
                         } ${colour.dot}`}
                       />
 
-                      <span>{colour.name}</span>
+                      <span>
+                        {colour.name}
+                      </span>
                     </span>
 
                     <span>
@@ -404,8 +597,12 @@ export default function GoogleFitbitAirPage() {
                 <button
                   type="button"
                   onClick={() =>
-                    setQuantity((current) =>
-                      Math.max(1, current - 1)
+                    setQuantity(
+                      (current) =>
+                        Math.max(
+                          1,
+                          current - 1
+                        )
                     )
                   }
                   aria-label="Decrease quantity"
@@ -421,8 +618,12 @@ export default function GoogleFitbitAirPage() {
                 <button
                   type="button"
                   onClick={() =>
-                    setQuantity((current) =>
-                      Math.min(10, current + 1)
+                    setQuantity(
+                      (current) =>
+                        Math.min(
+                          10,
+                          current + 1
+                        )
                     )
                   }
                   aria-label="Increase quantity"
@@ -451,22 +652,27 @@ export default function GoogleFitbitAirPage() {
               {quantity > 1 && (
                 <div className="mt-4 flex items-center justify-between gap-4 border-t border-white/10 pt-4">
                   <span className="text-sm text-gray-400">
-                    Total for {quantity} items
+                    Total for {quantity}{" "}
+                    items
                   </span>
 
                   <strong>
                     {(
-                      PRODUCT_PRICE * quantity
-                    ).toLocaleString("en-GB")}{" "}
+                      PRODUCT_PRICE *
+                      quantity
+                    ).toLocaleString(
+                      "en-GB"
+                    )}{" "}
                     EGP
                   </strong>
                 </div>
               )}
 
               <p className="mt-4 text-sm leading-6 text-gray-400">
-                Delivery fees will be calculated
-                during checkout after selecting
-                your governorate.
+                Delivery fees will be
+                calculated during checkout
+                after selecting your
+                governorate.
               </p>
             </div>
 
@@ -533,42 +739,49 @@ export default function GoogleFitbitAirPage() {
             </h2>
 
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-gray-400">
-              The most important technical details,
-              organised into simple cards.
+              The most important technical
+              details, organised into simple
+              cards.
             </p>
           </div>
 
           <div className="mt-16 space-y-16">
-            {featureGroups.map((group) => (
-              <section key={group.title}>
-                <div className="flex items-center gap-5">
-                  <h3 className="shrink-0 text-2xl font-black uppercase tracking-[0.15em] sm:text-3xl">
-                    {group.title}
-                  </h3>
+            {featureGroups.map(
+              (group) => (
+                <section key={group.title}>
+                  <div className="flex items-center gap-5">
+                    <h3 className="shrink-0 text-2xl font-black uppercase tracking-[0.15em] sm:text-3xl">
+                      {group.title}
+                    </h3>
 
-                  <div className="h-px flex-1 bg-white/15" />
-                </div>
+                    <div className="h-px flex-1 bg-white/15" />
+                  </div>
 
-                <div className="mt-7 grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  {group.features.map(
-                    (feature) => (
-                      <article
-                        key={feature.title}
-                        className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6"
-                      >
-                        <h4 className="font-bold leading-6 text-white sm:text-lg">
-                          {feature.title}
-                        </h4>
+                  <div className="mt-7 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    {group.features.map(
+                      (feature) => (
+                        <article
+                          key={
+                            feature.title
+                          }
+                          className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6"
+                        >
+                          <h4 className="font-bold leading-6 text-white sm:text-lg">
+                            {feature.title}
+                          </h4>
 
-                        <p className="mt-3 text-sm leading-6 text-gray-400">
-                          {feature.description}
-                        </p>
-                      </article>
-                    )
-                  )}
-                </div>
-              </section>
-            ))}
+                          <p className="mt-3 text-sm leading-6 text-gray-400">
+                            {
+                              feature.description
+                            }
+                          </p>
+                        </article>
+                      )
+                    )}
+                  </div>
+                </section>
+              )
+            )}
           </div>
 
           <div className="mt-16 rounded-3xl border border-white/10 bg-white/5 p-6">
@@ -593,11 +806,201 @@ export default function GoogleFitbitAirPage() {
           </div>
 
           <p className="mx-auto mt-12 max-w-3xl text-center text-xs leading-6 text-gray-600">
-            Battery life, tracking accuracy and
-            feature availability may vary depending
-            on usage, phone compatibility and
-            software version.
+            Battery life, tracking accuracy
+            and feature availability may vary
+            depending on usage, phone
+            compatibility and software
+            version.
           </p>
+        </div>
+      </section>
+
+      {/* Customer Reviews */}
+      <section
+        id="customer-reviews"
+        className="scroll-mt-28 border-t border-white/10 bg-[#070707] py-20 sm:py-28"
+      >
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
+                Verified Customers
+              </p>
+
+              <h2 className="mt-5 text-4xl font-black sm:text-6xl">
+                Customer Reviews
+              </h2>
+
+              <p className="mt-5 max-w-2xl text-lg leading-8 text-gray-400">
+                Real feedback from customers
+                who received their ORVIX order.
+              </p>
+            </div>
+
+            <Link
+              href="/leave-review"
+              className="inline-flex items-center justify-center rounded-full border border-white/15 px-7 py-4 font-black transition hover:bg-white/10"
+            >
+              Leave a Review
+            </Link>
+          </div>
+
+          {/* Review statistics */}
+          <div className="mt-10 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+              <p className="text-sm text-gray-500">
+                Average Rating
+              </p>
+
+              <p className="mt-3 text-4xl font-black">
+                {reviewStatistics.averageRating >
+                0
+                  ? reviewStatistics.averageRating.toFixed(
+                      1
+                    )
+                  : "—"}
+              </p>
+
+              <div className="mt-3 flex gap-1 text-xl text-yellow-300">
+                {renderStars(
+                  reviewStatistics.averageRating
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+              <p className="text-sm text-gray-500">
+                Customer Reviews
+              </p>
+
+              <p className="mt-3 text-4xl font-black">
+                {
+                  reviewStatistics.totalReviews
+                }
+              </p>
+
+              <p className="mt-3 text-sm text-gray-400">
+                Approved verified reviews
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+              <p className="text-sm text-gray-500">
+                Purchase Verification
+              </p>
+
+              <p className="mt-3 text-xl font-black text-green-300">
+                Verified Orders Only
+              </p>
+
+              <p className="mt-3 text-sm leading-6 text-gray-400">
+                Reviews can only be submitted
+                using a delivered ORVIX order.
+              </p>
+            </div>
+          </div>
+
+          {/* Loading */}
+          {reviewsLoading ? (
+            <div className="mt-10 rounded-3xl border border-white/10 bg-white/5 p-10 text-center">
+              <div className="mx-auto h-9 w-9 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+
+              <p className="mt-4 text-gray-400">
+                Loading customer reviews...
+              </p>
+            </div>
+          ) : reviewsError ? (
+            /* Error */
+            <div className="mt-10 rounded-3xl border border-red-500/20 bg-red-500/10 p-6 text-red-300">
+              <p className="font-black">
+                Could not load customer
+                reviews
+              </p>
+
+              <p className="mt-2 text-sm leading-6 text-red-200/70">
+                {reviewsError}
+              </p>
+            </div>
+          ) : reviews.length === 0 ? (
+            /* No reviews */
+            <div className="mt-10 rounded-[32px] border border-white/10 bg-white/5 p-10 text-center">
+              <div className="text-4xl text-yellow-300">
+                ☆☆☆☆☆
+              </div>
+
+              <h3 className="mt-5 text-2xl font-black">
+                No reviews yet
+              </h3>
+
+              <p className="mx-auto mt-3 max-w-xl leading-7 text-gray-400">
+                Delivered customers can submit
+                the first verified review for
+                this product.
+              </p>
+
+              <Link
+                href="/leave-review"
+                className="mt-6 inline-flex items-center justify-center rounded-full bg-white px-7 py-4 font-black text-black transition hover:bg-gray-200"
+              >
+                Leave the First Review
+              </Link>
+            </div>
+          ) : (
+            /* Reviews list */
+            <div className="mt-10 grid gap-5 lg:grid-cols-2">
+              {reviews.map((review) => (
+                <article
+                  key={review.id}
+                  className="rounded-[32px] border border-white/10 bg-white/5 p-6 sm:p-7"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-xl font-black">
+                        {
+                          review.customer_name
+                        }
+                      </h3>
+
+                      <div className="mt-2 inline-flex items-center rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1 text-xs font-black text-green-300">
+                        ✓ Verified Purchase
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="flex gap-1 text-xl text-yellow-300">
+                        {[1, 2, 3, 4, 5].map(
+                          (star) => (
+                            <span
+                              key={star}
+                            >
+                              {star <=
+                              review.rating
+                                ? "★"
+                                : "☆"}
+                            </span>
+                          )
+                        )}
+                      </div>
+
+                      <p className="mt-1 text-xs text-gray-500">
+                        {review.rating}/5
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="mt-6 whitespace-pre-wrap break-words text-base leading-8 text-gray-300">
+                    “{review.review_text}”
+                  </p>
+
+                  <p className="mt-6 border-t border-white/10 pt-5 text-xs text-gray-600">
+                    {formatReviewDate(
+                      review.created_at
+                    )}
+                  </p>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -605,7 +1008,8 @@ export default function GoogleFitbitAirPage() {
       <footer className="border-t border-white/10 py-8">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 text-sm text-gray-500 sm:px-6 md:flex-row">
           <p>
-            © 2026 ORVIX. All rights reserved.
+            © 2026 ORVIX. All rights
+            reserved.
           </p>
 
           <Link
@@ -628,7 +1032,8 @@ export default function GoogleFitbitAirPage() {
 
             <p className="mt-1 text-lg font-black">
               {(
-                PRODUCT_PRICE * quantity
+                PRODUCT_PRICE *
+                quantity
               ).toLocaleString("en-GB")}{" "}
               EGP
             </p>
