@@ -1,1482 +1,292 @@
 "use client";
 
-import Link from "next/link";
-import {
-  FormEvent,
-  TouchEvent,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import Navbar from "@/components/Navbar";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
-type ProductStatus =
-  | "available"
-  | "coming_soon"
-  | "out_of_stock"
-  | "hidden";
-
-type ColourName =
-  | "Black"
-  | "Lavender"
-  | "Berry";
-
-type Product = {
-  id: string;
-  name: string;
-  slug: string;
-  shortDescription?: string;
-  description?: string;
-  price: number;
-  image?: string;
-  images?: string[];
-  status: ProductStatus;
-  stockQuantity: number;
-  lowStockLimit: number;
-  allowWishlist: boolean;
-  allowPurchase: boolean;
-};
-
-type CartItem = {
-  id: string;
-  name: string;
-  slug: string;
-  price: number;
+type ProductColour = {
+  name: "Black" | "Lavender" | "Berry";
   image: string;
-  colour: ColourName;
-  quantity: number;
+  colourClass: string;
 };
 
-type WishlistItem = {
-  id: string;
-  name: string;
-  slug: string;
-  price: number;
-  image: string;
-};
-
-type Review = {
-  id: string;
-  name?: string;
-  customer_name?: string;
-  rating: number;
-  comment?: string;
-  review?: string;
-  status?: string;
-  created_at?: string;
-};
-
-type TechCategory = {
-  title: string;
-  icon: string;
-  description?: string;
-  items: string[];
-};
-
-const colours: {
-  name: ColourName;
-  value: string;
-  className: string;
-}[] = [
+const colours: ProductColour[] = [
   {
     name: "Black",
-    value: "black",
-    className: "bg-[#111111]",
+    image: "/black.png",
+    colourClass: "bg-black",
   },
   {
     name: "Lavender",
-    value: "lavender",
-    className: "bg-[#b7a7d8]",
+    image: "/lavender.jpeg",
+    colourClass: "bg-[#aaa4d8]",
   },
   {
     name: "Berry",
-    value: "berry",
-    className: "bg-[#8c3157]",
+    image: "/berry.jpeg",
+    colourClass: "bg-[#c74b76]",
   },
 ];
 
-const colourImages: Record<
-  ColourName,
-  string[]
-> = {
-  Black: ["/black.png"],
-  Lavender: ["/lavender.jpeg"],
-  Berry: ["/berry.jpeg"],
-};
+export default function HomePage() {
+  const router = useRouter();
 
-const features = [
-  {
-    number: "01",
-    title: "Screen-free tracking",
-    description:
-      "Track your health and fitness without another distracting screen on your wrist.",
-  },
-  {
-    number: "02",
-    title: "Heart-rate monitoring",
-    description:
-      "Follow daily heart-rate information and better understand your activity.",
-  },
-  {
-    number: "03",
-    title: "Sleep tracking",
-    description:
-      "Review sleep duration and overnight health information through the connected app.",
-  },
-  {
-    number: "04",
-    title: "Up to 7-day battery",
-    description:
-      "Spend less time charging and more time tracking your routine.",
-  },
-  {
-    number: "05",
-    title: "Lightweight design",
-    description:
-      "Designed for comfortable everyday wear, workouts and sleep.",
-  },
-  {
-    number: "06",
-    title: "Health insights",
-    description:
-      "Track activity, SpO₂ and recovery trends through the connected app.",
-  },
-];
+  const [selectedColour, setSelectedColour] =
+    useState<ProductColour>(colours[0]);
 
-const techCategories: TechCategory[] = [
-  {
-    title: "Memory",
-    icon: "◫",
-    description:
-      "Health information remains available between synchronisations.",
-    items: [
-      "Saves up to 7 days of detailed motion data",
-      "Saves daily totals for the previous 30 days",
-      "Stores heart-rate information at short intervals",
-    ],
-  },
-  {
-    title: "Battery & Power",
-    icon: "ϟ",
-    items: [
-      "Battery life of up to 7 days",
-      "Approximately 90 minutes charging time",
-      "Quick-charging support",
-      "Lithium-polymer battery",
-      "USB-C charging cable included",
-      "Bluetooth 5.0 connectivity",
-    ],
-  },
-  {
-    title: "Materials",
-    icon: "◇",
-    items: [
-      "Lightweight tracker housing",
-      "Flexible silicone wristband",
-      "Designed for comfortable everyday wear",
-      "Fibre-based recyclable packaging",
-    ],
-  },
-  {
-    title: "Sensors & Components",
-    icon: "◎",
-    items: [
-      "Optical heart-rate monitor",
-      "Three-axis accelerometer",
-      "Gyroscope",
-      "Red and infrared sensors",
-      "Temperature sensor",
-      "Ambient-light sensor",
-      "Vibration motor",
-    ],
-  },
-  {
-    title: "Band Size",
-    icon: "⌁",
-    items: [
-      "One-size adjustable wristband",
-      "Small wrist size: approximately 130–175 mm",
-      "Large wrist size: approximately 165–210 mm",
-      "Flexible silicone band included",
-    ],
-  },
-  {
-    title: "Water Resistance",
-    icon: "≈",
-    items: [
-      "Water-resistant up to 50 metres",
-      "Suitable for everyday use",
-      "Dry the tracker before wearing it again",
-      "Not intended for deep-water activities",
-    ],
-  },
-  {
-    title: "Heart Rate",
-    icon: "♥",
-    items: [
-      "Continuous optical heart-rate tracking",
-      "Accuracy may vary with movement and placement",
-      "Results may vary by physiology and environment",
-      "Designed for general wellness information",
-    ],
-  },
-  {
-    title: "Care",
-    icon: "✦",
-    items: [
-      "Clean the band gently after exercise",
-      "Allow your skin to breathe regularly",
-      "Dry the tracker and band before wearing",
-      "Avoid harsh cleaning chemicals",
-    ],
-  },
-  {
-    title: "Dimensions",
-    icon: "↔",
-    items: [
-      "Length: approximately 34.9 mm",
-      "Width: approximately 17 mm",
-      "Height: approximately 8.3 mm",
-      "Compact screen-free tracker body",
-    ],
-  },
-  {
-    title: "Weight",
-    icon: "●",
-    items: [
-      "Tracker without band: approximately 5.2 g",
-      "Tracker with band: approximately 12 g",
-      "Suitable for day and night wear",
-    ],
-  },
-  {
-    title: "Compatibility",
-    icon: "⌘",
-    items: [
-      "Google Account required",
-      "Compatible mobile application required",
-      "Supports compatible Android devices",
-      "Supports compatible iPhone devices",
-      "Bluetooth Low Energy required",
-      "Internet connection may be required",
-    ],
-  },
-  {
-    title: "Safety Information",
-    icon: "!",
-    items: [
-      "Designed for general wellness use",
-      "Not a replacement for professional medical advice",
-      "Stop using it if irritation develops",
-      "Read the safety documentation before use",
-    ],
-  },
-  {
-    title: "What’s in the Box",
-    icon: "□",
-    items: [
-      "Google Fitbit Air tracker",
-      "Wristband",
-      "USB-C charging cable",
-      "Quick-start guide",
-      "Safety information",
-    ],
-  },
-];
+  const [quantity, setQuantity] = useState(1);
 
-function formatPrice(price: number) {
-  if (!price || price <= 0) {
-    return "Price coming soon";
-  }
-
-  return `${price.toLocaleString(
-    "en-GB"
-  )} EGP`;
-}
-
-function readStorage<T>(
-  key: string,
-  fallback: T
-): T {
-  try {
-    const saved =
-      window.localStorage.getItem(key);
-
-    if (!saved) {
-      return fallback;
-    }
-
-    return JSON.parse(saved) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function getReviewName(review: Review) {
-  return (
-    review.name ||
-    review.customer_name ||
-    "ORVIX Customer"
-  );
-}
-
-function getReviewComment(review: Review) {
-  return review.comment || review.review || "";
-}
-
-export default function GoogleFitbitAirPage() {
-  const [product, setProduct] =
-    useState<Product | null>(null);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [pageError, setPageError] =
-    useState("");
-
-  const [
-    selectedColour,
-    setSelectedColour,
-  ] = useState<ColourName>("Black");
-
-  const [quantity, setQuantity] =
-    useState(1);
-
-  const [
-    activeImageIndex,
-    setActiveImageIndex,
-  ] = useState(0);
-
-  const [touchStartX, setTouchStartX] =
-    useState<number | null>(null);
-
-  const [touchEndX, setTouchEndX] =
-    useState<number | null>(null);
-
-  const [message, setMessage] =
-    useState("");
-
-  const [messageType, setMessageType] =
-    useState<"success" | "error" | "">(
-      ""
-    );
-
-  const [
-    isInWishlist,
-    setIsInWishlist,
-  ] = useState(false);
-
-  const [
-    activeSection,
-    setActiveSection,
-  ] = useState<
-    "overview" | "specifications" | "reviews"
-  >("overview");
-
-  const [reviews, setReviews] =
-    useState<Review[]>([]);
-
-  const [
-    reviewsLoading,
-    setReviewsLoading,
-  ] = useState(true);
-
-  const [reviewName, setReviewName] =
-    useState("");
-
-  const [
-    reviewRating,
-    setReviewRating,
-  ] = useState(5);
-
-  const [
-    reviewComment,
-    setReviewComment,
-  ] = useState("");
-
-  const [
-    submittingReview,
-    setSubmittingReview,
-  ] = useState(false);
-
-  useEffect(() => {
-    async function loadProduct() {
-      setLoading(true);
-      setPageError("");
-
-      try {
-        const response = await fetch(
-          "/api/products?slug=google-fitbit-air",
-          {
-            cache: "no-store",
-          }
-        );
-
-        const result =
-          await response.json();
-
-        if (
-          !response.ok ||
-          !result.success ||
-          !result.product
-        ) {
-          throw new Error(
-            result.message ||
-              "Google Fitbit Air could not be loaded."
-          );
-        }
-
-        const loadedProduct: Product = {
-          ...result.product,
-          price: Number(
-            result.product.price || 0
-          ),
-          stockQuantity: Number(
-            result.product.stockQuantity || 0
-          ),
-          lowStockLimit: Number(
-            result.product.lowStockLimit || 0
-          ),
-          allowWishlist: Boolean(
-            result.product.allowWishlist
-          ),
-          allowPurchase: Boolean(
-            result.product.allowPurchase
-          ),
-        };
-
-        setProduct(loadedProduct);
-
-        const wishlist =
-          readStorage<WishlistItem[]>(
-            "orvixWishlist",
-            []
-          );
-
-        setIsInWishlist(
-          wishlist.some(
-            (item) =>
-              item.id ===
-                loadedProduct.id ||
-              item.slug ===
-                loadedProduct.slug
-          )
-        );
-      } catch (error) {
-        setPageError(
-          error instanceof Error
-            ? error.message
-            : "The product could not be loaded."
-        );
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadProduct();
-  }, []);
-
-  useEffect(() => {
-    async function loadReviews() {
-      setReviewsLoading(true);
-
-      try {
-        const response = await fetch(
-          "/api/reviews?productSlug=google-fitbit-air",
-          {
-            cache: "no-store",
-          }
-        );
-
-        if (!response.ok) {
-          setReviews([]);
-          return;
-        }
-
-        const result =
-          await response.json();
-
-        const reviewList =
-          Array.isArray(result.reviews)
-            ? result.reviews.filter(
-                (review: Review) =>
-                  !review.status ||
-                  review.status ===
-                    "approved"
-              )
-            : [];
-
-        setReviews(reviewList);
-      } catch {
-        setReviews([]);
-      } finally {
-        setReviewsLoading(false);
-      }
-    }
-
-    loadReviews();
-  }, []);
-
-  const productImages = useMemo(
-    () => colourImages[selectedColour],
-    [selectedColour]
-  );
-
-  const activeImage =
-    productImages[activeImageIndex] ||
-    productImages[0] ||
-    "/black.png";
-
-  const canPurchase = Boolean(
-    product &&
-      product.status === "available" &&
-      product.stockQuantity > 0 &&
-      product.allowPurchase
-  );
-
-  const averageRating = useMemo(() => {
-    if (reviews.length === 0) {
-      return 0;
-    }
-
-    const total = reviews.reduce(
-      (sum, review) =>
-        sum +
-        Number(review.rating || 0),
-      0
-    );
-
-    return total / reviews.length;
-  }, [reviews]);
-
-  function showMessage(
-    text: string,
-    type: "success" | "error"
-  ) {
-    setMessage(text);
-    setMessageType(type);
-
-    window.setTimeout(() => {
-      setMessage("");
-      setMessageType("");
-    }, 4500);
-  }
-
-  function selectColour(
-    colour: ColourName
-  ) {
-    setSelectedColour(colour);
-    setActiveImageIndex(0);
-  }
-
-  function previousImage() {
-    setActiveImageIndex((current) =>
-      current === 0
-        ? productImages.length - 1
-        : current - 1
+  function decreaseQuantity() {
+    setQuantity((currentQuantity) =>
+      currentQuantity > 1 ? currentQuantity - 1 : 1
     );
   }
 
-  function nextImage() {
-    setActiveImageIndex((current) =>
-      current ===
-      productImages.length - 1
-        ? 0
-        : current + 1
-    );
+  function increaseQuantity() {
+    setQuantity((currentQuantity) => currentQuantity + 1);
   }
 
-  function handleTouchStart(
-    event: TouchEvent<HTMLDivElement>
-  ) {
-    setTouchEndX(null);
+  function handleBuyNow() {
+    const checkoutProduct = {
+      id: "google-fitbit-air",
+      name: "Google Fitbit Air",
+      colour: selectedColour.name,
+      quantity,
+      price: 7900,
+      image: selectedColour.image,
+    };
 
-    setTouchStartX(
-      event.targetTouches[0].clientX
-    );
-  }
-
-  function handleTouchMove(
-    event: TouchEvent<HTMLDivElement>
-  ) {
-    setTouchEndX(
-      event.targetTouches[0].clientX
-    );
-  }
-
-  function handleTouchEnd() {
-    if (
-      touchStartX === null ||
-      touchEndX === null ||
-      productImages.length <= 1
-    ) {
-      return;
-    }
-
-    const distance =
-      touchStartX - touchEndX;
-
-    if (distance > 50) {
-      nextImage();
-    } else if (distance < -50) {
-      previousImage();
-    }
-
-    setTouchStartX(null);
-    setTouchEndX(null);
-  }
-
-  function updateQuantity(value: number) {
-    if (!product) {
-      return;
-    }
-
-    setQuantity(
-      Math.min(
-        Math.max(value, 1),
-        Math.max(
-          product.stockQuantity,
-          1
-        )
-      )
-    );
-  }
-
-  function addToCart() {
-    if (!product || !canPurchase) {
-      showMessage(
-        "This product is currently unavailable.",
-        "error"
-      );
-      return;
-    }
-
-    const cart =
-      readStorage<CartItem[]>(
-        "orvixCart",
-        []
-      );
-
-    const existingIndex =
-      cart.findIndex(
-        (item) =>
-          item.id === product.id &&
-          item.colour ===
-            selectedColour
-      );
-
-    if (existingIndex >= 0) {
-      cart[existingIndex] = {
-        ...cart[existingIndex],
-        image: activeImage,
-        quantity: Math.min(
-          Number(
-            cart[existingIndex]
-              .quantity || 1
-          ) + quantity,
-          product.stockQuantity
-        ),
-      };
-    } else {
-      cart.push({
-        id: product.id,
-        name: product.name,
-        slug: product.slug,
-        price: product.price,
-        image: activeImage,
-        colour: selectedColour,
-        quantity: Math.min(
-          quantity,
-          product.stockQuantity
-        ),
-      });
-    }
-
-    window.localStorage.setItem(
-      "orvixCart",
-      JSON.stringify(cart)
+    localStorage.setItem(
+      "orvixCheckoutProduct",
+      JSON.stringify(checkoutProduct)
     );
 
-    window.dispatchEvent(
-      new Event("storage")
-    );
+    const checkoutParameters = new URLSearchParams({
+      product: checkoutProduct.name,
+      colour: checkoutProduct.colour,
+      quantity: checkoutProduct.quantity.toString(),
+      price: checkoutProduct.price.toString(),
+      image: checkoutProduct.image,
+    });
 
-    window.dispatchEvent(
-      new CustomEvent(
-        "orvix-cart-updated"
-      )
-    );
-
-    showMessage(
-      `${product.name} in ${selectedColour} was added to your cart.`,
-      "success"
-    );
-  }
-
-  function toggleWishlist() {
-    if (
-      !product ||
-      !product.allowWishlist
-    ) {
-      return;
-    }
-
-    const wishlist =
-      readStorage<WishlistItem[]>(
-        "orvixWishlist",
-        []
-      );
-
-    const alreadyAdded =
-      wishlist.some(
-        (item) =>
-          item.id === product.id ||
-          item.slug === product.slug
-      );
-
-    const updatedWishlist =
-      alreadyAdded
-        ? wishlist.filter(
-            (item) =>
-              item.id !== product.id &&
-              item.slug !== product.slug
-          )
-        : [
-            ...wishlist,
-            {
-              id: product.id,
-              name: product.name,
-              slug: product.slug,
-              price: product.price,
-              image: activeImage,
-            },
-          ];
-
-    window.localStorage.setItem(
-      "orvixWishlist",
-      JSON.stringify(
-        updatedWishlist
-      )
-    );
-
-    window.dispatchEvent(
-      new Event("storage")
-    );
-
-    window.dispatchEvent(
-      new CustomEvent(
-        "orvix-wishlist-updated"
-      )
-    );
-
-    setIsInWishlist(!alreadyAdded);
-
-    showMessage(
-      alreadyAdded
-        ? "Removed from your wishlist."
-        : "Added to your wishlist.",
-      "success"
-    );
-  }
-
-  async function submitReview(
-    event: FormEvent<HTMLFormElement>
-  ) {
-    event.preventDefault();
-
-    if (!reviewName.trim()) {
-      showMessage(
-        "Please enter your name.",
-        "error"
-      );
-      return;
-    }
-
-    if (
-      reviewComment.trim().length < 5
-    ) {
-      showMessage(
-        "Please write a longer review.",
-        "error"
-      );
-      return;
-    }
-
-    setSubmittingReview(true);
-
-    try {
-      const response = await fetch(
-        "/api/reviews",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            productSlug:
-              "google-fitbit-air",
-            name: reviewName.trim(),
-            rating: reviewRating,
-            comment:
-              reviewComment.trim(),
-          }),
-        }
-      );
-
-      const result =
-        await response.json();
-
-      if (
-        !response.ok ||
-        !result.success
-      ) {
-        throw new Error(
-          result.message ||
-            "Review could not be submitted."
-        );
-      }
-
-      setReviewName("");
-      setReviewRating(5);
-      setReviewComment("");
-
-      showMessage(
-        "Your review was submitted for approval.",
-        "success"
-      );
-    } catch (error) {
-      showMessage(
-        error instanceof Error
-          ? error.message
-          : "Review could not be submitted.",
-        "error"
-      );
-    } finally {
-      setSubmittingReview(false);
-    }
-  }
-
-  function scrollToSection(
-    section:
-      | "overview"
-      | "specifications"
-      | "reviews"
-  ) {
-    setActiveSection(section);
-
-    document
-      .getElementById(section)
-      ?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-  }
-
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-[#050505] text-white">
-        <Navbar />
-
-        <div className="flex min-h-[80vh] items-center justify-center">
-          <div className="text-center">
-            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-2 border-white/15 border-t-white" />
-
-            <p className="mt-5 text-sm font-semibold text-white/45">
-              Loading Google Fitbit Air...
-            </p>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  if (pageError || !product) {
-    return (
-      <main className="min-h-screen bg-[#050505] text-white">
-        <Navbar />
-
-        <section className="flex min-h-[80vh] items-center justify-center px-5">
-          <div className="max-w-lg rounded-[32px] border border-red-500/20 bg-red-500/10 p-8 text-center">
-            <p className="text-xs font-black uppercase tracking-[0.3em] text-red-300">
-              Product unavailable
-            </p>
-
-            <h1 className="mt-4 text-3xl font-black">
-              We couldn’t load this product.
-            </h1>
-
-            <p className="mt-4 leading-7 text-red-100/60">
-              {pageError}
-            </p>
-
-            <Link
-              href="/#products"
-              className="mt-7 inline-flex rounded-full bg-white px-7 py-4 font-black text-black"
-            >
-              Back to products
-            </Link>
-          </div>
-        </section>
-      </main>
-    );
+    router.push(`/checkout?${checkoutParameters.toString()}`);
   }
 
   return (
-    <main className="min-h-screen bg-[#050505] pb-28 text-white lg:pb-0">
-      <Navbar />
-
-      <section className="relative overflow-hidden px-4 pb-16 pt-8 sm:px-6 sm:pb-24 sm:pt-14">
-        <div className="pointer-events-none absolute left-1/2 top-10 h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-white/[0.04] blur-3xl" />
-
-        <div className="relative mx-auto max-w-7xl">
-          <Link
-            href="/#products"
-            className="inline-flex items-center gap-2 text-sm font-bold text-white/45 transition hover:text-white"
+    <main className="min-h-screen bg-[#f7f7f5] text-black">
+      {/* Header */}
+      <header className="border-b border-black/10 bg-white">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-12">
+          <button
+            type="button"
+            onClick={() => router.push("/")}
+            className="text-2xl font-black tracking-[0.25em]"
           >
-            ← Back to products
-          </Link>
-
-          <div className="mt-8 grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
-            <div>
-              <div
-                onTouchStart={
-                  handleTouchStart
-                }
-                onTouchMove={
-                  handleTouchMove
-                }
-                onTouchEnd={
-                  handleTouchEnd
-                }
-                className="group relative touch-pan-y select-none overflow-hidden rounded-[36px] border border-white/10 bg-gradient-to-b from-white to-[#e9e9e9] p-5 shadow-2xl shadow-black/30 sm:p-10"
-              >
-                <img
-                  src={activeImage}
-                  alt={`${product.name} ${selectedColour}`}
-                  draggable={false}
-                  className="aspect-square h-auto w-full object-contain transition duration-500 group-hover:scale-[1.02]"
-                />
-
-                {productImages.length > 1 && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={
-                        previousImage
-                      }
-                      className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/75 text-2xl font-black sm:left-5"
-                    >
-                      ‹
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={nextImage}
-                      className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/75 text-2xl font-black sm:right-5"
-                    >
-                      ›
-                    </button>
-                  </>
-                )}
-              </div>
-
-              <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
-                {colours.map((colour) => {
-                  const image =
-                    colourImages[
-                      colour.name
-                    ][0];
-
-                  return (
-                    <button
-                      key={colour.name}
-                      type="button"
-                      onClick={() =>
-                        selectColour(
-                          colour.name
-                        )
-                      }
-                      className={`h-20 w-20 shrink-0 overflow-hidden rounded-2xl border bg-white p-2 transition sm:h-24 sm:w-24 ${
-                        selectedColour ===
-                        colour.name
-                          ? "border-white ring-2 ring-white/60"
-                          : "border-white/10 opacity-50"
-                      }`}
-                    >
-                      <img
-                        src={image}
-                        alt={colour.name}
-                        className="h-full w-full object-contain"
-                      />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="lg:sticky lg:top-28">
-              <div className="flex flex-wrap items-center gap-3">
-                <span
-                  className={`rounded-full border px-4 py-2 text-[11px] font-black uppercase tracking-[0.22em] ${
-                    canPurchase
-                      ? "border-green-400/20 bg-green-400/10 text-green-300"
-                      : "border-red-400/20 bg-red-400/10 text-red-300"
-                  }`}
-                >
-                  {canPurchase
-                    ? product.stockQuantity <=
-                      product.lowStockLimit
-                      ? `Only ${product.stockQuantity} left`
-                      : "Available now"
-                    : "Out of stock"}
-                </span>
-
-                <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[11px] font-black uppercase tracking-[0.22em] text-white/55">
-                  Screen-free tracker
-                </span>
-              </div>
-
-              <h1 className="mt-6 text-4xl font-black leading-[0.95] tracking-[-0.04em] sm:text-6xl lg:text-7xl">
-                {product.name}
-              </h1>
-
-              <p className="mt-6 max-w-xl text-lg leading-8 text-white/55">
-                {product.shortDescription ||
-                  "A lightweight screen-free tracker designed to monitor daily activity, heart rate, sleep and recovery."}
-              </p>
-
-              <p className="mt-7 text-3xl font-black sm:text-4xl">
-                {formatPrice(product.price)}
-              </p>
-
-              <div className="mt-8 rounded-[30px] border border-white/10 bg-white/[0.035] p-5 sm:p-6">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-black uppercase tracking-[0.24em] text-white/35">
-                    Choose colour
-                  </p>
-
-                  <p className="font-black">
-                    {selectedColour}
-                  </p>
-                </div>
-
-                <div className="mt-4 grid grid-cols-3 gap-3">
-                  {colours.map((colour) => {
-                    const selected =
-                      selectedColour ===
-                      colour.name;
-
-                    return (
-                      <button
-                        key={colour.value}
-                        type="button"
-                        onClick={() =>
-                          selectColour(
-                            colour.name
-                          )
-                        }
-                        className={`rounded-2xl border p-3 transition sm:p-4 ${
-                          selected
-                            ? "border-white bg-white text-black"
-                            : "border-white/10 bg-black/30"
-                        }`}
-                      >
-                        <span
-                          className={`mx-auto block h-8 w-8 rounded-full border border-black/15 ${colour.className}`}
-                        />
-
-                        <span className="mt-3 block text-xs font-black sm:text-sm">
-                          {colour.name}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="mt-5 rounded-[30px] border border-white/10 bg-white/[0.035] p-5 sm:p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.24em] text-white/35">
-                      Quantity
-                    </p>
-
-                    <p className="mt-2 text-sm text-white/45">
-                      {product.stockQuantity}{" "}
-                      pieces available
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/40 p-1">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        updateQuantity(
-                          quantity - 1
-                        )
-                      }
-                      className="flex h-11 w-11 items-center justify-center rounded-full text-xl font-black"
-                    >
-                      −
-                    </button>
-
-                    <span className="min-w-10 text-center text-lg font-black">
-                      {quantity}
-                    </span>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        updateQuantity(
-                          quantity + 1
-                        )
-                      }
-                      className="flex h-11 w-11 items-center justify-center rounded-full text-xl font-black"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {message && (
-                <div
-                  className={`mt-5 rounded-2xl border p-4 text-sm font-bold ${
-                    messageType ===
-                    "success"
-                      ? "border-green-400/20 bg-green-400/10 text-green-300"
-                      : "border-red-400/20 bg-red-400/10 text-red-300"
-                  }`}
-                >
-                  {message}
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={addToCart}
-                disabled={!canPurchase}
-                className="mt-5 w-full rounded-full bg-white px-7 py-5 font-black text-black disabled:opacity-35"
-              >
-                {canPurchase
-                  ? "Add to cart"
-                  : "Currently unavailable"}
-              </button>
-
-              {product.allowWishlist && (
-                <button
-                  type="button"
-                  onClick={toggleWishlist}
-                  className="mt-3 w-full rounded-full border border-white/10 px-7 py-5 font-black"
-                >
-                  {isInWishlist
-                    ? "Remove from wishlist"
-                    : "Add to wishlist"}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="sticky top-[72px] z-30 border-y border-white/10 bg-[#080808]/90 px-4 py-3 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-3xl rounded-full border border-white/10 bg-white/5 p-1.5">
-          {[
-            {
-              key: "overview" as const,
-              label: "Overview",
-            },
-            {
-              key:
-                "specifications" as const,
-              label: "Tech Specs",
-            },
-            {
-              key: "reviews" as const,
-              label: "Reviews",
-            },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() =>
-                scrollToSection(tab.key)
-              }
-              className={`flex-1 rounded-full px-4 py-3 text-xs font-black ${
-                activeSection === tab.key
-                  ? "bg-white text-black"
-                  : "text-white/45"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <section
-        id="overview"
-        className="scroll-mt-40 border-b border-white/10 px-4 py-20 sm:px-6"
-      >
-        <div className="mx-auto max-w-7xl">
-          <p className="text-xs font-black uppercase tracking-[0.36em] text-white/30">
-            Product details
-          </p>
-
-          <h2 className="mt-5 max-w-4xl text-4xl font-black sm:text-6xl">
-            Fitness tracking without
-            distractions.
-          </h2>
-
-          <p className="mt-6 max-w-3xl text-lg leading-8 text-white/50">
-            {product.description ||
-              "Google Fitbit Air combines everyday health tracking with a lightweight screen-free design."}
-          </p>
-
-          <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {features.map((feature) => (
-              <article
-                key={feature.title}
-                className="rounded-[30px] border border-white/10 bg-white/[0.035] p-7"
-              >
-                <p className="text-xs font-black text-white/25">
-                  {feature.number}
-                </p>
-
-                <h3 className="mt-8 text-2xl font-black">
-                  {feature.title}
-                </h3>
-
-                <p className="mt-4 leading-7 text-white/45">
-                  {feature.description}
-                </p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section
-        id="specifications"
-        className="scroll-mt-40 px-4 py-20 sm:px-6"
-      >
-        <div className="mx-auto max-w-7xl">
-          <div className="text-center">
-            <p className="text-xs font-black uppercase tracking-[0.36em] text-white/30">
-              Technical specifications
-            </p>
-
-            <h2 className="mt-5 text-4xl font-black sm:text-6xl">
-              Everything, neatly
-              organised.
-            </h2>
-          </div>
-
-          <div className="mt-12 grid items-start gap-5 md:grid-cols-2">
-            {techCategories.map(
-              (category) => (
-                <article
-                  key={category.title}
-                  className="rounded-[30px] border border-white/10 bg-white/[0.035] p-6 sm:p-8"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-xl">
-                      {category.icon}
-                    </div>
-
-                    <div>
-                      <h3 className="text-2xl font-black">
-                        {category.title}
-                      </h3>
-
-                      {category.description && (
-                        <p className="mt-2 text-sm leading-6 text-white/40">
-                          {
-                            category.description
-                          }
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-6 space-y-3">
-                    {category.items.map(
-                      (item) => (
-                        <div
-                          key={item}
-                          className="flex gap-3 rounded-2xl border border-white/[0.06] bg-black/25 p-4"
-                        >
-                          <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-white/60" />
-
-                          <p className="text-sm leading-6 text-white/55">
-                            {item}
-                          </p>
-                        </div>
-                      )
-                    )}
-                  </div>
-                </article>
-              )
-            )}
-          </div>
-        </div>
-      </section>
-
-      <section
-        id="reviews"
-        className="scroll-mt-40 border-t border-white/10 px-4 py-20 sm:px-6"
-      >
-        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-2">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.36em] text-white/30">
-              Customer reviews
-            </p>
-
-            <h2 className="mt-5 text-4xl font-black">
-              Share your experience.
-            </h2>
-
-            <form
-              onSubmit={submitReview}
-              className="mt-8 rounded-[30px] border border-white/10 bg-white/[0.025] p-6"
-            >
-              <input
-                value={reviewName}
-                onChange={(event) =>
-                  setReviewName(
-                    event.target.value
-                  )
-                }
-                placeholder="Your name"
-                className="w-full rounded-2xl border border-white/10 bg-black px-4 py-4"
-              />
-
-              <div className="mt-5 flex gap-2">
-                {[1, 2, 3, 4, 5].map(
-                  (rating) => (
-                    <button
-                      key={rating}
-                      type="button"
-                      onClick={() =>
-                        setReviewRating(
-                          rating
-                        )
-                      }
-                      className={`text-3xl ${
-                        rating <=
-                        reviewRating
-                          ? "text-yellow-300"
-                          : "text-white/15"
-                      }`}
-                    >
-                      ★
-                    </button>
-                  )
-                )}
-              </div>
-
-              <textarea
-                value={reviewComment}
-                onChange={(event) =>
-                  setReviewComment(
-                    event.target.value
-                  )
-                }
-                placeholder="Your review"
-                rows={5}
-                className="mt-5 w-full resize-none rounded-2xl border border-white/10 bg-black px-4 py-4"
-              />
-
-              <button
-                type="submit"
-                disabled={submittingReview}
-                className="mt-5 w-full rounded-full bg-white px-6 py-4 font-black text-black"
-              >
-                {submittingReview
-                  ? "Submitting..."
-                  : "Submit review"}
-              </button>
-            </form>
-          </div>
-
-          <div className="space-y-4">
-            <div className="rounded-[30px] border border-white/10 bg-white/[0.035] p-8">
-              <p className="text-6xl font-black">
-                {reviews.length > 0
-                  ? averageRating.toFixed(1)
-                  : "—"}
-              </p>
-
-              <p className="mt-2 text-yellow-300">
-                ★★★★★
-              </p>
-            </div>
-
-            {reviewsLoading ? (
-              <div className="rounded-[30px] border border-white/10 p-8">
-                Loading reviews...
-              </div>
-            ) : reviews.length === 0 ? (
-              <div className="rounded-[30px] border border-white/10 p-8">
-                No reviews yet.
-              </div>
-            ) : (
-              reviews.map((review) => (
-                <article
-                  key={review.id}
-                  className="rounded-[30px] border border-white/10 p-7"
-                >
-                  <h3 className="font-black">
-                    {getReviewName(review)}
-                  </h3>
-
-                  <p className="mt-2 text-yellow-300">
-                    {"★".repeat(
-                      Math.max(
-                        1,
-                        Math.min(
-                          5,
-                          Number(
-                            review.rating || 5
-                          )
-                        )
-                      )
-                    )}
-                  </p>
-
-                  <p className="mt-5 text-white/55">
-                    {getReviewComment(review)}
-                  </p>
-                </article>
-              ))
-            )}
-          </div>
-        </div>
-      </section>
-
-      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-black/90 p-3 backdrop-blur-xl lg:hidden">
-        <div className="mx-auto flex max-w-xl items-center gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-black">
-              {product.name}
-            </p>
-
-            <p className="mt-1 text-xs text-white/45">
-              {formatPrice(product.price)}
-            </p>
-          </div>
+            ORVIX
+          </button>
 
           <button
             type="button"
-            onClick={addToCart}
-            disabled={!canPurchase}
-            className="rounded-full bg-white px-6 py-4 text-sm font-black text-black disabled:opacity-40"
+            onClick={() => router.push("/")}
+            className="rounded-full border border-black px-5 py-2 text-sm font-semibold transition hover:bg-black hover:text-white"
           >
-            Add to cart
+            Back
           </button>
         </div>
-      </div>
+      </header>
+
+      {/* Product */}
+      <section className="mx-auto grid w-full max-w-7xl gap-10 px-5 py-10 sm:px-8 lg:grid-cols-2 lg:gap-16 lg:px-12 lg:py-16">
+        {/* Images */}
+        <div>
+          {/* Main product image */}
+          <div className="flex min-h-[420px] items-center justify-center overflow-hidden rounded-[28px] border border-black/10 bg-white p-5 shadow-sm sm:min-h-[550px] sm:p-8">
+            <img
+              key={selectedColour.image}
+              src={selectedColour.image}
+              alt={`Google Fitbit Air in ${selectedColour.name}`}
+              className="h-auto max-h-[500px] w-full object-contain transition-all duration-300"
+            />
+          </div>
+
+          {/* Colour image boxes */}
+          <div className="mt-5 grid grid-cols-3 gap-3 sm:gap-4">
+            {colours.map((colour) => {
+              const isSelected = selectedColour.name === colour.name;
+
+              return (
+                <button
+                  type="button"
+                  key={colour.name}
+                  onClick={() => setSelectedColour(colour)}
+                  className={`overflow-hidden rounded-2xl border-2 bg-white p-2 transition sm:p-3 ${
+                    isSelected
+                      ? "border-black shadow-md"
+                      : "border-transparent hover:border-black/30"
+                  }`}
+                  aria-label={`Select ${colour.name}`}
+                >
+                  <div className="flex aspect-square items-center justify-center overflow-hidden rounded-xl bg-[#f7f7f5]">
+                    <img
+                      src={colour.image}
+                      alt={colour.name}
+                      className="h-full w-full object-contain p-1"
+                    />
+                  </div>
+
+                  <div className="mt-2 flex items-center justify-center gap-2">
+                    <span
+                      className={`h-3 w-3 rounded-full border border-black/20 ${colour.colourClass}`}
+                    />
+
+                    <span className="text-xs font-semibold sm:text-sm">
+                      {colour.name}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Product information */}
+        <div className="flex flex-col justify-center">
+          <p className="mb-3 text-sm font-bold uppercase tracking-[0.22em] text-black/50">
+            Fitness tracker
+          </p>
+
+          <h1 className="text-4xl font-black tracking-tight sm:text-5xl lg:text-6xl">
+            Google Fitbit Air
+          </h1>
+
+          <p className="mt-5 max-w-xl text-base leading-7 text-black/65 sm:text-lg">
+            A lightweight fitness tracker designed to follow your activity,
+            heart rate, sleep and daily wellness while maintaining a simple,
+            comfortable design.
+          </p>
+
+          {/* Price */}
+          <div className="mt-7 flex flex-wrap items-center gap-3">
+            <p className="text-3xl font-black">7,900 EGP</p>
+
+            <p className="text-lg font-semibold text-black/40 line-through">
+              8,500 EGP
+            </p>
+
+            <span className="rounded-full bg-black px-3 py-1 text-xs font-bold text-white">
+              SALE
+            </span>
+          </div>
+
+          <p className="mt-2 text-sm font-medium text-black/55">
+            Pre-order delivery: approximately 20–45 days
+          </p>
+
+          {/* Selected colour */}
+          <div className="mt-9">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-bold">Choose colour</h2>
+
+              <p className="text-sm font-semibold text-black/55">
+                {selectedColour.name}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              {colours.map((colour) => {
+                const isSelected = selectedColour.name === colour.name;
+
+                return (
+                  <button
+                    type="button"
+                    key={colour.name}
+                    onClick={() => setSelectedColour(colour)}
+                    className={`flex min-w-[115px] items-center justify-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition ${
+                      isSelected
+                        ? "border-black bg-black text-white"
+                        : "border-black/15 bg-white hover:border-black"
+                    }`}
+                  >
+                    <span
+                      className={`h-4 w-4 rounded-full border ${
+                        isSelected ? "border-white/40" : "border-black/20"
+                      } ${colour.colourClass}`}
+                    />
+
+                    {colour.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Quantity */}
+          <div className="mt-8">
+            <h2 className="mb-4 font-bold">Quantity</h2>
+
+            <div className="flex w-fit items-center overflow-hidden rounded-xl border border-black/20 bg-white">
+              <button
+                type="button"
+                onClick={decreaseQuantity}
+                className="flex h-12 w-12 items-center justify-center text-xl font-bold transition hover:bg-black hover:text-white"
+                aria-label="Decrease quantity"
+              >
+                −
+              </button>
+
+              <span className="flex h-12 min-w-14 items-center justify-center border-x border-black/20 px-4 font-bold">
+                {quantity}
+              </span>
+
+              <button
+                type="button"
+                onClick={increaseQuantity}
+                className="flex h-12 w-12 items-center justify-center text-xl font-bold transition hover:bg-black hover:text-white"
+                aria-label="Increase quantity"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          {/* Buy button */}
+          <button
+            type="button"
+            onClick={handleBuyNow}
+            className="mt-8 w-full rounded-2xl bg-black px-8 py-4 text-base font-bold text-white transition hover:scale-[1.01] hover:bg-black/85 active:scale-[0.99] sm:w-fit sm:min-w-[260px]"
+          >
+            Buy Now
+          </button>
+
+          {/* Features */}
+          <div className="mt-10 border-t border-black/10 pt-8">
+            <h2 className="mb-5 text-xl font-black">Product features</h2>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                "Heart-rate tracking",
+                "Sleep tracking",
+                "Blood oxygen monitoring",
+                "Up to 7 days battery",
+                "Water resistant",
+                "iOS and Android support",
+                "Lightweight design",
+                "Full charge in approximately 90 minutes",
+              ].map((feature) => (
+                <div
+                  key={feature}
+                  className="flex items-start gap-3 rounded-xl bg-white p-4 shadow-sm"
+                >
+                  <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-black text-xs text-white">
+                    ✓
+                  </span>
+
+                  <p className="text-sm font-medium leading-5">{feature}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
