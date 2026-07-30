@@ -19,7 +19,17 @@ type CartItem = {
   slug: string;
 };
 
+type WishlistItem = {
+  id: string;
+  name: string;
+  colour: string;
+  image: string;
+  price: number;
+  slug: string;
+};
+
 const CART_STORAGE_KEY = "orvixCart";
+const WISHLIST_STORAGE_KEY = "orvixWishlist";
 
 const navigationLinks = [
   {
@@ -61,6 +71,28 @@ function readCartFromStorage(): CartItem[] {
   }
 }
 
+function readWishlistFromStorage(): WishlistItem[] {
+  try {
+    const savedWishlist =
+      window.localStorage.getItem(
+        WISHLIST_STORAGE_KEY
+      );
+
+    if (!savedWishlist) {
+      return [];
+    }
+
+    const parsedWishlist =
+      JSON.parse(savedWishlist);
+
+    return Array.isArray(parsedWishlist)
+      ? parsedWishlist
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function Navbar() {
   const [menuOpen, setMenuOpen] =
     useState(false);
@@ -68,20 +100,39 @@ export default function Navbar() {
   const [cartOpen, setCartOpen] =
     useState(false);
 
+  const [wishlistOpen, setWishlistOpen] =
+    useState(false);
+
   const [cartItems, setCartItems] = useState<
     CartItem[]
   >([]);
+
+  const [
+    wishlistItems,
+    setWishlistItems,
+  ] = useState<WishlistItem[]>([]);
 
   useEffect(() => {
     function refreshCart() {
       setCartItems(readCartFromStorage());
     }
 
-    refreshCart();
+    function refreshWishlist() {
+      setWishlistItems(
+        readWishlistFromStorage()
+      );
+    }
+
+    function refreshStorage() {
+      refreshCart();
+      refreshWishlist();
+    }
+
+    refreshStorage();
 
     window.addEventListener(
       "storage",
-      refreshCart
+      refreshStorage
     );
 
     window.addEventListener(
@@ -89,22 +140,33 @@ export default function Navbar() {
       refreshCart
     );
 
+    window.addEventListener(
+      "orvix-wishlist-updated",
+      refreshWishlist
+    );
+
     return () => {
       window.removeEventListener(
         "storage",
-        refreshCart
+        refreshStorage
       );
 
       window.removeEventListener(
         "orvix-cart-updated",
         refreshCart
       );
+
+      window.removeEventListener(
+        "orvix-wishlist-updated",
+        refreshWishlist
+      );
     };
   }, []);
 
   useEffect(() => {
-    if (cartOpen) {
-      document.body.style.overflow = "hidden";
+    if (cartOpen || wishlistOpen) {
+      document.body.style.overflow =
+        "hidden";
     } else {
       document.body.style.overflow = "";
     }
@@ -112,7 +174,7 @@ export default function Navbar() {
     return () => {
       document.body.style.overflow = "";
     };
-  }, [cartOpen]);
+  }, [cartOpen, wishlistOpen]);
 
   const totalQuantity = useMemo(
     () =>
@@ -153,9 +215,21 @@ export default function Navbar() {
     setMenuOpen(false);
   }
 
+  function closeDrawers() {
+    setCartOpen(false);
+    setWishlistOpen(false);
+  }
+
   function openCart() {
     setMenuOpen(false);
+    setWishlistOpen(false);
     setCartOpen(true);
+  }
+
+  function openWishlist() {
+    setMenuOpen(false);
+    setCartOpen(false);
+    setWishlistOpen(true);
   }
 
   function saveCart(items: CartItem[]) {
@@ -168,6 +242,21 @@ export default function Navbar() {
 
     window.dispatchEvent(
       new Event("orvix-cart-updated")
+    );
+  }
+
+  function saveWishlist(
+    items: WishlistItem[]
+  ) {
+    setWishlistItems(items);
+
+    window.localStorage.setItem(
+      WISHLIST_STORAGE_KEY,
+      JSON.stringify(items)
+    );
+
+    window.dispatchEvent(
+      new Event("orvix-wishlist-updated")
     );
   }
 
@@ -206,12 +295,74 @@ export default function Navbar() {
     saveCart(updatedCart);
   }
 
-  function removeItem(itemId: string) {
+  function removeCartItem(itemId: string) {
     const updatedCart = cartItems.filter(
       (item) => item.id !== itemId
     );
 
     saveCart(updatedCart);
+  }
+
+  function removeWishlistItem(
+    itemId: string
+  ) {
+    const updatedWishlist =
+      wishlistItems.filter(
+        (item) => item.id !== itemId
+      );
+
+    saveWishlist(updatedWishlist);
+  }
+
+  function moveWishlistItemToCart(
+    wishlistItem: WishlistItem
+  ) {
+    const cartItemId = wishlistItem.id;
+
+    const existingItemIndex =
+      cartItems.findIndex(
+        (item) => item.id === cartItemId
+      );
+
+    let updatedCart: CartItem[];
+
+    if (existingItemIndex >= 0) {
+      updatedCart = cartItems.map(
+        (item, index) =>
+          index === existingItemIndex
+            ? {
+                ...item,
+                quantity: Math.min(
+                  item.quantity + 1,
+                  10
+                ),
+              }
+            : item
+      );
+    } else {
+      const newCartItem: CartItem = {
+        ...wishlistItem,
+        quantity: 1,
+      };
+
+      updatedCart = [
+        ...cartItems,
+        newCartItem,
+      ];
+    }
+
+    saveCart(updatedCart);
+
+    const updatedWishlist =
+      wishlistItems.filter(
+        (item) =>
+          item.id !== wishlistItem.id
+      );
+
+    saveWishlist(updatedWishlist);
+
+    setWishlistOpen(false);
+    setCartOpen(true);
   }
 
   function handleSectionClick(
@@ -220,11 +371,15 @@ export default function Navbar() {
   ) {
     setMenuOpen(false);
 
-    if (window.location.pathname === "/") {
+    if (
+      window.location.pathname === "/"
+    ) {
       event.preventDefault();
 
       const section =
-        document.getElementById(sectionId);
+        document.getElementById(
+          sectionId
+        );
 
       if (!section) {
         return;
@@ -299,6 +454,41 @@ export default function Navbar() {
           </nav>
 
           <div className="flex items-center gap-2">
+            {/* Wishlist Button */}
+            <button
+              type="button"
+              onClick={openWishlist}
+              aria-label={`Open wishlist with ${wishlistItems.length} items`}
+              className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/5 transition hover:bg-white/10"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill={
+                  wishlistItems.length > 0
+                    ? "currentColor"
+                    : "none"
+                }
+                aria-hidden="true"
+                className="h-6 w-6"
+              >
+                <path
+                  d="M20.8 4.6C18.9 2.7 15.8 2.7 13.9 4.6L12 6.5L10.1 4.6C8.2 2.7 5.1 2.7 3.2 4.6C1.3 6.5 1.3 9.6 3.2 11.5L12 20.3L20.8 11.5C22.7 9.6 22.7 6.5 20.8 4.6Z"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+
+              {wishlistItems.length > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-black text-black">
+                  {wishlistItems.length > 99
+                    ? "99+"
+                    : wishlistItems.length}
+                </span>
+              )}
+            </button>
+
             {/* Cart Button */}
             <button
               type="button"
@@ -390,6 +580,15 @@ export default function Navbar() {
                 Track Your Order
               </Link>
 
+              <button
+                type="button"
+                onClick={openWishlist}
+                className="rounded-2xl border border-white/10 px-5 py-4 text-left font-bold text-gray-200 transition hover:bg-white/10"
+              >
+                Wishlist (
+                {wishlistItems.length})
+              </button>
+
               <Link
                 href="/products/google-fitbit-air"
                 onClick={closeMenu}
@@ -402,16 +601,192 @@ export default function Navbar() {
         )}
       </header>
 
-      {/* Cart Overlay */}
+      {/* Overlay */}
       <div
-        aria-hidden={!cartOpen}
-        onClick={() => setCartOpen(false)}
+        aria-hidden={
+          !cartOpen && !wishlistOpen
+        }
+        onClick={closeDrawers}
         className={`fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm transition duration-300 ${
-          cartOpen
+          cartOpen || wishlistOpen
             ? "visible opacity-100"
             : "invisible opacity-0"
         }`}
       />
+
+      {/* Wishlist Drawer */}
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label="Wishlist"
+        className={`fixed bottom-0 right-0 top-0 z-[80] flex w-full max-w-md flex-col border-l border-white/10 bg-[#0b0b0b] text-white shadow-2xl transition-transform duration-300 ${
+          wishlistOpen
+            ? "translate-x-0"
+            : "translate-x-full"
+        }`}
+      >
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-5 sm:px-6">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-gray-500">
+              ORVIX
+            </p>
+
+            <h2 className="mt-1 text-2xl font-black">
+              Your Wishlist
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              setWishlistOpen(false)
+            }
+            aria-label="Close wishlist"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 text-2xl transition hover:bg-white/10"
+          >
+            ×
+          </button>
+        </div>
+
+        {wishlistItems.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full border border-white/10 bg-white/5">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+                className="h-9 w-9 text-gray-400"
+              >
+                <path
+                  d="M20.8 4.6C18.9 2.7 15.8 2.7 13.9 4.6L12 6.5L10.1 4.6C8.2 2.7 5.1 2.7 3.2 4.6C1.3 6.5 1.3 9.6 3.2 11.5L12 20.3L20.8 11.5C22.7 9.6 22.7 6.5 20.8 4.6Z"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+
+            <h3 className="mt-6 text-2xl font-black">
+              Your wishlist is empty
+            </h3>
+
+            <p className="mt-3 max-w-xs leading-7 text-gray-400">
+              Save products you like and return
+              to them whenever you are ready.
+            </p>
+
+            <Link
+              href="/products/google-fitbit-air"
+              onClick={() =>
+                setWishlistOpen(false)
+              }
+              className="mt-7 rounded-full bg-white px-7 py-4 font-black text-black transition hover:bg-gray-200"
+            >
+              Explore Products
+            </Link>
+          </div>
+        ) : (
+          <>
+            <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5 sm:px-6">
+              {wishlistItems.map((item) => (
+                <article
+                  key={item.id}
+                  className="rounded-[28px] border border-white/10 bg-white/5 p-4"
+                >
+                  <div className="flex gap-4">
+                    <Link
+                      href={`/products/${item.slug}`}
+                      onClick={() =>
+                        setWishlistOpen(false)
+                      }
+                      className="h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-white p-2"
+                    >
+                      <Image
+                        src={item.image}
+                        alt={`${item.name} - ${item.colour}`}
+                        width={160}
+                        height={160}
+                        className="h-full w-full object-contain"
+                      />
+                    </Link>
+
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={`/products/${item.slug}`}
+                        onClick={() =>
+                          setWishlistOpen(false)
+                        }
+                        className="block truncate font-black hover:underline"
+                      >
+                        {item.name}
+                      </Link>
+
+                      <p className="mt-1 text-sm text-gray-400">
+                        Colour: {item.colour}
+                      </p>
+
+                      <p className="mt-2 font-black">
+                        {item.price.toLocaleString(
+                          "en-GB"
+                        )}{" "}
+                        EGP
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          removeWishlistItem(
+                            item.id
+                          )
+                        }
+                        className="mt-2 text-sm font-bold text-gray-500 underline underline-offset-4 transition hover:text-white"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      moveWishlistItemToCart(
+                        item
+                      )
+                    }
+                    className="mt-4 flex w-full items-center justify-center rounded-full bg-white px-5 py-4 font-black text-black transition hover:bg-gray-200"
+                  >
+                    Move to Cart
+                  </button>
+                </article>
+              ))}
+            </div>
+
+            <div className="border-t border-white/10 bg-black/60 p-5 backdrop-blur-xl sm:p-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setWishlistOpen(false);
+                  setCartOpen(true);
+                }}
+                className="flex w-full items-center justify-center rounded-full border border-white/15 px-7 py-4 font-black transition hover:bg-white/10"
+              >
+                Open Cart
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setWishlistOpen(false)
+                }
+                className="mt-3 w-full py-3 text-sm font-bold text-gray-400 transition hover:text-white"
+              >
+                Continue Shopping
+              </button>
+            </div>
+          </>
+        )}
+      </aside>
 
       {/* Cart Drawer */}
       <aside
@@ -537,7 +912,9 @@ export default function Navbar() {
                       <button
                         type="button"
                         onClick={() =>
-                          removeItem(item.id)
+                          removeCartItem(
+                            item.id
+                          )
                         }
                         className="mt-2 text-sm font-bold text-gray-500 underline underline-offset-4 transition hover:text-white"
                       >
