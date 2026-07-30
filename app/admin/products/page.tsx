@@ -23,6 +23,7 @@ type Product = {
   description: string;
   price: number;
   image: string;
+  images: string[];
   status: ProductStatus;
   stock_quantity: number;
   low_stock_limit: number;
@@ -41,6 +42,7 @@ type ProductForm = {
   description: string;
   price: string;
   image: string;
+  images: string[];
   status: ProductStatus;
   stockQuantity: string;
   lowStockLimit: string;
@@ -57,6 +59,7 @@ const emptyProductForm: ProductForm = {
   description: "",
   price: "0",
   image: "",
+  images: [],
   status: "available",
   stockQuantity: "0",
   lowStockLimit: "5",
@@ -106,7 +109,9 @@ function formatStatus(status: ProductStatus) {
   );
 }
 
-function getStatusClasses(status: ProductStatus) {
+function getStatusClasses(
+  status: ProductStatus
+) {
   if (status === "available") {
     return "border-green-500/20 bg-green-500/10 text-green-300";
   }
@@ -122,15 +127,50 @@ function getStatusClasses(status: ProductStatus) {
   return "border-white/10 bg-white/5 text-gray-400";
 }
 
-function normaliseProduct(product: Product): Product {
+function cleanImageList(
+  images: unknown,
+  fallbackImage = ""
+) {
+  const imageList = Array.isArray(images)
+    ? images
+        .map((item) =>
+          String(item || "").trim()
+        )
+        .filter(Boolean)
+    : [];
+
+  const cleanedImages = Array.from(
+    new Set(imageList)
+  );
+
+  if (
+    cleanedImages.length === 0 &&
+    fallbackImage.trim()
+  ) {
+    return [fallbackImage.trim()];
+  }
+
+  return cleanedImages;
+}
+
+function normaliseProduct(
+  product: Product
+): Product {
+  const images = cleanImageList(
+    product.images,
+    product.image
+  );
+
   return {
     ...product,
     name: product.name || "",
     slug: product.slug || "",
     short_description:
       product.short_description || "",
-    description: product.description || "",
-    image: product.image || "",
+    description:
+      product.description || "",
+    image: images[0] || "",
+    images,
     price: Number(product.price || 0),
     stock_quantity: Number(
       product.stock_quantity || 0
@@ -156,17 +196,18 @@ function normaliseProduct(product: Product): Product {
 async function uploadImage(file: File) {
   if (!file.type.startsWith("image/")) {
     throw new Error(
-      "Please select a valid image file."
+      `${file.name} is not a valid image.`
     );
   }
 
   if (file.size > 20 * 1024 * 1024) {
     throw new Error(
-      "The image must be 20 MB or smaller."
+      `${file.name} is larger than 20 MB.`
     );
   }
 
   const formData = new FormData();
+
   formData.append("file", file);
 
   const response = await fetch(
@@ -182,17 +223,57 @@ async function uploadImage(file: File) {
   if (!response.ok || !result.success) {
     throw new Error(
       result.message ||
-        "Could not upload the image."
+        `Could not upload ${file.name}.`
     );
   }
 
   if (!result.imageUrl) {
     throw new Error(
-      "The uploaded image URL is missing."
+      `The image URL for ${file.name} is missing.`
     );
   }
 
   return String(result.imageUrl);
+}
+
+async function uploadMultipleImages(
+  files: File[]
+) {
+  const uploadedUrls: string[] = [];
+
+  for (const file of files) {
+    const imageUrl = await uploadImage(file);
+
+    uploadedUrls.push(imageUrl);
+  }
+
+  return uploadedUrls;
+}
+
+function moveItem<T>(
+  items: T[],
+  fromIndex: number,
+  toIndex: number
+) {
+  if (
+    toIndex < 0 ||
+    toIndex >= items.length
+  ) {
+    return items;
+  }
+
+  const updatedItems = [...items];
+
+  const [movedItem] =
+    updatedItems.splice(fromIndex, 1);
+
+  updatedItems.splice(
+    toIndex,
+    0,
+    movedItem
+  );
+
+  return updatedItems;
 }
 
 export default function AdminProductsPage() {
@@ -207,21 +288,26 @@ export default function AdminProductsPage() {
     useState("");
 
   const [messageType, setMessageType] =
-    useState<"success" | "error" | "">("");
+    useState<"success" | "error" | "">(
+      ""
+    );
 
   const [showAddForm, setShowAddForm] =
     useState(false);
 
   const [newProduct, setNewProduct] =
-    useState<ProductForm>(
-      emptyProductForm
-    );
+    useState<ProductForm>({
+      ...emptyProductForm,
+      images: [],
+    });
 
   const [creating, setCreating] =
     useState(false);
 
-  const [uploadingNewImage, setUploadingNewImage] =
-    useState(false);
+  const [
+    uploadingNewImages,
+    setUploadingNewImages,
+  ] = useState(false);
 
   const [
     uploadingProductId,
@@ -262,31 +348,31 @@ export default function AdminProductsPage() {
         );
       }
 
-      if (!response.ok || !result.success) {
+      if (
+        !response.ok ||
+        !result.success
+      ) {
         throw new Error(
           result.message ||
             "Could not load products."
         );
       }
 
-      const loadedProducts = Array.isArray(
-        result.products
-      )
-        ? result.products.map(
-            (product: Product) =>
-              normaliseProduct(product)
-          )
-        : [];
+      const loadedProducts =
+        Array.isArray(result.products)
+          ? result.products.map(
+              (product: Product) =>
+                normaliseProduct(product)
+            )
+          : [];
 
       setProducts(loadedProducts);
     } catch (error) {
-      setMessage(
+      showError(
         error instanceof Error
           ? error.message
           : "Could not load products."
       );
-
-      setMessageType("error");
     } finally {
       setLoading(false);
     }
@@ -296,30 +382,53 @@ export default function AdminProductsPage() {
     loadProducts();
   }, []);
 
-  function showSuccess(messageText: string) {
+  function showSuccess(
+    messageText: string
+  ) {
     setMessage(messageText);
     setMessageType("success");
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   }
 
-  function showError(messageText: string) {
+  function showError(
+    messageText: string
+  ) {
     setMessage(messageText);
     setMessageType("error");
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   }
 
   function updateNewProduct(
     field: keyof ProductForm,
-    value: string | boolean
+    value:
+      | string
+      | boolean
+      | string[]
   ) {
-    setNewProduct((currentProduct) => ({
-      ...currentProduct,
-      [field]: value,
-    }));
+    setNewProduct(
+      (currentProduct) => ({
+        ...currentProduct,
+        [field]: value,
+      })
+    );
   }
 
   function updateProduct(
     productId: string,
     field: keyof Product,
-    value: string | number | boolean
+    value:
+      | string
+      | number
+      | boolean
+      | string[]
   ) {
     setProducts((currentProducts) =>
       currentProducts.map((product) =>
@@ -333,49 +442,75 @@ export default function AdminProductsPage() {
     );
   }
 
-  async function handleNewImageUpload(
+  async function handleNewImagesUpload(
     event: ChangeEvent<HTMLInputElement>
   ) {
-    const file = event.target.files?.[0];
+    const selectedFiles = Array.from(
+      event.target.files || []
+    );
 
     event.target.value = "";
 
-    if (!file) {
+    if (selectedFiles.length === 0) {
       return;
     }
 
-    setUploadingNewImage(true);
+    setUploadingNewImages(true);
     setMessage("");
     setMessageType("");
 
     try {
-      const imageUrl = await uploadImage(file);
+      const uploadedUrls =
+        await uploadMultipleImages(
+          selectedFiles
+        );
 
-      updateNewProduct("image", imageUrl);
+      setNewProduct(
+        (currentProduct) => {
+          const updatedImages =
+            cleanImageList([
+              ...currentProduct.images,
+              ...uploadedUrls,
+            ]);
+
+          return {
+            ...currentProduct,
+            images: updatedImages,
+            image:
+              updatedImages[0] || "",
+          };
+        }
+      );
 
       showSuccess(
-        "Image uploaded successfully. Complete the form and create the product."
+        `${uploadedUrls.length} image${
+          uploadedUrls.length === 1
+            ? ""
+            : "s"
+        } uploaded successfully.`
       );
     } catch (error) {
       showError(
         error instanceof Error
           ? error.message
-          : "Could not upload the image."
+          : "Could not upload images."
       );
     } finally {
-      setUploadingNewImage(false);
+      setUploadingNewImages(false);
     }
   }
 
-  async function handleExistingImageUpload(
+  async function handleExistingImagesUpload(
     productId: string,
     event: ChangeEvent<HTMLInputElement>
   ) {
-    const file = event.target.files?.[0];
+    const selectedFiles = Array.from(
+      event.target.files || []
+    );
 
     event.target.value = "";
 
-    if (!file) {
+    if (selectedFiles.length === 0) {
       return;
     }
 
@@ -384,26 +519,252 @@ export default function AdminProductsPage() {
     setMessageType("");
 
     try {
-      const imageUrl = await uploadImage(file);
+      const uploadedUrls =
+        await uploadMultipleImages(
+          selectedFiles
+        );
 
-      updateProduct(
-        productId,
-        "image",
-        imageUrl
+      setProducts(
+        (currentProducts) =>
+          currentProducts.map(
+            (product) => {
+              if (
+                product.id !== productId
+              ) {
+                return product;
+              }
+
+              const currentImages =
+                cleanImageList(
+                  product.images,
+                  product.image
+                );
+
+              const updatedImages =
+                cleanImageList([
+                  ...currentImages,
+                  ...uploadedUrls,
+                ]);
+
+              return {
+                ...product,
+                images: updatedImages,
+                image:
+                  updatedImages[0] ||
+                  "",
+              };
+            }
+          )
       );
 
       showSuccess(
-        "Image uploaded. Press Save Product to keep the new image."
+        `${uploadedUrls.length} image${
+          uploadedUrls.length === 1
+            ? ""
+            : "s"
+        } uploaded. Press Save Product to keep the gallery.`
       );
     } catch (error) {
       showError(
         error instanceof Error
           ? error.message
-          : "Could not upload the image."
+          : "Could not upload images."
       );
     } finally {
       setUploadingProductId(null);
     }
+  }
+
+  function removeNewImage(
+    imageIndex: number
+  ) {
+    setNewProduct(
+      (currentProduct) => {
+        const updatedImages =
+          currentProduct.images.filter(
+            (_, index) =>
+              index !== imageIndex
+          );
+
+        return {
+          ...currentProduct,
+          images: updatedImages,
+          image:
+            updatedImages[0] || "",
+        };
+      }
+    );
+  }
+
+  function makeNewImageMain(
+    imageIndex: number
+  ) {
+    setNewProduct(
+      (currentProduct) => {
+        const selectedImage =
+          currentProduct.images[
+            imageIndex
+          ];
+
+        if (!selectedImage) {
+          return currentProduct;
+        }
+
+        const updatedImages = [
+          selectedImage,
+          ...currentProduct.images.filter(
+            (_, index) =>
+              index !== imageIndex
+          ),
+        ];
+
+        return {
+          ...currentProduct,
+          images: updatedImages,
+          image: updatedImages[0],
+        };
+      }
+    );
+  }
+
+  function moveNewImage(
+    imageIndex: number,
+    direction: "left" | "right"
+  ) {
+    setNewProduct(
+      (currentProduct) => {
+        const destinationIndex =
+          direction === "left"
+            ? imageIndex - 1
+            : imageIndex + 1;
+
+        const updatedImages = moveItem(
+          currentProduct.images,
+          imageIndex,
+          destinationIndex
+        );
+
+        return {
+          ...currentProduct,
+          images: updatedImages,
+          image:
+            updatedImages[0] || "",
+        };
+      }
+    );
+  }
+
+  function removeExistingImage(
+    productId: string,
+    imageIndex: number
+  ) {
+    setProducts((currentProducts) =>
+      currentProducts.map((product) => {
+        if (
+          product.id !== productId
+        ) {
+          return product;
+        }
+
+        const updatedImages =
+          cleanImageList(
+            product.images,
+            product.image
+          ).filter(
+            (_, index) =>
+              index !== imageIndex
+          );
+
+        return {
+          ...product,
+          images: updatedImages,
+          image:
+            updatedImages[0] || "",
+        };
+      })
+    );
+  }
+
+  function makeExistingImageMain(
+    productId: string,
+    imageIndex: number
+  ) {
+    setProducts((currentProducts) =>
+      currentProducts.map((product) => {
+        if (
+          product.id !== productId
+        ) {
+          return product;
+        }
+
+        const currentImages =
+          cleanImageList(
+            product.images,
+            product.image
+          );
+
+        const selectedImage =
+          currentImages[imageIndex];
+
+        if (!selectedImage) {
+          return product;
+        }
+
+        const updatedImages = [
+          selectedImage,
+          ...currentImages.filter(
+            (_, index) =>
+              index !== imageIndex
+          ),
+        ];
+
+        return {
+          ...product,
+          images: updatedImages,
+          image: updatedImages[0],
+        };
+      })
+    );
+  }
+
+  function moveExistingImage(
+    productId: string,
+    imageIndex: number,
+    direction: "left" | "right"
+  ) {
+    setProducts((currentProducts) =>
+      currentProducts.map((product) => {
+        if (
+          product.id !== productId
+        ) {
+          return product;
+        }
+
+        const currentImages =
+          cleanImageList(
+            product.images,
+            product.image
+          );
+
+        const destinationIndex =
+          direction === "left"
+            ? imageIndex - 1
+            : imageIndex + 1;
+
+        const updatedImages = moveItem(
+          currentImages,
+          imageIndex,
+          destinationIndex
+        );
+
+        return {
+          ...product,
+          images: updatedImages,
+          image:
+            updatedImages[0] || "",
+        };
+      })
+    );
   }
 
   async function createProduct(
@@ -412,18 +773,24 @@ export default function AdminProductsPage() {
     event.preventDefault();
 
     if (!newProduct.name.trim()) {
-      showError("Product name is required.");
+      showError(
+        "Product name is required."
+      );
       return;
     }
 
     if (!newProduct.slug.trim()) {
-      showError("Product slug is required.");
+      showError(
+        "Product slug is required."
+      );
       return;
     }
 
-    if (!newProduct.image.trim()) {
+    if (
+      newProduct.images.length === 0
+    ) {
       showError(
-        "Please upload a product image."
+        "Please upload at least one product image."
       );
       return;
     }
@@ -433,6 +800,12 @@ export default function AdminProductsPage() {
     setMessageType("");
 
     try {
+      const finalImages =
+        cleanImageList(
+          newProduct.images,
+          newProduct.image
+        );
+
       const response = await fetch(
         "/api/admin/products",
         {
@@ -442,28 +815,36 @@ export default function AdminProductsPage() {
               "application/json",
           },
           body: JSON.stringify({
-            name: newProduct.name.trim(),
-            slug: newProduct.slug.trim(),
+            name:
+              newProduct.name.trim(),
+            slug:
+              newProduct.slug.trim(),
             shortDescription:
               newProduct.shortDescription.trim(),
             description:
               newProduct.description.trim(),
             price: Math.max(
               0,
-              Number(newProduct.price || 0)
+              Number(
+                newProduct.price || 0
+              )
             ),
-            image: newProduct.image.trim(),
+            image:
+              finalImages[0] || "",
+            images: finalImages,
             status: newProduct.status,
             stockQuantity: Math.max(
               0,
               Number(
-                newProduct.stockQuantity || 0
+                newProduct.stockQuantity ||
+                  0
               )
             ),
             lowStockLimit: Math.max(
               0,
               Number(
-                newProduct.lowStockLimit || 0
+                newProduct.lowStockLimit ||
+                  0
               )
             ),
             showOnHomepage:
@@ -481,14 +862,21 @@ export default function AdminProductsPage() {
 
       const result = await response.json();
 
-      if (!response.ok || !result.success) {
+      if (
+        !response.ok ||
+        !result.success
+      ) {
         throw new Error(
           result.message ||
             "Could not create product."
         );
       }
 
-      setNewProduct(emptyProductForm);
+      setNewProduct({
+        ...emptyProductForm,
+        images: [],
+      });
+
       setShowAddForm(false);
 
       await loadProducts();
@@ -511,18 +899,28 @@ export default function AdminProductsPage() {
     product: Product
   ) {
     if (!product.name.trim()) {
-      showError("Product name is required.");
+      showError(
+        "Product name is required."
+      );
       return;
     }
 
     if (!product.slug.trim()) {
-      showError("Product slug is required.");
+      showError(
+        "Product slug is required."
+      );
       return;
     }
 
-    if (!product.image.trim()) {
+    const finalImages =
+      cleanImageList(
+        product.images,
+        product.image
+      );
+
+    if (finalImages.length === 0) {
       showError(
-        "Please upload a product image."
+        "Please upload at least one product image."
       );
       return;
     }
@@ -553,18 +951,22 @@ export default function AdminProductsPage() {
               0,
               Number(product.price || 0)
             ),
-            image: product.image.trim(),
+            image:
+              finalImages[0] || "",
+            images: finalImages,
             status: product.status,
             stockQuantity: Math.max(
               0,
               Number(
-                product.stock_quantity || 0
+                product.stock_quantity ||
+                  0
               )
             ),
             lowStockLimit: Math.max(
               0,
               Number(
-                product.low_stock_limit || 0
+                product.low_stock_limit ||
+                  0
               )
             ),
             showOnHomepage:
@@ -582,7 +984,10 @@ export default function AdminProductsPage() {
 
       const result = await response.json();
 
-      if (!response.ok || !result.success) {
+      if (
+        !response.ok ||
+        !result.success
+      ) {
         throw new Error(
           result.message ||
             "Could not update product."
@@ -590,16 +995,17 @@ export default function AdminProductsPage() {
       }
 
       if (result.product) {
-        setProducts((currentProducts) =>
-          currentProducts.map(
-            (currentProduct) =>
-              currentProduct.id ===
-              product.id
-                ? normaliseProduct(
-                    result.product
-                  )
-                : currentProduct
-          )
+        setProducts(
+          (currentProducts) =>
+            currentProducts.map(
+              (currentProduct) =>
+                currentProduct.id ===
+                product.id
+                  ? normaliseProduct(
+                      result.product
+                    )
+                  : currentProduct
+            )
         );
       }
 
@@ -620,9 +1026,10 @@ export default function AdminProductsPage() {
   async function deleteProduct(
     product: Product
   ) {
-    const confirmation = window.prompt(
-      `Type DELETE ${product.name} to permanently delete this product.`
-    );
+    const confirmation =
+      window.prompt(
+        `Type DELETE ${product.name} to permanently delete this product.`
+      );
 
     if (
       confirmation !==
@@ -653,7 +1060,10 @@ export default function AdminProductsPage() {
 
       const result = await response.json();
 
-      if (!response.ok || !result.success) {
+      if (
+        !response.ok ||
+        !result.success
+      ) {
         throw new Error(
           result.message ||
             "Could not delete product."
@@ -682,38 +1092,45 @@ export default function AdminProductsPage() {
     }
   }
 
-  const filteredProducts = useMemo(() => {
-    if (filter === "all") {
-      return products;
-    }
+  const filteredProducts =
+    useMemo(() => {
+      if (filter === "all") {
+        return products;
+      }
 
-    return products.filter(
-      (product) =>
-        product.status === filter
-    );
-  }, [products, filter]);
+      return products.filter(
+        (product) =>
+          product.status === filter
+      );
+    }, [products, filter]);
 
   const statistics = useMemo(
     () => ({
       total: products.length,
+
       available: products.filter(
         (product) =>
-          product.status === "available"
+          product.status ===
+          "available"
       ).length,
+
       comingSoon: products.filter(
         (product) =>
           product.status ===
           "coming_soon"
       ).length,
+
       outOfStock: products.filter(
         (product) =>
           product.status ===
           "out_of_stock"
       ).length,
+
       hidden: products.filter(
         (product) =>
           product.status === "hidden"
       ).length,
+
       totalStock: products.reduce(
         (total, product) =>
           total +
@@ -754,9 +1171,10 @@ export default function AdminProductsPage() {
             </h1>
 
             <p className="mt-4 max-w-2xl leading-7 text-gray-400">
-              Add products, upload images,
-              update prices, control stock and
-              manage product availability.
+              Add products, upload multiple
+              images, update prices, control
+              stock and manage product
+              availability.
             </p>
           </div>
 
@@ -812,15 +1230,18 @@ export default function AdminProductsPage() {
             },
             {
               label: "Available",
-              value: statistics.available,
+              value:
+                statistics.available,
             },
             {
               label: "Coming Soon",
-              value: statistics.comingSoon,
+              value:
+                statistics.comingSoon,
             },
             {
               label: "Out of Stock",
-              value: statistics.outOfStock,
+              value:
+                statistics.outOfStock,
             },
             {
               label: "Hidden",
@@ -828,7 +1249,8 @@ export default function AdminProductsPage() {
             },
             {
               label: "Total Stock",
-              value: statistics.totalStock,
+              value:
+                statistics.totalStock,
             },
           ].map((item) => (
             <div
@@ -1014,63 +1436,142 @@ export default function AdminProductsPage() {
 
               <div className="md:col-span-2">
                 <label className="text-sm font-black text-gray-300">
-                  Product Picture
+                  Product Pictures
                 </label>
 
-                <div className="mt-3 grid gap-4 rounded-3xl border border-white/10 bg-black/40 p-5 md:grid-cols-[220px_1fr] md:items-center">
-                  <div className="flex aspect-square items-center justify-center overflow-hidden rounded-2xl bg-white">
-                    {newProduct.image ? (
-                      <img
-                        src={newProduct.image}
-                        alt="New product preview"
-                        className="h-full w-full object-contain"
-                      />
-                    ) : (
-                      <p className="px-4 text-center text-sm font-bold text-gray-500">
-                        No image uploaded
-                      </p>
-                    )}
-                  </div>
+                <div className="mt-3 rounded-3xl border border-white/10 bg-black/40 p-5">
+                  {newProduct.images.length >
+                  0 ? (
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      {newProduct.images.map(
+                        (
+                          imageUrl,
+                          imageIndex
+                        ) => (
+                          <div
+                            key={`${imageUrl}-${imageIndex}`}
+                            className="overflow-hidden rounded-2xl border border-white/10 bg-white/5"
+                          >
+                            <div className="relative aspect-square bg-white p-2">
+                              <img
+                                src={imageUrl}
+                                alt={`Product image ${
+                                  imageIndex + 1
+                                }`}
+                                className="h-full w-full object-contain"
+                              />
 
-                  <div>
-                    <label className="flex cursor-pointer items-center justify-center rounded-2xl bg-white px-5 py-4 text-center font-black text-black transition hover:bg-gray-200">
-                      {uploadingNewImage
-                        ? "Uploading..."
-                        : "Choose and Upload Picture"}
+                              {imageIndex ===
+                                0 && (
+                                <span className="absolute left-2 top-2 rounded-full bg-black px-3 py-1 text-xs font-black text-white">
+                                  Main
+                                </span>
+                              )}
+                            </div>
 
-                      <input
-                        type="file"
-                        accept="image/*"
-                        disabled={
-                          uploadingNewImage
-                        }
-                        onChange={
-                          handleNewImageUpload
-                        }
-                        className="hidden"
-                      />
-                    </label>
+                            <div className="grid gap-2 p-3">
+                              {imageIndex !==
+                                0 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    makeNewImageMain(
+                                      imageIndex
+                                    )
+                                  }
+                                  className="rounded-xl bg-white px-3 py-2 text-xs font-black text-black"
+                                >
+                                  Make Main
+                                </button>
+                              )}
 
-                    <p className="mt-3 text-sm leading-6 text-gray-500">
-                      JPG, PNG or WebP. Maximum
-                      file size: 20 MB.
-                    </p>
+                              <div className="grid grid-cols-2 gap-2">
+                                <button
+                                  type="button"
+                                  disabled={
+                                    imageIndex ===
+                                    0
+                                  }
+                                  onClick={() =>
+                                    moveNewImage(
+                                      imageIndex,
+                                      "left"
+                                    )
+                                  }
+                                  className="rounded-xl border border-white/15 px-3 py-2 text-xs font-black disabled:opacity-30"
+                                >
+                                  ← Left
+                                </button>
 
-                    {newProduct.image && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateNewProduct(
-                            "image",
-                            ""
-                          )
-                        }
-                        className="mt-3 text-sm font-bold text-red-300"
-                      >
-                        Remove Picture
-                      </button>
-                    )}
-                  </div>
+                                <button
+                                  type="button"
+                                  disabled={
+                                    imageIndex ===
+                                    newProduct
+                                      .images
+                                      .length -
+                                      1
+                                  }
+                                  onClick={() =>
+                                    moveNewImage(
+                                      imageIndex,
+                                      "right"
+                                    )
+                                  }
+                                  className="rounded-xl border border-white/15 px-3 py-2 text-xs font-black disabled:opacity-30"
+                                >
+                                  Right →
+                                </button>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  removeNewImage(
+                                    imageIndex
+                                  )
+                                }
+                                className="rounded-xl bg-red-600 px-3 py-2 text-xs font-black"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-white/15 p-8 text-center text-gray-500">
+                      No images uploaded
+                    </div>
+                  )}
+
+                  <label className="mt-5 flex cursor-pointer items-center justify-center rounded-2xl bg-white px-5 py-4 text-center font-black text-black transition hover:bg-gray-200">
+                    {uploadingNewImages
+                      ? "Uploading Pictures..."
+                      : "Choose and Upload Pictures"}
+
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      disabled={
+                        uploadingNewImages
+                      }
+                      onChange={
+                        handleNewImagesUpload
+                      }
+                      className="hidden"
+                    />
+                  </label>
+
+                  <p className="mt-3 text-center text-sm leading-6 text-gray-500">
+                    You can choose multiple
+                    images. The first image is
+                    the main product picture.
+                    Maximum size: 20 MB per
+                    image.
+                  </p>
                 </div>
               </div>
 
@@ -1144,19 +1645,22 @@ export default function AdminProductsPage() {
               {[
                 {
                   key: "showOnHomepage",
-                  label: "Show on Homepage",
+                  label:
+                    "Show on Homepage",
                   value:
                     newProduct.showOnHomepage,
                 },
                 {
                   key: "allowWishlist",
-                  label: "Allow Wishlist",
+                  label:
+                    "Allow Wishlist",
                   value:
                     newProduct.allowWishlist,
                 },
                 {
                   key: "allowPurchase",
-                  label: "Allow Purchase",
+                  label:
+                    "Allow Purchase",
                   value:
                     newProduct.allowPurchase,
                 },
@@ -1188,10 +1692,11 @@ export default function AdminProductsPage() {
               type="submit"
               disabled={
                 creating ||
-                uploadingNewImage ||
+                uploadingNewImages ||
                 !newProduct.name.trim() ||
                 !newProduct.slug.trim() ||
-                !newProduct.image.trim()
+                newProduct.images.length ===
+                  0
               }
               className="mt-7 w-full rounded-2xl bg-white px-6 py-4 font-black text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
             >
@@ -1238,7 +1743,8 @@ export default function AdminProductsPage() {
             </div>
           </div>
 
-          {filteredProducts.length === 0 ? (
+          {filteredProducts.length ===
+          0 ? (
             <div className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-10 text-center">
               <h3 className="text-2xl font-black">
                 No products found
@@ -1259,6 +1765,12 @@ export default function AdminProductsPage() {
                   const isUploading =
                     uploadingProductId ===
                     product.id;
+
+                  const productImages =
+                    cleanImageList(
+                      product.images,
+                      product.image
+                    );
 
                   return (
                     <article
@@ -1288,272 +1800,391 @@ export default function AdminProductsPage() {
                         </span>
                       </div>
 
-                      <div className="mt-7 grid gap-6 lg:grid-cols-[260px_1fr]">
-                        <div>
-                          <div className="flex aspect-square items-center justify-center overflow-hidden rounded-3xl bg-white p-3">
-                            {product.image ? (
-                              <img
-                                src={product.image}
-                                alt={product.name}
-                                className="h-full w-full object-contain"
-                              />
-                            ) : (
-                              <p className="text-center text-sm font-bold text-gray-500">
-                                No image
-                              </p>
-                            )}
-                          </div>
+                      <div className="mt-7">
+                        <div className="flex items-center justify-between gap-4">
+                          <h4 className="text-xl font-black">
+                            Product Gallery
+                          </h4>
 
-                          <label className="mt-4 flex cursor-pointer items-center justify-center rounded-2xl border border-white/15 px-5 py-4 text-center font-black transition hover:bg-white/10">
-                            {isUploading
-                              ? "Uploading..."
-                              : "Upload New Picture"}
-
-                            <input
-                              type="file"
-                              accept="image/*"
-                              disabled={isUploading}
-                              onChange={(event) =>
-                                handleExistingImageUpload(
-                                  product.id,
-                                  event
-                                )
-                              }
-                              className="hidden"
-                            />
-                          </label>
-
-                          <p className="mt-3 text-center text-xs leading-5 text-gray-500">
-                            Press Save Product
-                            after uploading.
-                          </p>
+                          <span className="text-sm text-gray-500">
+                            {
+                              productImages.length
+                            }{" "}
+                            image
+                            {productImages.length ===
+                            1
+                              ? ""
+                              : "s"}
+                          </span>
                         </div>
 
-                        <div className="grid gap-5 md:grid-cols-2">
-                          <div>
-                            <label className="text-sm font-black text-gray-300">
-                              Product Name
-                            </label>
+                        {productImages.length >
+                        0 ? (
+                          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            {productImages.map(
+                              (
+                                imageUrl,
+                                imageIndex
+                              ) => (
+                                <div
+                                  key={`${imageUrl}-${imageIndex}`}
+                                  className="overflow-hidden rounded-2xl border border-white/10 bg-black/30"
+                                >
+                                  <div className="relative aspect-square bg-white p-2">
+                                    <img
+                                      src={
+                                        imageUrl
+                                      }
+                                      alt={`${
+                                        product.name
+                                      } image ${
+                                        imageIndex +
+                                        1
+                                      }`}
+                                      className="h-full w-full object-contain"
+                                    />
 
-                            <input
-                              type="text"
-                              value={product.name}
-                              onChange={(event) =>
-                                updateProduct(
-                                  product.id,
-                                  "name",
-                                  event.target.value
-                                )
-                              }
-                              className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
-                            />
+                                    {imageIndex ===
+                                      0 && (
+                                      <span className="absolute left-2 top-2 rounded-full bg-black px-3 py-1 text-xs font-black text-white">
+                                        Main
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="grid gap-2 p-3">
+                                    {imageIndex !==
+                                      0 && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          makeExistingImageMain(
+                                            product.id,
+                                            imageIndex
+                                          )
+                                        }
+                                        className="rounded-xl bg-white px-3 py-2 text-xs font-black text-black"
+                                      >
+                                        Make Main
+                                      </button>
+                                    )}
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <button
+                                        type="button"
+                                        disabled={
+                                          imageIndex ===
+                                          0
+                                        }
+                                        onClick={() =>
+                                          moveExistingImage(
+                                            product.id,
+                                            imageIndex,
+                                            "left"
+                                          )
+                                        }
+                                        className="rounded-xl border border-white/15 px-3 py-2 text-xs font-black disabled:opacity-30"
+                                      >
+                                        ← Left
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        disabled={
+                                          imageIndex ===
+                                          productImages.length -
+                                            1
+                                        }
+                                        onClick={() =>
+                                          moveExistingImage(
+                                            product.id,
+                                            imageIndex,
+                                            "right"
+                                          )
+                                        }
+                                        className="rounded-xl border border-white/15 px-3 py-2 text-xs font-black disabled:opacity-30"
+                                      >
+                                        Right →
+                                      </button>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        removeExistingImage(
+                                          product.id,
+                                          imageIndex
+                                        )
+                                      }
+                                      className="rounded-xl bg-red-600 px-3 py-2 text-xs font-black"
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                </div>
+                              )
+                            )}
                           </div>
-
-                          <div>
-                            <label className="text-sm font-black text-gray-300">
-                              Slug
-                            </label>
-
-                            <input
-                              type="text"
-                              value={product.slug}
-                              onChange={(event) =>
-                                updateProduct(
-                                  product.id,
-                                  "slug",
-                                  createSlug(
-                                    event.target
-                                      .value
-                                  )
-                                )
-                              }
-                              className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
-                            />
+                        ) : (
+                          <div className="mt-4 rounded-2xl border border-dashed border-white/15 p-8 text-center text-gray-500">
+                            No product images
                           </div>
+                        )}
 
-                          <div className="md:col-span-2">
-                            <label className="text-sm font-black text-gray-300">
-                              Short Description
-                            </label>
+                        <label className="mt-4 flex cursor-pointer items-center justify-center rounded-2xl border border-white/15 px-5 py-4 text-center font-black transition hover:bg-white/10">
+                          {isUploading
+                            ? "Uploading Pictures..."
+                            : "Upload More Pictures"}
 
-                            <textarea
-                              value={
-                                product.short_description
-                              }
-                              onChange={(event) =>
-                                updateProduct(
-                                  product.id,
-                                  "short_description",
-                                  event.target.value
-                                )
-                              }
-                              rows={2}
-                              className="mt-3 w-full resize-none rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
-                            />
-                          </div>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            disabled={isUploading}
+                            onChange={(event) =>
+                              handleExistingImagesUpload(
+                                product.id,
+                                event
+                              )
+                            }
+                            className="hidden"
+                          />
+                        </label>
 
-                          <div className="md:col-span-2">
-                            <label className="text-sm font-black text-gray-300">
-                              Full Description
-                            </label>
+                        <p className="mt-3 text-center text-xs leading-5 text-gray-500">
+                          After uploading,
+                          removing or rearranging
+                          pictures, press Save
+                          Product.
+                        </p>
+                      </div>
 
-                            <textarea
-                              value={
-                                product.description
-                              }
-                              onChange={(event) =>
-                                updateProduct(
-                                  product.id,
-                                  "description",
-                                  event.target.value
-                                )
-                              }
-                              rows={4}
-                              className="mt-3 w-full resize-none rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
-                            />
-                          </div>
+                      <div className="mt-7 grid gap-5 md:grid-cols-2">
+                        <div>
+                          <label className="text-sm font-black text-gray-300">
+                            Product Name
+                          </label>
 
-                          <div>
-                            <label className="text-sm font-black text-gray-300">
-                              Price in EGP
-                            </label>
+                          <input
+                            type="text"
+                            value={product.name}
+                            onChange={(event) =>
+                              updateProduct(
+                                product.id,
+                                "name",
+                                event.target.value
+                              )
+                            }
+                            className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
+                          />
+                        </div>
 
-                            <input
-                              type="number"
-                              min="0"
-                              value={product.price}
-                              onChange={(event) =>
-                                updateProduct(
-                                  product.id,
-                                  "price",
-                                  Math.max(
-                                    0,
-                                    Number(
-                                      event.target
-                                        .value || 0
-                                    )
-                                  )
-                                )
-                              }
-                              className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
-                            />
-                          </div>
+                        <div>
+                          <label className="text-sm font-black text-gray-300">
+                            Slug
+                          </label>
 
-                          <div>
-                            <label className="text-sm font-black text-gray-300">
-                              Product Status
-                            </label>
-
-                            <select
-                              value={product.status}
-                              onChange={(event) =>
-                                updateProduct(
-                                  product.id,
-                                  "status",
+                          <input
+                            type="text"
+                            value={product.slug}
+                            onChange={(event) =>
+                              updateProduct(
+                                product.id,
+                                "slug",
+                                createSlug(
                                   event.target
-                                    .value as ProductStatus
+                                    .value
                                 )
-                              }
-                              className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
-                            >
-                              {statusOptions.map(
-                                (status) => (
-                                  <option
-                                    key={
-                                      status.value
-                                    }
-                                    value={
-                                      status.value
-                                    }
-                                  >
-                                    {
-                                      status.label
-                                    }
-                                  </option>
-                                )
-                              )}
-                            </select>
-                          </div>
+                              )
+                            }
+                            className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
+                          />
+                        </div>
 
-                          <div>
-                            <label className="text-sm font-black text-gray-300">
-                              Stock Quantity
-                            </label>
+                        <div className="md:col-span-2">
+                          <label className="text-sm font-black text-gray-300">
+                            Short Description
+                          </label>
 
-                            <input
-                              type="number"
-                              min="0"
-                              value={
-                                product.stock_quantity
-                              }
-                              onChange={(event) =>
-                                updateProduct(
-                                  product.id,
-                                  "stock_quantity",
-                                  Math.max(
-                                    0,
-                                    Number(
-                                      event.target
-                                        .value || 0
-                                    )
-                                  )
-                                )
-                              }
-                              className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
-                            />
-                          </div>
+                          <textarea
+                            value={
+                              product.short_description
+                            }
+                            onChange={(event) =>
+                              updateProduct(
+                                product.id,
+                                "short_description",
+                                event.target.value
+                              )
+                            }
+                            rows={2}
+                            className="mt-3 w-full resize-none rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
+                          />
+                        </div>
 
-                          <div>
-                            <label className="text-sm font-black text-gray-300">
-                              Low Stock Limit
-                            </label>
+                        <div className="md:col-span-2">
+                          <label className="text-sm font-black text-gray-300">
+                            Full Description
+                          </label>
 
-                            <input
-                              type="number"
-                              min="0"
-                              value={
-                                product.low_stock_limit
-                              }
-                              onChange={(event) =>
-                                updateProduct(
-                                  product.id,
-                                  "low_stock_limit",
-                                  Math.max(
-                                    0,
-                                    Number(
-                                      event.target
-                                        .value || 0
-                                    )
-                                  )
-                                )
-                              }
-                              className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
-                            />
-                          </div>
+                          <textarea
+                            value={
+                              product.description
+                            }
+                            onChange={(event) =>
+                              updateProduct(
+                                product.id,
+                                "description",
+                                event.target.value
+                              )
+                            }
+                            rows={4}
+                            className="mt-3 w-full resize-none rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
+                          />
+                        </div>
 
-                          <div>
-                            <label className="text-sm font-black text-gray-300">
-                              Display Order
-                            </label>
+                        <div>
+                          <label className="text-sm font-black text-gray-300">
+                            Price in EGP
+                          </label>
 
-                            <input
-                              type="number"
-                              value={
-                                product.display_order
-                              }
-                              onChange={(event) =>
-                                updateProduct(
-                                  product.id,
-                                  "display_order",
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={product.price}
+                            onChange={(event) =>
+                              updateProduct(
+                                product.id,
+                                "price",
+                                Math.max(
+                                  0,
                                   Number(
                                     event.target
                                       .value || 0
                                   )
                                 )
-                              }
-                              className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
-                            />
-                          </div>
+                              )
+                            }
+                            className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-black text-gray-300">
+                            Product Status
+                          </label>
+
+                          <select
+                            value={product.status}
+                            onChange={(event) =>
+                              updateProduct(
+                                product.id,
+                                "status",
+                                event.target
+                                  .value as ProductStatus
+                              )
+                            }
+                            className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
+                          >
+                            {statusOptions.map(
+                              (status) => (
+                                <option
+                                  key={
+                                    status.value
+                                  }
+                                  value={
+                                    status.value
+                                  }
+                                >
+                                  {status.label}
+                                </option>
+                              )
+                            )}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-black text-gray-300">
+                            Stock Quantity
+                          </label>
+
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={
+                              product.stock_quantity
+                            }
+                            onChange={(event) =>
+                              updateProduct(
+                                product.id,
+                                "stock_quantity",
+                                Math.max(
+                                  0,
+                                  Number(
+                                    event.target
+                                      .value || 0
+                                  )
+                                )
+                              )
+                            }
+                            className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-black text-gray-300">
+                            Low Stock Limit
+                          </label>
+
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={
+                              product.low_stock_limit
+                            }
+                            onChange={(event) =>
+                              updateProduct(
+                                product.id,
+                                "low_stock_limit",
+                                Math.max(
+                                  0,
+                                  Number(
+                                    event.target
+                                      .value || 0
+                                  )
+                                )
+                              )
+                            }
+                            className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-black text-gray-300">
+                            Display Order
+                          </label>
+
+                          <input
+                            type="number"
+                            step="1"
+                            value={
+                              product.display_order
+                            }
+                            onChange={(event) =>
+                              updateProduct(
+                                product.id,
+                                "display_order",
+                                Number(
+                                  event.target
+                                    .value || 0
+                                )
+                              )
+                            }
+                            className="mt-3 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 outline-none focus:border-white"
+                          />
                         </div>
                       </div>
 
@@ -1632,7 +2263,7 @@ export default function AdminProductsPage() {
                             isDeleting ||
                             isUploading
                           }
-                          className="rounded-2xl bg-white px-5 py-4 font-black text-black transition hover:bg-gray-200 disabled:opacity-40"
+                          className="rounded-2xl bg-white px-5 py-4 font-black text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           {isSaving
                             ? "Saving..."
@@ -1642,14 +2273,16 @@ export default function AdminProductsPage() {
                         <button
                           type="button"
                           onClick={() =>
-                            deleteProduct(product)
+                            deleteProduct(
+                              product
+                            )
                           }
                           disabled={
                             isSaving ||
                             isDeleting ||
                             isUploading
                           }
-                          className="rounded-2xl bg-red-600 px-5 py-4 font-black text-white transition hover:bg-red-500 disabled:opacity-40"
+                          className="rounded-2xl bg-red-600 px-5 py-4 font-black text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           {isDeleting
                             ? "Deleting..."
