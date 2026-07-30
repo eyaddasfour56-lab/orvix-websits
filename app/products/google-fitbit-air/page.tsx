@@ -13,7 +13,8 @@ const PRODUCT_SLUG = "google-fitbit-air";
 const PRODUCT_PRICE = 7900;
 
 const CART_STORAGE_KEY = "orvixCart";
-const WISHLIST_STORAGE_KEY = "orvixWishlist";
+const WISHLIST_STORAGE_KEY =
+  "orvixWishlist";
 
 type CartItem = {
   id: string;
@@ -45,6 +46,16 @@ type ProductReview = {
 type ReviewStatistics = {
   totalReviews: number;
   averageRating: number;
+};
+
+type ProductInventory = {
+  id: string;
+  productSlug: string;
+  productName: string;
+  stockQuantity: number;
+  lowStockLimit: number;
+  isAvailable: boolean;
+  updatedAt: string;
 };
 
 const colours = [
@@ -229,7 +240,8 @@ function readCart(): CartItem[] {
       return [];
     }
 
-    const parsedCart = JSON.parse(savedCart);
+    const parsedCart =
+      JSON.parse(savedCart);
 
     return Array.isArray(parsedCart)
       ? parsedCart
@@ -262,7 +274,8 @@ function readWishlist(): WishlistItem[] {
 }
 
 function renderStars(rating: number) {
-  const roundedRating = Math.round(rating);
+  const roundedRating =
+    Math.round(rating);
 
   return [1, 2, 3, 4, 5].map(
     (star) => (
@@ -295,8 +308,10 @@ function formatReviewDate(date: string) {
 }
 
 export default function GoogleFitbitAirPage() {
-  const [selectedColour, setSelectedColour] =
-    useState(colours[0]);
+  const [
+    selectedColour,
+    setSelectedColour,
+  ] = useState(colours[0]);
 
   const [quantity, setQuantity] =
     useState(1);
@@ -333,8 +348,42 @@ export default function GoogleFitbitAirPage() {
     setReviewsLoading,
   ] = useState(true);
 
-  const [reviewsError, setReviewsError] =
-    useState("");
+  const [
+    reviewsError,
+    setReviewsError,
+  ] = useState("");
+
+  const [inventory, setInventory] =
+    useState<ProductInventory | null>(
+      null
+    );
+
+  const [
+    inventoryLoading,
+    setInventoryLoading,
+  ] = useState(true);
+
+  const [
+    inventoryError,
+    setInventoryError,
+  ] = useState("");
+
+  const [
+    cartStockMessage,
+    setCartStockMessage,
+  ] = useState("");
+
+  const stockQuantity =
+    inventory?.stockQuantity ?? 0;
+
+  const isAvailable =
+    Boolean(inventory?.isAvailable) &&
+    stockQuantity > 0;
+
+  const isLowStock =
+    isAvailable &&
+    stockQuantity <=
+      (inventory?.lowStockLimit ?? 0);
 
   useEffect(() => {
     const currentWishlist =
@@ -388,6 +437,82 @@ export default function GoogleFitbitAirPage() {
       );
     };
   }, [selectedColour]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadInventory() {
+      setInventoryLoading(true);
+      setInventoryError("");
+
+      try {
+        const response = await fetch(
+          `/api/inventory/${encodeURIComponent(
+            PRODUCT_SLUG
+          )}`,
+          {
+            cache: "no-store",
+          }
+        );
+
+        const result =
+          await response.json();
+
+        if (
+          !response.ok ||
+          !result.success
+        ) {
+          throw new Error(
+            result.message ||
+              "Could not load stock."
+          );
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        const loadedInventory =
+          result.inventory as ProductInventory;
+
+        setInventory(loadedInventory);
+
+        const availableStock = Number(
+          loadedInventory?.stockQuantity ||
+            0
+        );
+
+        setQuantity((current) =>
+          availableStock > 0
+            ? Math.min(
+                Math.max(current, 1),
+                availableStock
+              )
+            : 1
+        );
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        setInventoryError(
+          error instanceof Error
+            ? error.message
+            : "Could not load stock."
+        );
+      } finally {
+        if (!cancelled) {
+          setInventoryLoading(false);
+        }
+      }
+    }
+
+    loadInventory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -475,11 +600,72 @@ export default function GoogleFitbitAirPage() {
     }, 100);
   }
 
+  function showStockMessage(
+    message: string
+  ) {
+    setCartStockMessage(message);
+
+    window.setTimeout(() => {
+      setCartStockMessage("");
+    }, 3000);
+  }
+
   function addToCart() {
+    if (
+      inventoryLoading ||
+      !inventory
+    ) {
+      showStockMessage(
+        "Stock is still loading."
+      );
+
+      return;
+    }
+
+    if (!isAvailable) {
+      showStockMessage(
+        "This product is currently out of stock."
+      );
+
+      return;
+    }
+
     const currentCart = readCart();
 
     const itemId =
       `${PRODUCT_SLUG}-${selectedColour.name.toLowerCase()}`;
+
+    const totalProductQuantity =
+      currentCart
+        .filter(
+          (item) =>
+            item.slug === PRODUCT_SLUG
+        )
+        .reduce(
+          (total, item) =>
+            total +
+            Number(item.quantity || 0),
+          0
+        );
+
+    const availableToAdd =
+      stockQuantity -
+      totalProductQuantity;
+
+    if (availableToAdd <= 0) {
+      showStockMessage(
+        "You already have all available stock in your cart."
+      );
+
+      openCartDrawer();
+
+      return;
+    }
+
+    const quantityToAdd = Math.min(
+      quantity,
+      availableToAdd
+    );
 
     const existingItemIndex =
       currentCart.findIndex(
@@ -497,10 +683,9 @@ export default function GoogleFitbitAirPage() {
                 image:
                   selectedColour.image,
 
-                quantity: Math.min(
-                  item.quantity + quantity,
-                  10
-                ),
+                quantity:
+                  item.quantity +
+                  quantityToAdd,
               }
             : item
       );
@@ -508,10 +693,12 @@ export default function GoogleFitbitAirPage() {
       const newItem: CartItem = {
         id: itemId,
         name: PRODUCT_NAME,
-        colour: selectedColour.name,
-        image: selectedColour.image,
+        colour:
+          selectedColour.name,
+        image:
+          selectedColour.image,
         price: PRODUCT_PRICE,
-        quantity,
+        quantity: quantityToAdd,
         slug: PRODUCT_SLUG,
       };
 
@@ -527,14 +714,28 @@ export default function GoogleFitbitAirPage() {
     );
 
     window.dispatchEvent(
-      new Event("orvix-cart-updated")
+      new Event(
+        "orvix-cart-updated"
+      )
     );
 
-    setShowAddedMessage(true);
+    if (
+      quantityToAdd < quantity
+    ) {
+      showStockMessage(
+        `Only ${quantityToAdd} more ${
+          quantityToAdd === 1
+            ? "piece was"
+            : "pieces were"
+        } available.`
+      );
+    } else {
+      setShowAddedMessage(true);
 
-    window.setTimeout(() => {
-      setShowAddedMessage(false);
-    }, 2500);
+      window.setTimeout(() => {
+        setShowAddedMessage(false);
+      }, 2500);
+    }
 
     openCartDrawer();
   }
@@ -568,8 +769,10 @@ export default function GoogleFitbitAirPage() {
       const newItem: WishlistItem = {
         id: itemId,
         name: PRODUCT_NAME,
-        colour: selectedColour.name,
-        image: selectedColour.image,
+        colour:
+          selectedColour.name,
+        image:
+          selectedColour.image,
         price: PRODUCT_PRICE,
         slug: PRODUCT_SLUG,
       };
@@ -588,11 +791,15 @@ export default function GoogleFitbitAirPage() {
 
     window.localStorage.setItem(
       WISHLIST_STORAGE_KEY,
-      JSON.stringify(updatedWishlist)
+      JSON.stringify(
+        updatedWishlist
+      )
     );
 
     window.dispatchEvent(
-      new Event("orvix-wishlist-updated")
+      new Event(
+        "orvix-wishlist-updated"
+      )
     );
 
     window.setTimeout(() => {
@@ -604,7 +811,6 @@ export default function GoogleFitbitAirPage() {
     <main className="min-h-screen bg-[#070707] pb-32 text-white md:pb-0">
       <Navbar />
 
-      {/* Add to cart notification */}
       <div
         role="status"
         aria-live="polite"
@@ -623,7 +829,20 @@ export default function GoogleFitbitAirPage() {
         </div>
       </div>
 
-      {/* Wishlist notification */}
+      <div
+        role="status"
+        aria-live="polite"
+        className={`fixed left-1/2 top-24 z-[102] w-[calc(100%-32px)] max-w-md -translate-x-1/2 transition duration-300 ${
+          cartStockMessage
+            ? "translate-y-0 opacity-100"
+            : "pointer-events-none -translate-y-4 opacity-0"
+        }`}
+      >
+        <div className="rounded-2xl border border-orange-500/20 bg-orange-500 px-5 py-4 text-center font-black text-black shadow-2xl">
+          {cartStockMessage}
+        </div>
+      </div>
+
       <div
         role="status"
         aria-live="polite"
@@ -635,14 +854,15 @@ export default function GoogleFitbitAirPage() {
       >
         <div className="flex items-center gap-3 whitespace-nowrap rounded-full border border-white/15 bg-white px-5 py-3 font-black text-black shadow-2xl">
           <span className="text-xl">
-            {isWishlisted ? "♥" : "♡"}
+            {isWishlisted
+              ? "♥"
+              : "♡"}
           </span>
 
           {showWishlistMessage}
         </div>
       </div>
 
-      {/* Product section */}
       <section className="py-14 sm:py-24">
         <div className="mx-auto grid max-w-7xl items-start gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:gap-20">
           <div className="rounded-[40px] bg-white p-6 sm:sticky sm:top-28 sm:p-8">
@@ -660,12 +880,31 @@ export default function GoogleFitbitAirPage() {
           <div>
             <div className="flex flex-wrap items-center gap-3">
               <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
-                Screen-Free Fitness Tracker
+                Screen-Free Fitness
+                Tracker
               </p>
 
-              <span className="rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1 text-xs font-black uppercase tracking-wider text-green-400">
-                Available Now
-              </span>
+              {inventoryLoading ? (
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-black uppercase tracking-wider text-gray-400">
+                  Checking Stock
+                </span>
+              ) : isAvailable ? (
+                <span
+                  className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wider ${
+                    isLowStock
+                      ? "border-orange-500/20 bg-orange-500/10 text-orange-300"
+                      : "border-green-500/20 bg-green-500/10 text-green-400"
+                  }`}
+                >
+                  {isLowStock
+                    ? `Only ${stockQuantity} Left`
+                    : "In Stock"}
+                </span>
+              ) : (
+                <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs font-black uppercase tracking-wider text-red-300">
+                  Out of Stock
+                </span>
+              )}
             </div>
 
             <h1 className="mt-5 text-5xl font-black leading-none sm:text-6xl">
@@ -705,11 +944,87 @@ export default function GoogleFitbitAirPage() {
             </a>
 
             <p className="mt-6 max-w-xl text-lg leading-8 text-gray-400">
-              A lightweight screen-free tracker
-              designed to monitor your daily
-              activity, heart rate, sleep and
-              recovery.
+              A lightweight screen-free
+              tracker designed to monitor
+              your daily activity, heart
+              rate, sleep and recovery.
             </p>
+
+            <div
+              className={`mt-6 rounded-2xl border p-4 ${
+                inventoryLoading
+                  ? "border-white/10 bg-white/5"
+                  : inventoryError
+                    ? "border-red-500/20 bg-red-500/10"
+                    : isAvailable
+                      ? isLowStock
+                        ? "border-orange-500/20 bg-orange-500/10"
+                        : "border-green-500/20 bg-green-500/10"
+                      : "border-red-500/20 bg-red-500/10"
+              }`}
+            >
+              {inventoryLoading ? (
+                <p className="font-bold text-gray-400">
+                  Checking available
+                  stock...
+                </p>
+              ) : inventoryError ? (
+                <>
+                  <p className="font-black text-red-300">
+                    Stock information is
+                    currently unavailable
+                  </p>
+
+                  <p className="mt-2 text-sm text-gray-400">
+                    Please refresh the page
+                    and try again.
+                  </p>
+                </>
+              ) : isAvailable ? (
+                <>
+                  <div className="flex items-center justify-between gap-4">
+                    <p
+                      className={`font-black ${
+                        isLowStock
+                          ? "text-orange-300"
+                          : "text-green-300"
+                      }`}
+                    >
+                      {isLowStock
+                        ? "Low Stock"
+                        : "Available Now"}
+                    </p>
+
+                    <strong className="text-xl">
+                      {stockQuantity}{" "}
+                      {stockQuantity === 1
+                        ? "piece"
+                        : "pieces"}
+                    </strong>
+                  </div>
+
+                  <p className="mt-2 text-sm text-gray-400">
+                    The quantity selector
+                    is limited to the
+                    currently available
+                    stock.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-black text-red-300">
+                    Currently Out of Stock
+                  </p>
+
+                  <p className="mt-2 text-sm text-gray-400">
+                    This product cannot be
+                    added to the cart until
+                    stock is available
+                    again.
+                  </p>
+                </>
+              )}
+            </div>
 
             <p className="mt-10 text-sm uppercase tracking-[0.35em] text-gray-500">
               Choose your colour
@@ -777,8 +1092,13 @@ export default function GoogleFitbitAirPage() {
                         )
                     )
                   }
+                  disabled={
+                    inventoryLoading ||
+                    !isAvailable ||
+                    quantity <= 1
+                  }
                   aria-label="Decrease quantity"
-                  className="flex h-11 w-11 items-center justify-center rounded-full text-2xl transition hover:bg-white/10"
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-2xl transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   −
                 </button>
@@ -793,17 +1113,31 @@ export default function GoogleFitbitAirPage() {
                     setQuantity(
                       (current) =>
                         Math.min(
-                          10,
+                          stockQuantity,
                           current + 1
                         )
                     )
                   }
+                  disabled={
+                    inventoryLoading ||
+                    !isAvailable ||
+                    quantity >=
+                      stockQuantity
+                  }
                   aria-label="Increase quantity"
-                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-2xl text-black transition active:scale-95"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-2xl text-black transition active:scale-95 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-gray-600"
                 >
                   +
                 </button>
               </div>
+
+              {!inventoryLoading &&
+                isAvailable && (
+                  <p className="mt-3 text-sm text-gray-500">
+                    Maximum available:{" "}
+                    {stockQuantity}
+                  </p>
+                )}
             </div>
 
             <div className="mt-10 rounded-3xl border border-white/10 bg-white/5 p-6">
@@ -847,12 +1181,16 @@ export default function GoogleFitbitAirPage() {
               </p>
             </div>
 
-            {/* Desktop buttons */}
             <div className="mt-8 hidden grid-cols-[1fr_auto] gap-3 md:grid">
               <button
                 type="button"
                 onClick={addToCart}
-                className="flex w-full items-center justify-center gap-3 rounded-full bg-white px-8 py-5 text-lg font-black text-black transition hover:bg-gray-200 active:scale-[0.99]"
+                disabled={
+                  inventoryLoading ||
+                  Boolean(inventoryError) ||
+                  !isAvailable
+                }
+                className="flex w-full items-center justify-center gap-3 rounded-full bg-white px-8 py-5 text-lg font-black text-black transition hover:bg-gray-200 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-gray-600"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -876,7 +1214,13 @@ export default function GoogleFitbitAirPage() {
                   />
                 </svg>
 
-                Add to Cart
+                {inventoryLoading
+                  ? "Checking Stock..."
+                  : inventoryError
+                    ? "Stock Unavailable"
+                    : isAvailable
+                      ? "Add to Cart"
+                      : "Out of Stock"}
               </button>
 
               <button
@@ -893,7 +1237,9 @@ export default function GoogleFitbitAirPage() {
                     : "border-white/15 bg-white/5 text-white hover:bg-white/10"
                 }`}
               >
-                {isWishlisted ? "♥" : "♡"}
+                {isWishlisted
+                  ? "♥"
+                  : "♡"}
               </button>
             </div>
 
@@ -915,7 +1261,6 @@ export default function GoogleFitbitAirPage() {
         </div>
       </section>
 
-      {/* Features */}
       <section className="border-t border-white/10 bg-[#0b0b0b] py-20 sm:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="text-center">
@@ -996,15 +1341,14 @@ export default function GoogleFitbitAirPage() {
 
           <p className="mx-auto mt-12 max-w-3xl text-center text-xs leading-6 text-gray-600">
             Battery life, tracking accuracy
-            and feature availability may vary
-            depending on usage, phone
+            and feature availability may
+            vary depending on usage, phone
             compatibility and software
             version.
           </p>
         </div>
       </section>
 
-      {/* Customer Reviews */}
       <section
         id="customer-reviews"
         className="scroll-mt-28 border-t border-white/10 bg-[#070707] py-20 sm:py-28"
@@ -1021,8 +1365,9 @@ export default function GoogleFitbitAirPage() {
               </h2>
 
               <p className="mt-5 max-w-2xl text-lg leading-8 text-gray-400">
-                Real feedback from customers
-                who received their ORVIX order.
+                Real feedback from
+                customers who received
+                their ORVIX order.
               </p>
             </div>
 
@@ -1082,8 +1427,9 @@ export default function GoogleFitbitAirPage() {
               </p>
 
               <p className="mt-3 text-sm leading-6 text-gray-400">
-                Reviews can only be submitted
-                using a delivered ORVIX order.
+                Reviews can only be
+                submitted using a
+                delivered ORVIX order.
               </p>
             </div>
           </div>
@@ -1118,9 +1464,9 @@ export default function GoogleFitbitAirPage() {
               </h3>
 
               <p className="mx-auto mt-3 max-w-xl leading-7 text-gray-400">
-                Delivered customers can submit
-                the first verified review for
-                this product.
+                Delivered customers can
+                submit the first verified
+                review for this product.
               </p>
 
               <Link
@@ -1202,7 +1548,6 @@ export default function GoogleFitbitAirPage() {
         </div>
       </footer>
 
-      {/* Mobile sticky buttons */}
       <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-black/95 p-3 backdrop-blur-xl md:hidden">
         <div className="mx-auto flex max-w-lg items-center gap-3">
           <div className="min-w-0 flex-1">
@@ -1218,6 +1563,23 @@ export default function GoogleFitbitAirPage() {
               ).toLocaleString("en-GB")}{" "}
               EGP
             </p>
+
+            {!inventoryLoading &&
+              !inventoryError && (
+                <p
+                  className={`mt-1 text-xs font-bold ${
+                    isAvailable
+                      ? isLowStock
+                        ? "text-orange-300"
+                        : "text-green-300"
+                      : "text-red-300"
+                  }`}
+                >
+                  {isAvailable
+                    ? `${stockQuantity} in stock`
+                    : "Out of stock"}
+                </p>
+              )}
           </div>
 
           <button
@@ -1240,9 +1602,20 @@ export default function GoogleFitbitAirPage() {
           <button
             type="button"
             onClick={addToCart}
-            className="shrink-0 rounded-full bg-white px-5 py-4 font-black text-black transition active:scale-95"
+            disabled={
+              inventoryLoading ||
+              Boolean(inventoryError) ||
+              !isAvailable
+            }
+            className="shrink-0 rounded-full bg-white px-5 py-4 font-black text-black transition active:scale-95 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-gray-600"
           >
-            Add to Cart
+            {inventoryLoading
+              ? "Checking..."
+              : inventoryError
+                ? "Unavailable"
+                : isAvailable
+                  ? "Add to Cart"
+                  : "Out of Stock"}
           </button>
         </div>
       </div>
