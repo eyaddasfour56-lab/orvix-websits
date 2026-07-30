@@ -9,12 +9,31 @@ import {
 } from "react";
 import Navbar from "@/components/Navbar";
 
+const PRODUCT_NAME = "Google Fitbit Air";
+const PRODUCT_SLUG = "google-fitbit-air";
 const PRODUCT_PRICE = 7900;
+const CART_STORAGE_KEY = "orvixCart";
 
 const INSTAPAY_LOGO =
-  "data:image/webp;base64,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";
+  "data:image/webp;base64,UklGRpYEAABXRUJQVlA4IIoEAADQHQCdASqgAKAAPp1Mn0wlpCKiJTUJ0LATiU3cLlF/gIuekT0Pmn3ns1hkoV+3E8xvnAelj0AP6J1NW8+ftbhNVnnGn3JoPptQWL9uCxj36AlNUIKk6x788RawO9mkzhpNg/X1Xog17Mcb/qcokWN7fUK5xSXkwkK7rXdOD3AIJcb96/bZKQgmqcOrVBFLUjVQgLcPQTju688xmUBZLJ1WaZlMNhGVvgfMEicY/uwvZ+vwh8pSFZb8FeGHRio1wzPTi0qbQIx591DY4+MfKmfjLThbCTuxyCTazh5ciIsyXF6kO7970fyrySUEfvfoCU1QxftwWMdYAP7/LfgA7hYGEerK87IhgJUgJFS0xCb/g8N/udzPABaXg+cGWddzDkA/ii3q5/fH8v+AhcokpDm5x9FJUxLPGu9ivJe/bzTTHOjDzR95aVBrSxnpw32edjhslcRbVFwVnTETsgeFYXqdsC9XCK3rM8P2btemaHJuXzOTal1U2oT8j3/Mz3lK0/h6iae8Ex+ZBu3JAMicrRcXakrfS87FzILD624O9mTurRooi5Kl9S+WDxW7N9BnN3xVz1wySBmly/kMjuizbEm6EL4wghQG3QDNaZQ5bz/AsqSwJD0dJ/iGpVYR3cX7NqH4IUXkUCM9cNErz0vUPw20FansPbYacwjKeTYMxaourzlOkFUU3vl37Jegvgi3+xOSi6XvxBtHkeig2zm/yjhgqbMs+JQMfxOzAG8+nW6UYEfmNkdDPh1JdXVK0m5HEBx2lL2t56HYuTQaZ7oStvaTyih92yAmR6BgOiHerGoFIChPHpYFrY0gXvttDoZGUY/w+LtT6BV5ziCMPmT9XZMO9PtaHu0N4C+OphyyzQ3xO14/S0zfmXzRkJVvK95yewEi8FfmDxgzP2NzBRmffwO/97rmJetcx8ZpQ+GdCsHKo8EH5ePY+LqA8FgM6Ym2Rmy8N/ETj2cov5hPigzzMAK83sOHu9TQbVA237FGdrmrvNBonKlr+Lxgiipqi8XXiMyHl8/c3HOWX6SZgjUAk4H0hyMspVIAPQMfKNvbUepzw4jxm4Fmku6iK0POXN9xHg9pT32Xr+2iRtNyTqd44fyaAQASiWI0bQBAAAWO26VOYQkZsGOUEHiqAIEvz9ZYXkhFkMbJ1hpb/pbwG2l6aaODAvtAq97qV7fINf8VaiwjApmuzZ5XawZXi/vW8+yk9cdvbG/yyFrRl0h6PyMFGhh+wLQ0GCDa/jHzto9eQGG59aCBYr3fgf6cfj5GPCE33jFjj8NzKKNABHOEsAx8Y/XJeBTZIl4lWEL5RokBkWip3axl+aH/b2vBiLwUBTwJJyH0W2q25kDOmjiNlwrywjmOBxzYmfRQ9eNCU5eme4Nzac1pcIfWW8c4PVkP9lfeFbvrUVGDtPoYetO+2ltd1itantBIf+DhQ6eP4rwin2X5/BfznMST2LHTPUymtrSvRyzrYjRko1UbMEyxCDB1vbIw0jnJMdsrKzqQVQEpz7pNZw6Pbc/ES5+sCXHFr7E4MN9W4/0AAAAAAAAA";
 
-const colours = [
+type Colour = {
+  name: string;
+  image: string;
+  buttonStyle: string;
+};
+
+type CartItem = {
+  id: string;
+  name: string;
+  colour: string;
+  image: string;
+  price: number;
+  quantity: number;
+  slug: string;
+};
+
+const colours: Colour[] = [
   {
     name: "Black",
     image: "/black.png",
@@ -67,11 +86,69 @@ function isValidEmail(value: string) {
   );
 }
 
+function findColour(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  return (
+    colours.find(
+      (colour) =>
+        colour.name.toLowerCase() ===
+        value.toLowerCase()
+    ) ?? null
+  );
+}
+
+function parseQuantity(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const parsedQuantity = Number(value);
+
+  if (
+    !Number.isInteger(parsedQuantity) ||
+    parsedQuantity < 1 ||
+    parsedQuantity > 10
+  ) {
+    return null;
+  }
+
+  return parsedQuantity;
+}
+
+function readFirstCartItem(): CartItem | null {
+  try {
+    const savedCart =
+      window.localStorage.getItem(
+        CART_STORAGE_KEY
+      );
+
+    if (!savedCart) {
+      return null;
+    }
+
+    const parsedCart = JSON.parse(savedCart);
+
+    if (
+      !Array.isArray(parsedCart) ||
+      parsedCart.length === 0
+    ) {
+      return null;
+    }
+
+    return parsedCart[0] as CartItem;
+  } catch {
+    return null;
+  }
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
 
   const [selectedColour, setSelectedColour] =
-    useState(colours[0]);
+    useState<Colour>(colours[0]);
 
   const [selectedAreaCode, setSelectedAreaCode] =
     useState("");
@@ -134,12 +211,59 @@ export default function CheckoutPage() {
     productsTotal + finalDeliveryFee;
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(
+      window.location.search
+    );
+
+    const colourFromUrl = findColour(
+      searchParams.get("colour")
+    );
+
+    const quantityFromUrl = parseQuantity(
+      searchParams.get("quantity")
+    );
+
+    if (colourFromUrl) {
+      setSelectedColour(colourFromUrl);
+    }
+
+    if (quantityFromUrl) {
+      setQuantity(quantityFromUrl);
+    }
+
+    if (!colourFromUrl || !quantityFromUrl) {
+      const cartItem = readFirstCartItem();
+
+      if (!cartItem) {
+        return;
+      }
+
+      if (!colourFromUrl) {
+        const cartColour = findColour(
+          cartItem.colour
+        );
+
+        if (cartColour) {
+          setSelectedColour(cartColour);
+        }
+      }
+
+      if (!quantityFromUrl) {
+        const cartQuantity = parseQuantity(
+          String(cartItem.quantity)
+        );
+
+        if (cartQuantity) {
+          setQuantity(cartQuantity);
+        }
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     setAppliedDiscountCode("");
     setDiscountMessage("");
-
-    if (discountCode) {
-      setDiscountCode("");
-    }
+    setDiscountCode("");
   }, [selectedAreaCode]);
 
   async function applyDiscountCode() {
@@ -151,7 +275,7 @@ export default function CheckoutPage() {
       setAppliedDiscountCode("");
 
       setDiscountMessage(
-        "Please select your governorate first."
+        "Please select your delivery area first."
       );
 
       return;
@@ -316,11 +440,8 @@ export default function CheckoutPage() {
             address: address.trim(),
             notes: notes.trim(),
 
-            productName:
-              "Google Fitbit Air",
-
-            productSlug:
-              "google-fitbit-air",
+            productName: PRODUCT_NAME,
+            productSlug: PRODUCT_SLUG,
 
             colour: selectedColour.name,
             quantity,
@@ -374,6 +495,14 @@ export default function CheckoutPage() {
         customerEmail.trim().toLowerCase()
       );
 
+      window.localStorage.removeItem(
+        CART_STORAGE_KEY
+      );
+
+      window.dispatchEvent(
+        new Event("orvix-cart-updated")
+      );
+
       router.push(
         `/order-success/${encodeURIComponent(
           createdOrderNumber
@@ -406,11 +535,9 @@ export default function CheckoutPage() {
             </h1>
 
             <p className="mt-5 max-w-2xl leading-7 text-gray-400">
-              Choose your colour and delivery
-              area, then enter your contact
-              information. Payment is completed
-              through InstaPay when your order
-              arrives.
+              Review your product, enter your
+              delivery information and pay using
+              InstaPay when your order arrives.
             </p>
           </div>
 
@@ -429,9 +556,10 @@ export default function CheckoutPage() {
                     <Image
                       key={selectedColour.name}
                       src={selectedColour.image}
-                      alt={`Google Fitbit Air - ${selectedColour.name}`}
+                      alt={`${PRODUCT_NAME} - ${selectedColour.name}`}
                       width={500}
                       height={500}
+                      priority
                       className="h-auto w-full object-contain"
                     />
                   </div>
@@ -442,7 +570,7 @@ export default function CheckoutPage() {
                     </p>
 
                     <h3 className="mt-3 text-3xl font-black">
-                      Google Fitbit Air
+                      {PRODUCT_NAME}
                     </h3>
 
                     <p className="mt-3 text-gray-400">
@@ -450,6 +578,11 @@ export default function CheckoutPage() {
                         "en-GB"
                       )}{" "}
                       EGP each
+                    </p>
+
+                    <p className="mt-2 text-sm text-gray-500">
+                      {selectedColour.name} ·
+                      Quantity {quantity}
                     </p>
                   </div>
                 </div>
@@ -481,7 +614,11 @@ export default function CheckoutPage() {
                         }`}
                       >
                         <span
-                          className={`h-6 w-6 rounded-full border border-black/20 ${colour.buttonStyle}`}
+                          className={`h-6 w-6 rounded-full border ${
+                            selected
+                              ? "border-black/20"
+                              : "border-white/20"
+                          } ${colour.buttonStyle}`}
                         />
 
                         {colour.name}
@@ -600,8 +737,8 @@ export default function CheckoutPage() {
                     />
 
                     <p className="mt-2 text-sm leading-6 text-gray-500">
-                      We will send your order number
-                      and tracking details to this
+                      Your order number and tracking
+                      details will be sent to this
                       email.
                     </p>
                   </label>
@@ -703,7 +840,7 @@ export default function CheckoutPage() {
                   </span>
 
                   <strong className="text-right">
-                    Google Fitbit Air
+                    {PRODUCT_NAME}
                   </strong>
                 </div>
 
