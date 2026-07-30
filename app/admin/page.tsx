@@ -497,8 +497,8 @@ export default function AdminPage() {
 
           <p className="mt-4 leading-7 text-gray-400">
             Enter the admin password to manage
-            orders, statuses, reviews and discount
-            codes.
+            orders, reviews, the Garmin waitlist
+            and discount codes.
           </p>
 
           <input
@@ -552,32 +552,40 @@ export default function AdminPage() {
               Dashboard
             </h1>
 
-            <p className="mt-4 text-gray-400">
-              Manage orders, reviews, delivery
+            <p className="mt-4 max-w-2xl leading-7 text-gray-400">
+              Manage orders, reviews, Garmin
+              notification requests, delivery
               statuses and website activity.
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <Link
               href="/admin/discounts"
-              className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-center font-bold text-black transition hover:bg-gray-200"
+              className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-4 text-center font-bold text-black transition hover:bg-gray-200"
             >
               Manage Discount Codes
             </Link>
 
             <Link
               href="/admin/reviews"
-              className="inline-flex items-center justify-center rounded-2xl border border-white/15 px-5 py-3 text-center font-bold text-white transition hover:bg-white/10"
+              className="inline-flex items-center justify-center rounded-2xl border border-white/15 px-5 py-4 text-center font-bold text-white transition hover:bg-white/10"
             >
               Manage Reviews
+            </Link>
+
+            <Link
+              href="/admin/waitlist"
+              className="inline-flex items-center justify-center rounded-2xl border border-white/15 px-5 py-4 text-center font-bold text-white transition hover:bg-white/10"
+            >
+              Manage Garmin Waitlist
             </Link>
 
             <button
               type="button"
               onClick={loadOrders}
               disabled={loading}
-              className="rounded-2xl border border-white/15 px-5 py-3 font-semibold transition hover:bg-white/10 disabled:opacity-50"
+              className="rounded-2xl border border-white/15 px-5 py-4 font-semibold transition hover:bg-white/10 disabled:opacity-50"
             >
               Refresh
             </button>
@@ -589,7 +597,7 @@ export default function AdminPage() {
                 resettingOrders ||
                 orders.length === 0
               }
-              className="rounded-2xl bg-red-600 px-5 py-3 font-bold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-2xl bg-red-600 px-5 py-4 font-bold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {resettingOrders
                 ? "Deleting..."
