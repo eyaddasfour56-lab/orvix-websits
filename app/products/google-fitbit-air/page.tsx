@@ -5,6 +5,19 @@ import Link from "next/link";
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
 
+const PRODUCT_PRICE = 7900;
+const CART_STORAGE_KEY = "orvixCart";
+
+type CartItem = {
+  id: string;
+  name: string;
+  colour: string;
+  image: string;
+  price: number;
+  quantity: number;
+  slug: string;
+};
+
 const colours = [
   {
     name: "Black",
@@ -176,21 +189,130 @@ const featureGroups = [
   },
 ];
 
-export default function GoogleFitbitAirPage() {
-  const [selectedColour, setSelectedColour] = useState(colours[0]);
+function readCart(): CartItem[] {
+  try {
+    const savedCart = window.localStorage.getItem(
+      CART_STORAGE_KEY
+    );
 
-  const checkoutLink = `/checkout?product=Google%20Fitbit%20Air&colour=${encodeURIComponent(
-    selectedColour.name
-  )}`;
+    if (!savedCart) {
+      return [];
+    }
+
+    const parsedCart = JSON.parse(savedCart);
+
+    return Array.isArray(parsedCart)
+      ? parsedCart
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+export default function GoogleFitbitAirPage() {
+  const [selectedColour, setSelectedColour] =
+    useState(colours[0]);
+
+  const [quantity, setQuantity] = useState(1);
+
+  const [showAddedMessage, setShowAddedMessage] =
+    useState(false);
+
+  function openCartDrawer() {
+    window.setTimeout(() => {
+      const cartButton =
+        document.querySelector<HTMLButtonElement>(
+          'button[aria-label^="Open cart with"]'
+        );
+
+      cartButton?.click();
+    }, 100);
+  }
+
+  function addToCart() {
+    const currentCart = readCart();
+
+    const itemId = `google-fitbit-air-${selectedColour.name.toLowerCase()}`;
+
+    const existingItemIndex =
+      currentCart.findIndex(
+        (item) => item.id === itemId
+      );
+
+    let updatedCart: CartItem[];
+
+    if (existingItemIndex >= 0) {
+      updatedCart = currentCart.map(
+        (item, index) =>
+          index === existingItemIndex
+            ? {
+                ...item,
+                image: selectedColour.image,
+                quantity: Math.min(
+                  item.quantity + quantity,
+                  10
+                ),
+              }
+            : item
+      );
+    } else {
+      const newItem: CartItem = {
+        id: itemId,
+        name: "Google Fitbit Air",
+        colour: selectedColour.name,
+        image: selectedColour.image,
+        price: PRODUCT_PRICE,
+        quantity,
+        slug: "google-fitbit-air",
+      };
+
+      updatedCart = [...currentCart, newItem];
+    }
+
+    window.localStorage.setItem(
+      CART_STORAGE_KEY,
+      JSON.stringify(updatedCart)
+    );
+
+    window.dispatchEvent(
+      new Event("orvix-cart-updated")
+    );
+
+    setShowAddedMessage(true);
+
+    window.setTimeout(() => {
+      setShowAddedMessage(false);
+    }, 2500);
+
+    openCartDrawer();
+  }
 
   return (
-    <main className="min-h-screen bg-[#070707] pb-28 text-white md:pb-0">
+    <main className="min-h-screen bg-[#070707] pb-32 text-white md:pb-0">
       <Navbar />
+
+      {/* Added-to-cart notification */}
+      <div
+        role="status"
+        className={`fixed left-1/2 top-24 z-[100] -translate-x-1/2 transition duration-300 ${
+          showAddedMessage
+            ? "translate-y-0 opacity-100"
+            : "-translate-y-4 pointer-events-none opacity-0"
+        }`}
+      >
+        <div className="flex items-center gap-3 whitespace-nowrap rounded-full border border-white/15 bg-white px-5 py-3 font-black text-black shadow-2xl">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black text-sm text-white">
+            ✓
+          </span>
+
+          Added to your cart
+        </div>
+      </div>
 
       {/* Product */}
       <section className="py-14 sm:py-24">
         <div className="mx-auto grid max-w-7xl items-start gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:gap-20">
-          {/* Image */}
+          {/* Product image */}
           <div className="rounded-[40px] bg-white p-6 sm:sticky sm:top-28 sm:p-8">
             <Image
               key={selectedColour.name}
@@ -203,19 +325,27 @@ export default function GoogleFitbitAirPage() {
             />
           </div>
 
-          {/* Information */}
+          {/* Product information */}
           <div>
-            <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
-              Screen-Free Fitness Tracker
-            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
+                Screen-Free Fitness Tracker
+              </p>
+
+              <span className="rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1 text-xs font-black uppercase tracking-wider text-green-400">
+                Available Now
+              </span>
+            </div>
 
             <h1 className="mt-5 text-5xl font-black leading-none sm:text-6xl">
               Google Fitbit Air
             </h1>
 
             <p className="mt-6 max-w-xl text-lg leading-8 text-gray-400">
-              A lightweight screen-free tracker designed to monitor your
-              daily activity, heart rate, sleep and recovery.
+              A lightweight screen-free tracker
+              designed to monitor your daily
+              activity, heart rate, sleep and
+              recovery.
             </p>
 
             {/* Colour selector */}
@@ -226,7 +356,8 @@ export default function GoogleFitbitAirPage() {
             <div className="mt-5 grid gap-3">
               {colours.map((colour) => {
                 const selected =
-                  selectedColour.name === colour.name;
+                  selectedColour.name ===
+                  colour.name;
 
                 return (
                   <button
@@ -243,42 +374,148 @@ export default function GoogleFitbitAirPage() {
                   >
                     <span className="flex items-center gap-4">
                       <span
-                        className={`h-6 w-6 rounded-full border border-white/20 ${colour.dot}`}
+                        className={`h-6 w-6 rounded-full border ${
+                          selected
+                            ? "border-black/20"
+                            : "border-white/20"
+                        } ${colour.dot}`}
                       />
 
                       <span>{colour.name}</span>
                     </span>
 
                     <span>
-                      {selected ? "Selected" : "Choose"}
+                      {selected
+                        ? "Selected"
+                        : "Choose"}
                     </span>
                   </button>
                 );
               })}
             </div>
 
+            {/* Quantity selector */}
+            <div className="mt-8">
+              <p className="text-sm uppercase tracking-[0.35em] text-gray-500">
+                Quantity
+              </p>
+
+              <div className="mt-5 flex w-fit items-center rounded-full border border-white/15 bg-white/5 p-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setQuantity((current) =>
+                      Math.max(1, current - 1)
+                    )
+                  }
+                  aria-label="Decrease quantity"
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-2xl transition hover:bg-white/10"
+                >
+                  −
+                </button>
+
+                <span className="min-w-14 text-center text-xl font-black">
+                  {quantity}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setQuantity((current) =>
+                      Math.min(10, current + 1)
+                    )
+                  }
+                  aria-label="Increase quantity"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-2xl text-black transition active:scale-95"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
             {/* Price */}
             <div className="mt-10 rounded-3xl border border-white/10 bg-white/5 p-6">
-              <div className="flex items-center justify-between gap-4 text-xl">
-                <span className="font-bold">
+              <div className="flex items-center justify-between gap-4">
+                <span className="font-bold text-gray-300">
                   Product price
                 </span>
 
-                <strong>7,900 EGP</strong>
+                <strong className="text-2xl">
+                  {PRODUCT_PRICE.toLocaleString(
+                    "en-GB"
+                  )}{" "}
+                  EGP
+                </strong>
               </div>
 
+              {quantity > 1 && (
+                <div className="mt-4 flex items-center justify-between gap-4 border-t border-white/10 pt-4">
+                  <span className="text-sm text-gray-400">
+                    Total for {quantity} items
+                  </span>
+
+                  <strong>
+                    {(
+                      PRODUCT_PRICE * quantity
+                    ).toLocaleString("en-GB")}{" "}
+                    EGP
+                  </strong>
+                </div>
+              )}
+
               <p className="mt-4 text-sm leading-6 text-gray-400">
-                Delivery fees will be calculated at checkout after
-                selecting your governorate.
+                Delivery fees will be calculated
+                during checkout after selecting
+                your governorate.
               </p>
             </div>
 
-            <Link
-              href={checkoutLink}
-              className="mt-8 hidden w-full justify-center rounded-full bg-white px-8 py-5 text-lg font-black text-black transition hover:bg-gray-200 md:flex"
+            {/* Desktop Add to Cart */}
+            <button
+              type="button"
+              onClick={addToCart}
+              className="mt-8 hidden w-full items-center justify-center gap-3 rounded-full bg-white px-8 py-5 text-lg font-black text-black transition hover:bg-gray-200 active:scale-[0.99] md:flex"
             >
-              Buy Now
-            </Link>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+                className="h-6 w-6"
+              >
+                <path
+                  d="M3 4H5L7.2 14.2C7.4 15.2 8.3 16 9.4 16H17.7C18.7 16 19.6 15.3 19.9 14.3L21 8H6"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+
+                <path
+                  d="M12 8V13M9.5 10.5H14.5"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
+
+              Add to Cart
+            </button>
+
+            {/* Trust information */}
+            <div className="mt-6 grid grid-cols-3 gap-2">
+              {[
+                "InstaPay on delivery",
+                "Order tracking",
+                "Official support",
+              ].map((item) => (
+                <div
+                  key={item}
+                  className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-center text-xs font-bold leading-5 text-gray-400"
+                >
+                  {item}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -296,8 +533,8 @@ export default function GoogleFitbitAirPage() {
             </h2>
 
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-gray-400">
-              The most important technical details, organised into simple
-              cards.
+              The most important technical details,
+              organised into simple cards.
             </p>
           </div>
 
@@ -313,20 +550,22 @@ export default function GoogleFitbitAirPage() {
                 </div>
 
                 <div className="mt-7 grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  {group.features.map((feature) => (
-                    <article
-                      key={feature.title}
-                      className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6"
-                    >
-                      <h4 className="font-bold leading-6 text-white sm:text-lg">
-                        {feature.title}
-                      </h4>
+                  {group.features.map(
+                    (feature) => (
+                      <article
+                        key={feature.title}
+                        className="rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6"
+                      >
+                        <h4 className="font-bold leading-6 text-white sm:text-lg">
+                          {feature.title}
+                        </h4>
 
-                      <p className="mt-3 text-sm leading-6 text-gray-400">
-                        {feature.description}
-                      </p>
-                    </article>
-                  ))}
+                        <p className="mt-3 text-sm leading-6 text-gray-400">
+                          {feature.description}
+                        </p>
+                      </article>
+                    )
+                  )}
                 </div>
               </section>
             ))}
@@ -354,9 +593,10 @@ export default function GoogleFitbitAirPage() {
           </div>
 
           <p className="mx-auto mt-12 max-w-3xl text-center text-xs leading-6 text-gray-600">
-            Battery life, tracking accuracy and feature availability may
-            vary depending on usage, phone compatibility and software
-            version.
+            Battery life, tracking accuracy and
+            feature availability may vary depending
+            on usage, phone compatibility and
+            software version.
           </p>
         </div>
       </section>
@@ -364,7 +604,9 @@ export default function GoogleFitbitAirPage() {
       {/* Footer */}
       <footer className="border-t border-white/10 py-8">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 text-sm text-gray-500 sm:px-6 md:flex-row">
-          <p>© 2026 ORVIX. All rights reserved.</p>
+          <p>
+            © 2026 ORVIX. All rights reserved.
+          </p>
 
           <Link
             href="/#products"
@@ -375,25 +617,30 @@ export default function GoogleFitbitAirPage() {
         </div>
       </footer>
 
-      {/* Sticky Buy Button - Mobile Only */}
+      {/* Sticky Add to Cart - Mobile */}
       <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-black/95 p-3 backdrop-blur-xl md:hidden">
         <div className="mx-auto flex max-w-lg items-center gap-3">
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-bold text-gray-400">
-              Google Fitbit Air · {selectedColour.name}
+              {selectedColour.name} · Qty{" "}
+              {quantity}
             </p>
 
             <p className="mt-1 text-lg font-black">
-              7,900 EGP
+              {(
+                PRODUCT_PRICE * quantity
+              ).toLocaleString("en-GB")}{" "}
+              EGP
             </p>
           </div>
 
-          <Link
-            href={checkoutLink}
-            className="shrink-0 rounded-full bg-white px-7 py-4 font-black text-black transition active:scale-95"
+          <button
+            type="button"
+            onClick={addToCart}
+            className="shrink-0 rounded-full bg-white px-6 py-4 font-black text-black transition active:scale-95"
           >
-            Buy Now
-          </Link>
+            Add to Cart
+          </button>
         </div>
       </div>
     </main>
