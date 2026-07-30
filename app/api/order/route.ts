@@ -851,3 +851,66 @@ export async function POST(request: Request) {
     );
   }
 }
+export async function GET() {
+  try {
+    if (!supabaseUrl || !supabaseSecretKey) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Supabase environment variables are missing.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/orders?select=*&order=label_created_at.desc`,
+      {
+        method: "GET",
+        headers: {
+          apikey: supabaseSecretKey,
+          Authorization: `Bearer ${supabaseSecretKey}`,
+        },
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+
+      console.error(
+        "Could not load orders:",
+        errorText
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Could not load orders.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const orders = await response.json();
+
+    return NextResponse.json({
+      success: true,
+      orders,
+    });
+  } catch (error) {
+    console.error("Orders GET error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Could not load orders.",
+      },
+      { status: 500 }
+    );
+  }
+}
