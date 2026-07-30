@@ -90,9 +90,11 @@ Address: ${order.address}
 Products Total: ${Number(
     order.products_total
   ).toLocaleString("en-GB")} EGP
+
 Delivery Fee: ${Number(
     order.delivery_fee
   ).toLocaleString("en-GB")} EGP
+
 Total: ${Number(
     order.total_price
   ).toLocaleString("en-GB")} EGP
@@ -495,7 +497,8 @@ export default function AdminPage() {
 
           <p className="mt-4 leading-7 text-gray-400">
             Enter the admin password to manage
-            orders, statuses and discount codes.
+            orders, statuses, reviews and discount
+            codes.
           </p>
 
           <input
@@ -550,17 +553,24 @@ export default function AdminPage() {
             </h1>
 
             <p className="mt-4 text-gray-400">
-              Manage orders, delivery statuses
-              and website activity.
+              Manage orders, reviews, delivery
+              statuses and website activity.
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Link
               href="/admin/discounts"
               className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-center font-bold text-black transition hover:bg-gray-200"
             >
               Manage Discount Codes
+            </Link>
+
+            <Link
+              href="/admin/reviews"
+              className="inline-flex items-center justify-center rounded-2xl border border-white/15 px-5 py-3 text-center font-bold text-white transition hover:bg-white/10"
+            >
+              Manage Reviews
             </Link>
 
             <button
