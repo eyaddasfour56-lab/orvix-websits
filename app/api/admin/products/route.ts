@@ -62,6 +62,20 @@ const allowedStatuses = [
   "hidden",
 ];
 
+function cleanImages(
+  value: unknown
+) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) =>
+      String(item || "").trim()
+    )
+    .filter(Boolean);
+}
+
 export async function GET(
   request: NextRequest
 ) {
@@ -137,11 +151,46 @@ export async function GET(
     const products =
       await response.json();
 
+    const normalisedProducts =
+      Array.isArray(products)
+        ? products.map((product) => {
+            const storedImages =
+              Array.isArray(product.images)
+                ? product.images
+                    .map((item: unknown) =>
+                      String(
+                        item || ""
+                      ).trim()
+                    )
+                    .filter(Boolean)
+                : [];
+
+            const fallbackImage =
+              String(
+                product.image || ""
+              ).trim();
+
+            const images =
+              storedImages.length > 0
+                ? storedImages
+                : fallbackImage
+                  ? [fallbackImage]
+                  : [];
+
+            return {
+              ...product,
+              image:
+                images[0] ||
+                fallbackImage ||
+                "",
+              images,
+            };
+          })
+        : [];
+
     return NextResponse.json({
       success: true,
-      products: Array.isArray(products)
-        ? products
-        : [],
+      products: normalisedProducts,
     });
   } catch (error) {
     console.error(
@@ -220,9 +269,21 @@ export async function POST(
       body.description || ""
     ).trim();
 
-    const image = String(
-      body.image || "/black.png"
-    ).trim();
+    const submittedImages =
+      cleanImages(body.images);
+
+    const submittedMainImage =
+      String(body.image || "").trim();
+
+    const images =
+      submittedImages.length > 0
+        ? submittedImages
+        : submittedMainImage
+          ? [submittedMainImage]
+          : [];
+
+    const image =
+      images[0] || "/black.png";
 
     const status = String(
       body.status || "available"
@@ -373,6 +434,7 @@ export async function POST(
       description,
       price,
       image,
+      images,
       status,
       stock_quantity:
         stockQuantity,
@@ -450,14 +512,30 @@ export async function POST(
     const createdProducts =
       await response.json();
 
+    const createdProduct =
+      Array.isArray(createdProducts)
+        ? createdProducts[0]
+        : null;
+
     return NextResponse.json({
       success: true,
       message:
         "Product created successfully.",
-      product:
-        Array.isArray(createdProducts)
-          ? createdProducts[0]
-          : null,
+      product: createdProduct
+        ? {
+            ...createdProduct,
+            images:
+              Array.isArray(
+                createdProduct.images
+              )
+                ? createdProduct.images
+                : createdProduct.image
+                  ? [
+                      createdProduct.image,
+                    ]
+                  : [],
+          }
+        : null,
     });
   } catch (error) {
     console.error(
