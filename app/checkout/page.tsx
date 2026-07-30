@@ -1,4 +1,3 @@
-
 "use client";
 
 import Image from "next/image";
@@ -11,6 +10,9 @@ import {
 import Navbar from "@/components/Navbar";
 
 const PRODUCT_PRICE = 7900;
+
+const INSTAPAY_LOGO =
+  "data:image/jpeg;base64,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";
 
 const colours = [
   {
@@ -417,7 +419,6 @@ export default function CheckoutPage() {
             className="grid items-start gap-10 lg:grid-cols-[1fr_0.85fr]"
           >
             <div className="space-y-8">
-              {/* Product */}
               <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
                 <h2 className="text-2xl font-black">
                   Your product
@@ -454,7 +455,6 @@ export default function CheckoutPage() {
                 </div>
               </section>
 
-              {/* Colour */}
               <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
                 <h2 className="text-2xl font-black">
                   Choose your colour
@@ -491,7 +491,6 @@ export default function CheckoutPage() {
                 </div>
               </section>
 
-              {/* Quantity */}
               <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
                 <h2 className="text-2xl font-black">
                   Quantity
@@ -506,7 +505,6 @@ export default function CheckoutPage() {
                       )
                     }
                     disabled={isSending}
-                    aria-label="Decrease quantity"
                     className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-2xl disabled:opacity-50"
                   >
                     −
@@ -524,7 +522,6 @@ export default function CheckoutPage() {
                       )
                     }
                     disabled={isSending}
-                    aria-label="Increase quantity"
                     className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-2xl text-black disabled:opacity-50"
                   >
                     +
@@ -532,7 +529,6 @@ export default function CheckoutPage() {
                 </div>
               </section>
 
-              {/* Contact Information */}
               <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
                 <h2 className="text-2xl font-black">
                   Contact information
@@ -610,7 +606,6 @@ export default function CheckoutPage() {
                 </div>
               </section>
 
-              {/* Delivery Information */}
               <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
                 <h2 className="text-2xl font-black">
                   Delivery information
@@ -694,7 +689,6 @@ export default function CheckoutPage() {
               </section>
             </div>
 
-            {/* Order Summary */}
             <aside className="rounded-[32px] border border-white/10 bg-[#111111] p-5 sm:p-7 lg:sticky lg:top-28">
               <h2 className="text-2xl font-black">
                 Order summary
@@ -706,7 +700,7 @@ export default function CheckoutPage() {
                     Product
                   </span>
 
-                  <strong className="text-right">
+                  <strong>
                     Google Fitbit Air
                   </strong>
                 </div>
@@ -769,7 +763,6 @@ export default function CheckoutPage() {
                 )}
               </div>
 
-              {/* Discount Code */}
               <div className="mt-8 border-t border-white/10 pt-8">
                 <p className="text-sm uppercase tracking-[0.25em] text-gray-500">
                   Delivery discount code
@@ -792,7 +785,7 @@ export default function CheckoutPage() {
                       !selectedArea ||
                       isSending
                     }
-                    className="min-w-0 flex-1 rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:cursor-not-allowed disabled:opacity-50"
+                    className="min-w-0 flex-1 rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
                   />
 
                   <button
@@ -807,7 +800,7 @@ export default function CheckoutPage() {
                       !selectedArea ||
                       isSending
                     }
-                    className="rounded-2xl bg-white px-5 py-4 font-bold text-black disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-2xl bg-white px-5 py-4 font-bold text-black disabled:opacity-50"
                   >
                     {checkingDiscount
                       ? "Checking..."
@@ -816,13 +809,6 @@ export default function CheckoutPage() {
                         : "Apply"}
                   </button>
                 </div>
-
-                {!selectedArea && (
-                  <p className="mt-3 text-sm text-gray-500">
-                    Select your delivery area
-                    before applying a code.
-                  </p>
-                )}
 
                 {discountMessage && (
                   <p
@@ -839,7 +825,6 @@ export default function CheckoutPage() {
 
               <div className="my-8 h-px bg-white/10" />
 
-              {/* Total */}
               <div className="flex items-end justify-between gap-5">
                 <span className="text-xl font-black">
                   Final total
@@ -853,15 +838,18 @@ export default function CheckoutPage() {
                 </strong>
               </div>
 
-              {/* Payment Method */}
               <div className="mt-7 rounded-3xl border border-white/10 bg-white/5 p-5">
                 <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-sm font-black text-black">
-                    IP
+                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-white">
+                    <img
+                      src={INSTAPAY_LOGO}
+                      alt="InstaPay"
+                      className="h-full w-full object-cover"
+                    />
                   </div>
 
                   <div>
-                    <p className="font-black text-white">
+                    <p className="font-black">
                       InstaPay on Delivery
                     </p>
 
@@ -885,10 +873,7 @@ export default function CheckoutPage() {
               </div>
 
               {orderError && (
-                <p
-                  role="alert"
-                  className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm leading-6 text-red-300"
-                >
+                <p className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
                   {orderError}
                 </p>
               )}
@@ -896,7 +881,7 @@ export default function CheckoutPage() {
               <button
                 type="submit"
                 disabled={isSending}
-                className="mt-8 flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-bold text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-8 flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-bold text-black disabled:opacity-50"
               >
                 {isSending
                   ? "Placing order..."
@@ -904,12 +889,6 @@ export default function CheckoutPage() {
                       "en-GB"
                     )} EGP`}
               </button>
-
-              <p className="mt-4 text-center text-xs leading-5 text-gray-500">
-                By placing your order, you confirm
-                that the provided information is
-                correct.
-              </p>
 
               {isSending && (
                 <p className="mt-4 text-center text-sm text-gray-500">
