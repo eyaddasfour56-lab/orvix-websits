@@ -1,13 +1,14 @@
+
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   FormEvent,
   useEffect,
   useState,
 } from "react";
+import Navbar from "@/components/Navbar";
 
 const PRODUCT_PRICE = 7900;
 
@@ -77,8 +78,10 @@ export default function CheckoutPage() {
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+
   const [customerEmail, setCustomerEmail] =
     useState("");
+
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -144,17 +147,21 @@ export default function CheckoutPage() {
 
     if (!selectedArea) {
       setAppliedDiscountCode("");
+
       setDiscountMessage(
         "Please select your governorate first."
       );
+
       return;
     }
 
     if (!cleanCode) {
       setAppliedDiscountCode("");
+
       setDiscountMessage(
         "Please enter a discount code."
       );
+
       return;
     }
 
@@ -179,10 +186,12 @@ export default function CheckoutPage() {
 
       if (!response.ok || !result.success) {
         setAppliedDiscountCode("");
+
         setDiscountMessage(
           result.message ||
             "Invalid discount code."
         );
+
         return;
       }
 
@@ -190,9 +199,11 @@ export default function CheckoutPage() {
         result.discountType !== "free_delivery"
       ) {
         setAppliedDiscountCode("");
+
         setDiscountMessage(
           "This code cannot be used for delivery."
         );
+
         return;
       }
 
@@ -237,6 +248,7 @@ export default function CheckoutPage() {
       setOrderError(
         "Please select your delivery area."
       );
+
       return;
     }
 
@@ -244,6 +256,7 @@ export default function CheckoutPage() {
       setOrderError(
         "Please enter your full name."
       );
+
       return;
     }
 
@@ -251,6 +264,7 @@ export default function CheckoutPage() {
       setOrderError(
         "Please enter your phone number."
       );
+
       return;
     }
 
@@ -258,6 +272,7 @@ export default function CheckoutPage() {
       setOrderError(
         "Please enter your email address."
       );
+
       return;
     }
 
@@ -265,6 +280,7 @@ export default function CheckoutPage() {
       setOrderError(
         "Please enter a valid email address."
       );
+
       return;
     }
 
@@ -272,6 +288,7 @@ export default function CheckoutPage() {
       setOrderError(
         "Please enter your full address."
       );
+
       return;
     }
 
@@ -288,22 +305,40 @@ export default function CheckoutPage() {
           body: JSON.stringify({
             fullName: fullName.trim(),
             phone: phone.trim(),
+
             customerEmail: customerEmail
               .trim()
               .toLowerCase(),
+
             governorate: selectedArea.name,
             address: address.trim(),
             notes: notes.trim(),
+
+            productName:
+              "Google Fitbit Air",
+
+            productSlug:
+              "google-fitbit-air",
+
             colour: selectedColour.name,
             quantity,
+
             productPrice: PRODUCT_PRICE,
-            deliveryFee: finalDeliveryFee,
+
+            deliveryFee:
+              finalDeliveryFee,
+
             originalDeliveryFee:
               deliveryFee,
+
             discountCode:
               appliedDiscountCode || "",
+
             deliveryDiscount,
             totalPrice: finalTotal,
+
+            paymentMethod:
+              "instapay_on_delivery",
           }),
         }
       );
@@ -355,33 +390,7 @@ export default function CheckoutPage() {
 
   return (
     <main className="min-h-screen bg-[#070707] text-white">
-      <header className="border-b border-white/10 bg-black">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6">
-          <Link
-            href="/"
-            className="flex items-center gap-3"
-          >
-            <Image
-              src="/logo.jpeg"
-              alt="ORVIX"
-              width={42}
-              height={42}
-              className="rounded-full object-cover"
-            />
-
-            <span className="font-bold tracking-[0.3em]">
-              ORVIX
-            </span>
-          </Link>
-
-          <Link
-            href="/products/google-fitbit-air"
-            className="rounded-full border border-white/15 px-4 py-3 text-sm font-bold text-gray-300"
-          >
-            ← Product
-          </Link>
-        </div>
-      </header>
+      <Navbar />
 
       <section className="px-4 py-12 sm:px-6 sm:py-20">
         <div className="mx-auto max-w-7xl">
@@ -397,7 +406,9 @@ export default function CheckoutPage() {
             <p className="mt-5 max-w-2xl leading-7 text-gray-400">
               Choose your colour and delivery
               area, then enter your contact
-              information.
+              information. Payment is completed
+              through InstaPay when your order
+              arrives.
             </p>
           </div>
 
@@ -406,6 +417,7 @@ export default function CheckoutPage() {
             className="grid items-start gap-10 lg:grid-cols-[1fr_0.85fr]"
           >
             <div className="space-y-8">
+              {/* Product */}
               <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
                 <h2 className="text-2xl font-black">
                   Your product
@@ -442,6 +454,7 @@ export default function CheckoutPage() {
                 </div>
               </section>
 
+              {/* Colour */}
               <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
                 <h2 className="text-2xl font-black">
                   Choose your colour
@@ -464,7 +477,7 @@ export default function CheckoutPage() {
                         className={`flex items-center gap-3 rounded-2xl border p-4 text-left font-bold transition disabled:opacity-50 ${
                           selected
                             ? "border-white bg-white text-black"
-                            : "border-white/15 bg-black/20 text-white"
+                            : "border-white/15 bg-black/20 text-white hover:border-white/30"
                         }`}
                       >
                         <span
@@ -478,6 +491,7 @@ export default function CheckoutPage() {
                 </div>
               </section>
 
+              {/* Quantity */}
               <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
                 <h2 className="text-2xl font-black">
                   Quantity
@@ -492,6 +506,7 @@ export default function CheckoutPage() {
                       )
                     }
                     disabled={isSending}
+                    aria-label="Decrease quantity"
                     className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-2xl disabled:opacity-50"
                   >
                     −
@@ -509,6 +524,7 @@ export default function CheckoutPage() {
                       )
                     }
                     disabled={isSending}
+                    aria-label="Increase quantity"
                     className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-2xl text-black disabled:opacity-50"
                   >
                     +
@@ -516,6 +532,7 @@ export default function CheckoutPage() {
                 </div>
               </section>
 
+              {/* Contact Information */}
               <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
                 <h2 className="text-2xl font-black">
                   Contact information
@@ -593,6 +610,7 @@ export default function CheckoutPage() {
                 </div>
               </section>
 
+              {/* Delivery Information */}
               <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
                 <h2 className="text-2xl font-black">
                   Delivery information
@@ -676,7 +694,8 @@ export default function CheckoutPage() {
               </section>
             </div>
 
-            <aside className="rounded-[32px] border border-white/10 bg-[#111111] p-5 sm:p-7 lg:sticky lg:top-6">
+            {/* Order Summary */}
+            <aside className="rounded-[32px] border border-white/10 bg-[#111111] p-5 sm:p-7 lg:sticky lg:top-28">
               <h2 className="text-2xl font-black">
                 Order summary
               </h2>
@@ -750,6 +769,7 @@ export default function CheckoutPage() {
                 )}
               </div>
 
+              {/* Discount Code */}
               <div className="mt-8 border-t border-white/10 pt-8">
                 <p className="text-sm uppercase tracking-[0.25em] text-gray-500">
                   Delivery discount code
@@ -819,6 +839,7 @@ export default function CheckoutPage() {
 
               <div className="my-8 h-px bg-white/10" />
 
+              {/* Total */}
               <div className="flex items-end justify-between gap-5">
                 <span className="text-xl font-black">
                   Final total
@@ -832,10 +853,36 @@ export default function CheckoutPage() {
                 </strong>
               </div>
 
-              <p className="mt-3 text-sm leading-6 text-gray-500">
-                Cash on delivery. Your order will
-                be confirmed by phone.
-              </p>
+              {/* Payment Method */}
+              <div className="mt-7 rounded-3xl border border-white/10 bg-white/5 p-5">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-sm font-black text-black">
+                    IP
+                  </div>
+
+                  <div>
+                    <p className="font-black text-white">
+                      InstaPay on Delivery
+                    </p>
+
+                    <p className="mt-2 text-sm leading-6 text-gray-400">
+                      Pay through InstaPay only
+                      when your order arrives. No
+                      advance payment is required.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 border-t border-white/10 pt-4">
+                  <p className="text-xs leading-5 text-gray-500">
+                    The official InstaPay payment
+                    details will be provided when
+                    confirming or delivering your
+                    order. Never transfer money to
+                    an unverified account.
+                  </p>
+                </div>
+              </div>
 
               {orderError && (
                 <p
@@ -849,7 +896,7 @@ export default function CheckoutPage() {
               <button
                 type="submit"
                 disabled={isSending}
-                className="mt-8 flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-bold text-black disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-8 flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-bold text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSending
                   ? "Placing order..."
@@ -857,6 +904,12 @@ export default function CheckoutPage() {
                       "en-GB"
                     )} EGP`}
               </button>
+
+              <p className="mt-4 text-center text-xs leading-5 text-gray-500">
+                By placing your order, you confirm
+                that the provided information is
+                correct.
+              </p>
 
               {isSending && (
                 <p className="mt-4 text-center text-sm text-gray-500">
