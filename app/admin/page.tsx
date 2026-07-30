@@ -228,20 +228,22 @@ export default function AdminPage() {
     setResettingOrders,
   ] = useState(false);
 
-  async function loadOrders() {
+  async function loadDashboard() {
     setLoading(true);
     setMessage("");
     setMessageType("");
 
     try {
-      const response = await fetch(
+      const ordersResponse = await fetch(
         "/api/admin/orders",
         {
           cache: "no-store",
         }
       );
 
-      if (response.status === 401) {
+      if (
+        ordersResponse.status === 401
+      ) {
         setAuthenticated(false);
         setOrders([]);
 
@@ -255,15 +257,15 @@ export default function AdminPage() {
         return;
       }
 
-      const result =
-        await response.json();
+      const ordersResult =
+        await ordersResponse.json();
 
       if (
-        !response.ok ||
-        !result.success
+        !ordersResponse.ok ||
+        !ordersResult.success
       ) {
         throw new Error(
-          result.message ||
+          ordersResult.message ||
             "Could not load orders."
         );
       }
@@ -271,18 +273,17 @@ export default function AdminPage() {
       setAuthenticated(true);
 
       setOrders(
-        Array.isArray(result.orders)
-          ? result.orders
+        Array.isArray(ordersResult.orders)
+          ? ordersResult.orders
           : []
       );
 
-      const viewsResponse =
-        await fetch(
-          "/api/admin/views",
-          {
-            cache: "no-store",
-          }
-        );
+      const viewsResponse = await fetch(
+        "/api/admin/views",
+        {
+          cache: "no-store",
+        }
+      );
 
       if (viewsResponse.ok) {
         const viewsResult =
@@ -360,7 +361,7 @@ export default function AdminPage() {
   }
 
   useEffect(() => {
-    loadOrders();
+    loadDashboard();
   }, []);
 
   async function handleLogin(
@@ -405,7 +406,7 @@ export default function AdminPage() {
       setPassword("");
       setAuthenticated(true);
 
-      await loadOrders();
+      await loadDashboard();
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -645,9 +646,9 @@ export default function AdminPage() {
 
           <p className="mt-4 leading-7 text-gray-400">
             Enter the admin password to
-            manage orders, reviews,
-            product stock, discount codes
-            and the Garmin waitlist.
+            manage products, orders,
+            reviews, discount codes and
+            the Garmin waitlist.
           </p>
 
           <input
@@ -702,10 +703,9 @@ export default function AdminPage() {
           </h1>
 
           <p className="mt-4 max-w-2xl leading-7 text-gray-400">
-            Manage orders, reviews,
-            product inventory, Garmin
-            notification requests and
-            website activity.
+            Manage products, orders,
+            reviews, Garmin notification
+            requests and website activity.
           </p>
 
           <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -731,15 +731,15 @@ export default function AdminPage() {
             </Link>
 
             <Link
-              href="/admin/inventory"
+              href="/admin/products"
               className="inline-flex items-center justify-center rounded-2xl border border-green-500/30 bg-green-500/10 px-5 py-4 text-center font-bold text-green-300 transition hover:bg-green-500/20"
             >
-              Manage Product Stock
+              Manage Products
             </Link>
 
             <button
               type="button"
-              onClick={loadOrders}
+              onClick={loadDashboard}
               disabled={loading}
               className="rounded-2xl border border-white/15 px-5 py-4 font-semibold transition hover:bg-white/10 disabled:opacity-50"
             >
@@ -839,19 +839,19 @@ export default function AdminPage() {
           </div>
 
           <Link
-            href="/admin/inventory"
+            href="/admin/products"
             className="rounded-3xl border border-green-500/20 bg-green-500/10 p-6 transition hover:-translate-y-1 hover:bg-green-500/15"
           >
             <p className="text-green-200">
-              Product Stock
+              Products
             </p>
 
             <p className="mt-3 text-xl font-black text-green-300">
-              Manage Inventory
+              Manage Everything
             </p>
 
             <p className="mt-4 text-sm font-bold text-green-200/60">
-              Change quantities →
+              Add, edit and control →
             </p>
           </Link>
 
