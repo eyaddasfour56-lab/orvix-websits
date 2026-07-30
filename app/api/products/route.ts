@@ -3,6 +3,36 @@ import {
   NextResponse,
 } from "next/server";
 
+function cleanImages(
+  images: unknown,
+  fallbackImage = ""
+): string[] {
+  const imageList = Array.isArray(images)
+    ? images
+        .map((image) =>
+          String(image || "").trim()
+        )
+        .filter(Boolean)
+    : [];
+
+  const uniqueImages = Array.from(
+    new Set(imageList)
+  );
+
+  if (
+    uniqueImages.length === 0 &&
+    fallbackImage.trim()
+  ) {
+    return [fallbackImage.trim()];
+  }
+
+  if (uniqueImages.length === 0) {
+    return ["/black.png"];
+  }
+
+  return uniqueImages;
+}
+
 export async function GET(
   request: NextRequest
 ) {
@@ -98,58 +128,68 @@ export async function GET(
 
     const formattedProducts =
       Array.isArray(products)
-        ? products.map((product) => ({
-            id: product.id,
-            name: product.name,
-            slug: product.slug,
+        ? products.map((product) => {
+            const images = cleanImages(
+              product.images,
+              product.image
+            );
 
-            shortDescription:
-              product.short_description,
+            return {
+              id: product.id,
+              name: product.name,
+              slug: product.slug,
 
-            description:
-              product.description,
+              shortDescription:
+                product.short_description ||
+                "",
 
-            price: Number(
-              product.price || 0
-            ),
+              description:
+                product.description || "",
 
-            image:
-              product.image ||
-              "/black.png",
+              price: Number(
+                product.price || 0
+              ),
 
-            status:
-              product.status,
+              image:
+                images[0] ||
+                "/black.png",
 
-            stockQuantity: Number(
-              product.stock_quantity || 0
-            ),
+              images,
 
-            lowStockLimit: Number(
-              product.low_stock_limit || 0
-            ),
+              status:
+                product.status,
 
-            showOnHomepage: Boolean(
-              product.show_on_homepage
-            ),
+              stockQuantity: Number(
+                product.stock_quantity || 0
+              ),
 
-            allowWishlist: Boolean(
-              product.allow_wishlist
-            ),
+              lowStockLimit: Number(
+                product.low_stock_limit || 0
+              ),
 
-            allowPurchase: Boolean(
-              product.allow_purchase
-            ),
+              showOnHomepage: Boolean(
+                product.show_on_homepage
+              ),
 
-            displayOrder: Number(
-              product.display_order || 0
-            ),
+              allowWishlist: Boolean(
+                product.allow_wishlist
+              ),
 
-            createdAt:
-              product.created_at,
+              allowPurchase: Boolean(
+                product.allow_purchase
+              ),
 
-            updatedAt:
-              product.updated_at,
-          }))
+              displayOrder: Number(
+                product.display_order || 0
+              ),
+
+              createdAt:
+                product.created_at,
+
+              updatedAt:
+                product.updated_at,
+            };
+          })
         : [];
 
     if (
