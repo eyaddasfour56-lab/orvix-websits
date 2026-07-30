@@ -203,8 +203,8 @@ export default function GarminCirqaPage() {
   ] = useState(sizes[0]);
 
   const [
-    notificationFormOpen,
-    setNotificationFormOpen,
+    showNotifyForm,
+    setShowNotifyForm,
   ] = useState(false);
 
   const [
@@ -215,7 +215,7 @@ export default function GarminCirqaPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
-  const [submitting, setSubmitting] =
+  const [sending, setSending] =
     useState(false);
 
   const [message, setMessage] =
@@ -224,15 +224,15 @@ export default function GarminCirqaPage() {
   const [success, setSuccess] =
     useState(false);
 
-  function openNotificationForm() {
-    setNotificationFormOpen(true);
+  function openNotifyForm() {
+    setShowNotifyForm(true);
     setMessage("");
     setSuccess(false);
 
     window.setTimeout(() => {
       document
         .getElementById(
-          "garmin-notification-form"
+          "garmin-notify-form"
         )
         ?.scrollIntoView({
           behavior: "smooth",
@@ -241,8 +241,8 @@ export default function GarminCirqaPage() {
     }, 100);
   }
 
-  function closeNotificationForm() {
-    setNotificationFormOpen(false);
+  function closeNotifyForm() {
+    setShowNotifyForm(false);
     setMessage("");
     setSuccess(false);
   }
@@ -252,7 +252,7 @@ export default function GarminCirqaPage() {
   ) {
     event.preventDefault();
 
-    if (submitting) {
+    if (sending) {
       return;
     }
 
@@ -297,7 +297,7 @@ export default function GarminCirqaPage() {
       return;
     }
 
-    setSubmitting(true);
+    setSending(true);
 
     try {
       const response = await fetch(
@@ -309,6 +309,9 @@ export default function GarminCirqaPage() {
               "application/json",
           },
           body: JSON.stringify({
+            productName: PRODUCT_NAME,
+            productSlug: PRODUCT_SLUG,
+
             customerName:
               customerName.trim(),
 
@@ -317,9 +320,6 @@ export default function GarminCirqaPage() {
               .toLowerCase(),
 
             phone: phone.trim(),
-
-            productName: PRODUCT_NAME,
-            productSlug: PRODUCT_SLUG,
 
             colour:
               selectedColour.name,
@@ -357,7 +357,7 @@ export default function GarminCirqaPage() {
           : "Could not join the notification list."
       );
     } finally {
-      setSubmitting(false);
+      setSending(false);
     }
   }
 
@@ -365,10 +365,10 @@ export default function GarminCirqaPage() {
     <main className="min-h-screen bg-[#070707] text-white">
       <Navbar />
 
-      {/* Product section */}
+      {/* Product Section */}
       <section className="py-14 sm:py-24">
         <div className="mx-auto grid max-w-7xl items-start gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:gap-20">
-          {/* Product image */}
+          {/* Product Image */}
           <div className="rounded-[40px] bg-white p-6 sm:sticky sm:top-28 sm:p-8">
             <Image
               key={selectedColour.name}
@@ -381,7 +381,7 @@ export default function GarminCirqaPage() {
             />
           </div>
 
-          {/* Product information */}
+          {/* Product Details */}
           <div>
             <span className="inline-flex rounded-full border border-white/15 bg-white/5 px-5 py-2 text-sm font-bold uppercase tracking-[0.25em] text-gray-300">
               Coming Soon
@@ -402,7 +402,7 @@ export default function GarminCirqaPage() {
               through Garmin Connect.
             </p>
 
-            {/* Colour selector */}
+            {/* Colour */}
             <p className="mt-10 text-sm uppercase tracking-[0.35em] text-gray-500">
               Choose your colour
             </p>
@@ -445,7 +445,7 @@ export default function GarminCirqaPage() {
               })}
             </div>
 
-            {/* Size selector */}
+            {/* Size */}
             <p className="mt-10 text-sm uppercase tracking-[0.35em] text-gray-500">
               Choose your size
             </p>
@@ -476,7 +476,7 @@ export default function GarminCirqaPage() {
               })}
             </div>
 
-            {/* Selected option */}
+            {/* Selection */}
             <div className="mt-10 rounded-3xl border border-white/10 bg-white/5 p-6">
               <p className="text-sm uppercase tracking-[0.25em] text-gray-500">
                 Selected option
@@ -493,10 +493,10 @@ export default function GarminCirqaPage() {
               </p>
             </div>
 
-            {/* Notification button */}
+            {/* Notify Button */}
             <button
               type="button"
-              onClick={openNotificationForm}
+              onClick={openNotifyForm}
               className="mt-8 flex w-full items-center justify-center gap-3 rounded-full bg-white px-8 py-5 text-lg font-black text-black transition hover:bg-gray-200 active:scale-[0.99]"
             >
               <svg
@@ -530,10 +530,10 @@ export default function GarminCirqaPage() {
               CIRQA becomes available.
             </p>
 
-            {/* Notification form */}
-            {notificationFormOpen && (
+            {/* Notify Form */}
+            {showNotifyForm && (
               <form
-                id="garmin-notification-form"
+                id="garmin-notify-form"
                 onSubmit={handleNotifySubmit}
                 className="mt-8 rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7"
               >
@@ -557,9 +557,7 @@ export default function GarminCirqaPage() {
 
                   <button
                     type="button"
-                    onClick={
-                      closeNotificationForm
-                    }
+                    onClick={closeNotifyForm}
                     aria-label="Close notification form"
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/15 text-2xl transition hover:bg-white/10"
                   >
@@ -597,7 +595,7 @@ export default function GarminCirqaPage() {
                       }}
                       placeholder="Enter your name"
                       autoComplete="name"
-                      disabled={submitting}
+                      disabled={sending}
                       required
                       className="w-full rounded-2xl border border-white/15 bg-black/50 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
                     />
@@ -622,7 +620,7 @@ export default function GarminCirqaPage() {
                       placeholder="name@example.com"
                       autoComplete="email"
                       inputMode="email"
-                      disabled={submitting}
+                      disabled={sending}
                       className="w-full rounded-2xl border border-white/15 bg-black/50 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
                     />
                   </label>
@@ -656,7 +654,7 @@ export default function GarminCirqaPage() {
                       placeholder="01XXXXXXXXX"
                       autoComplete="tel"
                       inputMode="tel"
-                      disabled={submitting}
+                      disabled={sending}
                       className="w-full rounded-2xl border border-white/15 bg-black/50 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
                     />
                   </label>
@@ -680,29 +678,25 @@ export default function GarminCirqaPage() {
                   </p>
                 )}
 
-                {!success && (
+                {!success ? (
                   <button
                     type="submit"
                     disabled={
-                      submitting ||
+                      sending ||
                       !customerName.trim() ||
                       (!email.trim() &&
                         !phone.trim())
                     }
                     className="mt-6 flex w-full items-center justify-center rounded-full bg-white px-7 py-5 font-black text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {submitting
+                    {sending
                       ? "Joining List..."
                       : "Notify Me at Launch"}
                   </button>
-                )}
-
-                {success && (
+                ) : (
                   <button
                     type="button"
-                    onClick={
-                      closeNotificationForm
-                    }
+                    onClick={closeNotifyForm}
                     className="mt-6 flex w-full items-center justify-center rounded-full border border-white/15 px-7 py-4 font-black transition hover:bg-white/10"
                   >
                     Done
