@@ -8,9 +8,12 @@ import {
 } from "react";
 import Navbar from "@/components/Navbar";
 
-const PRODUCT_PRICE = 7900;
-const CART_STORAGE_KEY = "orvixCart";
+const PRODUCT_NAME = "Google Fitbit Air";
 const PRODUCT_SLUG = "google-fitbit-air";
+const PRODUCT_PRICE = 7900;
+
+const CART_STORAGE_KEY = "orvixCart";
+const WISHLIST_STORAGE_KEY = "orvixWishlist";
 
 type CartItem = {
   id: string;
@@ -19,6 +22,15 @@ type CartItem = {
   image: string;
   price: number;
   quantity: number;
+  slug: string;
+};
+
+type WishlistItem = {
+  id: string;
+  name: string;
+  colour: string;
+  image: string;
+  price: number;
   slug: string;
 };
 
@@ -227,6 +239,28 @@ function readCart(): CartItem[] {
   }
 }
 
+function readWishlist(): WishlistItem[] {
+  try {
+    const savedWishlist =
+      window.localStorage.getItem(
+        WISHLIST_STORAGE_KEY
+      );
+
+    if (!savedWishlist) {
+      return [];
+    }
+
+    const parsedWishlist =
+      JSON.parse(savedWishlist);
+
+    return Array.isArray(parsedWishlist)
+      ? parsedWishlist
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 function renderStars(rating: number) {
   const roundedRating = Math.round(rating);
 
@@ -272,6 +306,16 @@ export default function GoogleFitbitAirPage() {
     setShowAddedMessage,
   ] = useState(false);
 
+  const [
+    showWishlistMessage,
+    setShowWishlistMessage,
+  ] = useState("");
+
+  const [
+    isWishlisted,
+    setIsWishlisted,
+  ] = useState(false);
+
   const [reviews, setReviews] = useState<
     ProductReview[]
   >([]);
@@ -291,6 +335,59 @@ export default function GoogleFitbitAirPage() {
 
   const [reviewsError, setReviewsError] =
     useState("");
+
+  useEffect(() => {
+    const currentWishlist =
+      readWishlist();
+
+    const itemId =
+      `${PRODUCT_SLUG}-${selectedColour.name.toLowerCase()}`;
+
+    const saved =
+      currentWishlist.some(
+        (item) => item.id === itemId
+      );
+
+    setIsWishlisted(saved);
+  }, [selectedColour]);
+
+  useEffect(() => {
+    function refreshWishlistState() {
+      const currentWishlist =
+        readWishlist();
+
+      const itemId =
+        `${PRODUCT_SLUG}-${selectedColour.name.toLowerCase()}`;
+
+      setIsWishlisted(
+        currentWishlist.some(
+          (item) => item.id === itemId
+        )
+      );
+    }
+
+    window.addEventListener(
+      "orvix-wishlist-updated",
+      refreshWishlistState
+    );
+
+    window.addEventListener(
+      "storage",
+      refreshWishlistState
+    );
+
+    return () => {
+      window.removeEventListener(
+        "orvix-wishlist-updated",
+        refreshWishlistState
+      );
+
+      window.removeEventListener(
+        "storage",
+        refreshWishlistState
+      );
+    };
+  }, [selectedColour]);
 
   useEffect(() => {
     let cancelled = false;
@@ -382,7 +479,7 @@ export default function GoogleFitbitAirPage() {
     const currentCart = readCart();
 
     const itemId =
-      `google-fitbit-air-${selectedColour.name.toLowerCase()}`;
+      `${PRODUCT_SLUG}-${selectedColour.name.toLowerCase()}`;
 
     const existingItemIndex =
       currentCart.findIndex(
@@ -410,7 +507,7 @@ export default function GoogleFitbitAirPage() {
     } else {
       const newItem: CartItem = {
         id: itemId,
-        name: "Google Fitbit Air",
+        name: PRODUCT_NAME,
         colour: selectedColour.name,
         image: selectedColour.image,
         price: PRODUCT_PRICE,
@@ -442,11 +539,72 @@ export default function GoogleFitbitAirPage() {
     openCartDrawer();
   }
 
+  function toggleWishlist() {
+    const currentWishlist =
+      readWishlist();
+
+    const itemId =
+      `${PRODUCT_SLUG}-${selectedColour.name.toLowerCase()}`;
+
+    const alreadyExists =
+      currentWishlist.some(
+        (item) => item.id === itemId
+      );
+
+    let updatedWishlist: WishlistItem[];
+
+    if (alreadyExists) {
+      updatedWishlist =
+        currentWishlist.filter(
+          (item) => item.id !== itemId
+        );
+
+      setIsWishlisted(false);
+
+      setShowWishlistMessage(
+        "Removed from wishlist"
+      );
+    } else {
+      const newItem: WishlistItem = {
+        id: itemId,
+        name: PRODUCT_NAME,
+        colour: selectedColour.name,
+        image: selectedColour.image,
+        price: PRODUCT_PRICE,
+        slug: PRODUCT_SLUG,
+      };
+
+      updatedWishlist = [
+        ...currentWishlist,
+        newItem,
+      ];
+
+      setIsWishlisted(true);
+
+      setShowWishlistMessage(
+        "Added to wishlist"
+      );
+    }
+
+    window.localStorage.setItem(
+      WISHLIST_STORAGE_KEY,
+      JSON.stringify(updatedWishlist)
+    );
+
+    window.dispatchEvent(
+      new Event("orvix-wishlist-updated")
+    );
+
+    window.setTimeout(() => {
+      setShowWishlistMessage("");
+    }, 2500);
+  }
+
   return (
     <main className="min-h-screen bg-[#070707] pb-32 text-white md:pb-0">
       <Navbar />
 
-      {/* Added-to-cart notification */}
+      {/* Add to cart notification */}
       <div
         role="status"
         aria-live="polite"
@@ -465,15 +623,33 @@ export default function GoogleFitbitAirPage() {
         </div>
       </div>
 
-      {/* Product */}
+      {/* Wishlist notification */}
+      <div
+        role="status"
+        aria-live="polite"
+        className={`fixed left-1/2 top-24 z-[101] -translate-x-1/2 transition duration-300 ${
+          showWishlistMessage
+            ? "translate-y-0 opacity-100"
+            : "pointer-events-none -translate-y-4 opacity-0"
+        }`}
+      >
+        <div className="flex items-center gap-3 whitespace-nowrap rounded-full border border-white/15 bg-white px-5 py-3 font-black text-black shadow-2xl">
+          <span className="text-xl">
+            {isWishlisted ? "♥" : "♡"}
+          </span>
+
+          {showWishlistMessage}
+        </div>
+      </div>
+
+      {/* Product section */}
       <section className="py-14 sm:py-24">
         <div className="mx-auto grid max-w-7xl items-start gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:gap-20">
-          {/* Product image */}
           <div className="rounded-[40px] bg-white p-6 sm:sticky sm:top-28 sm:p-8">
             <Image
               key={selectedColour.name}
               src={selectedColour.image}
-              alt={`Google Fitbit Air - ${selectedColour.name}`}
+              alt={`${PRODUCT_NAME} - ${selectedColour.name}`}
               width={700}
               height={700}
               priority
@@ -481,7 +657,6 @@ export default function GoogleFitbitAirPage() {
             />
           </div>
 
-          {/* Product information */}
           <div>
             <div className="flex flex-wrap items-center gap-3">
               <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
@@ -494,10 +669,9 @@ export default function GoogleFitbitAirPage() {
             </div>
 
             <h1 className="mt-5 text-5xl font-black leading-none sm:text-6xl">
-              Google Fitbit Air
+              {PRODUCT_NAME}
             </h1>
 
-            {/* Rating under product name */}
             <a
               href="#customer-reviews"
               className="mt-5 flex w-fit flex-wrap items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-3 transition hover:border-white/25 hover:bg-white/10"
@@ -537,7 +711,6 @@ export default function GoogleFitbitAirPage() {
               recovery.
             </p>
 
-            {/* Colour selector */}
             <p className="mt-10 text-sm uppercase tracking-[0.35em] text-gray-500">
               Choose your colour
             </p>
@@ -587,7 +760,6 @@ export default function GoogleFitbitAirPage() {
               })}
             </div>
 
-            {/* Quantity selector */}
             <div className="mt-8">
               <p className="text-sm uppercase tracking-[0.35em] text-gray-500">
                 Quantity
@@ -634,7 +806,6 @@ export default function GoogleFitbitAirPage() {
               </div>
             </div>
 
-            {/* Price */}
             <div className="mt-10 rounded-3xl border border-white/10 bg-white/5 p-6">
               <div className="flex items-center justify-between gap-4">
                 <span className="font-bold text-gray-300">
@@ -676,38 +847,56 @@ export default function GoogleFitbitAirPage() {
               </p>
             </div>
 
-            {/* Desktop Add to Cart */}
-            <button
-              type="button"
-              onClick={addToCart}
-              className="mt-8 hidden w-full items-center justify-center gap-3 rounded-full bg-white px-8 py-5 text-lg font-black text-black transition hover:bg-gray-200 active:scale-[0.99] md:flex"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                aria-hidden="true"
-                className="h-6 w-6"
+            {/* Desktop buttons */}
+            <div className="mt-8 hidden grid-cols-[1fr_auto] gap-3 md:grid">
+              <button
+                type="button"
+                onClick={addToCart}
+                className="flex w-full items-center justify-center gap-3 rounded-full bg-white px-8 py-5 text-lg font-black text-black transition hover:bg-gray-200 active:scale-[0.99]"
               >
-                <path
-                  d="M3 4H5L7.2 14.2C7.4 15.2 8.3 16 9.4 16H17.7C18.7 16 19.6 15.3 19.9 14.3L21 8H6"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                  className="h-6 w-6"
+                >
+                  <path
+                    d="M3 4H5L7.2 14.2C7.4 15.2 8.3 16 9.4 16H17.7C18.7 16 19.6 15.3 19.9 14.3L21 8H6"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
 
-                <path
-                  d="M12 8V13M9.5 10.5H14.5"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                />
-              </svg>
+                  <path
+                    d="M12 8V13M9.5 10.5H14.5"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
 
-              Add to Cart
-            </button>
+                Add to Cart
+              </button>
 
-            {/* Trust information */}
+              <button
+                type="button"
+                onClick={toggleWishlist}
+                aria-label={
+                  isWishlisted
+                    ? "Remove from wishlist"
+                    : "Add to wishlist"
+                }
+                className={`flex h-[68px] w-[68px] items-center justify-center rounded-full border text-3xl transition active:scale-95 ${
+                  isWishlisted
+                    ? "border-white bg-white text-black"
+                    : "border-white/15 bg-white/5 text-white hover:bg-white/10"
+                }`}
+              >
+                {isWishlisted ? "♥" : "♡"}
+              </button>
+            </div>
+
             <div className="mt-6 grid grid-cols-3 gap-2">
               {[
                 "InstaPay on delivery",
@@ -731,7 +920,7 @@ export default function GoogleFitbitAirPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="text-center">
             <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
-              Google Fitbit Air
+              {PRODUCT_NAME}
             </p>
 
             <h2 className="mt-5 text-4xl font-black sm:text-6xl">
@@ -845,7 +1034,6 @@ export default function GoogleFitbitAirPage() {
             </Link>
           </div>
 
-          {/* Review statistics */}
           <div className="mt-10 grid gap-4 sm:grid-cols-3">
             <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
               <p className="text-sm text-gray-500">
@@ -900,7 +1088,6 @@ export default function GoogleFitbitAirPage() {
             </div>
           </div>
 
-          {/* Loading */}
           {reviewsLoading ? (
             <div className="mt-10 rounded-3xl border border-white/10 bg-white/5 p-10 text-center">
               <div className="mx-auto h-9 w-9 animate-spin rounded-full border-2 border-white/20 border-t-white" />
@@ -910,7 +1097,6 @@ export default function GoogleFitbitAirPage() {
               </p>
             </div>
           ) : reviewsError ? (
-            /* Error */
             <div className="mt-10 rounded-3xl border border-red-500/20 bg-red-500/10 p-6 text-red-300">
               <p className="font-black">
                 Could not load customer
@@ -922,7 +1108,6 @@ export default function GoogleFitbitAirPage() {
               </p>
             </div>
           ) : reviews.length === 0 ? (
-            /* No reviews */
             <div className="mt-10 rounded-[32px] border border-white/10 bg-white/5 p-10 text-center">
               <div className="text-4xl text-yellow-300">
                 ☆☆☆☆☆
@@ -946,7 +1131,6 @@ export default function GoogleFitbitAirPage() {
               </Link>
             </div>
           ) : (
-            /* Reviews list */
             <div className="mt-10 grid gap-5 lg:grid-cols-2">
               {reviews.map((review) => (
                 <article
@@ -970,9 +1154,7 @@ export default function GoogleFitbitAirPage() {
                       <div className="flex gap-1 text-xl text-yellow-300">
                         {[1, 2, 3, 4, 5].map(
                           (star) => (
-                            <span
-                              key={star}
-                            >
+                            <span key={star}>
                               {star <=
                               review.rating
                                 ? "★"
@@ -1004,7 +1186,6 @@ export default function GoogleFitbitAirPage() {
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="border-t border-white/10 py-8">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 text-sm text-gray-500 sm:px-6 md:flex-row">
           <p>
@@ -1021,7 +1202,7 @@ export default function GoogleFitbitAirPage() {
         </div>
       </footer>
 
-      {/* Sticky Add to Cart - Mobile */}
+      {/* Mobile sticky buttons */}
       <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-black/95 p-3 backdrop-blur-xl md:hidden">
         <div className="mx-auto flex max-w-lg items-center gap-3">
           <div className="min-w-0 flex-1">
@@ -1041,8 +1222,25 @@ export default function GoogleFitbitAirPage() {
 
           <button
             type="button"
+            onClick={toggleWishlist}
+            aria-label={
+              isWishlisted
+                ? "Remove from wishlist"
+                : "Add to wishlist"
+            }
+            className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full border text-3xl transition active:scale-95 ${
+              isWishlisted
+                ? "border-white bg-white text-black"
+                : "border-white/15 bg-white/5 text-white"
+            }`}
+          >
+            {isWishlisted ? "♥" : "♡"}
+          </button>
+
+          <button
+            type="button"
             onClick={addToCart}
-            className="shrink-0 rounded-full bg-white px-6 py-4 font-black text-black transition active:scale-95"
+            className="shrink-0 rounded-full bg-white px-5 py-4 font-black text-black transition active:scale-95"
           >
             Add to Cart
           </button>
