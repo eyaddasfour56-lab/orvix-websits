@@ -86,6 +86,14 @@ function createOrderNumber() {
   return `ORVIX-${Date.now()}-${randomPart}`;
 }
 
+function createShippingNumber() {
+  const randomPart = Math.floor(
+    1000 + Math.random() * 9000
+  );
+
+  return `SHIP-${Date.now()}-${randomPart}`;
+}
+
 async function findDiscountCode(
   code: string
 ): Promise<DiscountRow | null> {
@@ -361,6 +369,12 @@ export async function POST(request: Request) {
     const orderNumber =
       createOrderNumber();
 
+    const shippingNumber =
+      createShippingNumber();
+
+    const labelCreatedAt =
+      new Date().toISOString();
+
     const supabaseResponse = await fetch(
       `${supabaseUrl}/rest/v1/orders`,
       {
@@ -373,6 +387,18 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify({
           order_number: orderNumber,
+
+          shipping_number: shippingNumber,
+          shipping_status:
+            "ready_to_print",
+
+          label_created_at:
+            labelCreatedAt,
+
+          label_printed_at: null,
+
+          payment_method:
+            "instapay_on_delivery",
 
           product_name: productName,
           product_slug: productSlug,
@@ -426,6 +452,12 @@ export async function POST(request: Request) {
     const savedOrders =
       await supabaseResponse.json();
 
+    const savedOrder =
+      Array.isArray(savedOrders) &&
+      savedOrders.length > 0
+        ? savedOrders[0]
+        : null;
+
     if (verifiedDiscount) {
       try {
         await increaseDiscountUsage(
@@ -478,6 +510,9 @@ export async function POST(request: Request) {
     const safeTrackOrderUrl =
       escapeHtml(trackOrderUrl);
 
+    const safeShippingNumber =
+      escapeHtml(shippingNumber);
+
     const notificationEmail =
       process.env.ORDER_NOTIFICATION_EMAIL ||
       process.env.RESEND_TO_EMAIL;
@@ -504,11 +539,27 @@ export async function POST(request: Request) {
                   </h1>
 
                   <p style="color:#666;margin-top:0;">
-                    A new order has been placed on the website.
+                    A new order has been placed and its shipping label is ready to print.
                   </p>
 
-                  <div style="background:#f4f4f4;border-radius:16px;padding:20px;margin-top:24px;">
-                    <p><strong>Order number:</strong> ${orderNumber}</p>
+                  <div style="background:#111;color:#fff;border-radius:16px;padding:20px;margin-top:24px;">
+                    <p>
+                      <strong>Order number:</strong>
+                      ${orderNumber}
+                    </p>
+
+                    <p>
+                      <strong>Shipping number:</strong>
+                      ${safeShippingNumber}
+                    </p>
+
+                    <p>
+                      <strong>Shipping status:</strong>
+                      Ready to print
+                    </p>
+                  </div>
+
+                  <div style="background:#f4f4f4;border-radius:16px;padding:20px;margin-top:16px;">
                     <p><strong>Customer:</strong> ${safeFullName}</p>
                     <p><strong>Phone:</strong> ${safePhone}</p>
                     <p><strong>Email:</strong> ${safeCustomerEmail}</p>
@@ -521,22 +572,46 @@ export async function POST(request: Request) {
                     <p><strong>Product:</strong> ${safeProductName}</p>
                     <p><strong>Colour:</strong> ${safeColour}</p>
                     <p><strong>Quantity:</strong> ${quantity}</p>
-                    <p><strong>Product price:</strong> ${productPrice.toLocaleString(
-                      "en-GB"
-                    )} EGP</p>
-                    <p><strong>Products total:</strong> ${productsTotal.toLocaleString(
-                      "en-GB"
-                    )} EGP</p>
-                    <p><strong>Original delivery:</strong> ${originalDeliveryFee.toLocaleString(
-                      "en-GB"
-                    )} EGP</p>
-                    <p><strong>Discount code:</strong> ${safeDiscountCode}</p>
-                    <p><strong>Discount:</strong> ${verifiedDeliveryDiscount.toLocaleString(
-                      "en-GB"
-                    )} EGP</p>
-                    <p><strong>Final delivery:</strong> ${verifiedDeliveryFee.toLocaleString(
-                      "en-GB"
-                    )} EGP</p>
+
+                    <p>
+                      <strong>Product price:</strong>
+                      ${productPrice.toLocaleString(
+                        "en-GB"
+                      )} EGP
+                    </p>
+
+                    <p>
+                      <strong>Products total:</strong>
+                      ${productsTotal.toLocaleString(
+                        "en-GB"
+                      )} EGP
+                    </p>
+
+                    <p>
+                      <strong>Original delivery:</strong>
+                      ${originalDeliveryFee.toLocaleString(
+                        "en-GB"
+                      )} EGP
+                    </p>
+
+                    <p>
+                      <strong>Discount code:</strong>
+                      ${safeDiscountCode}
+                    </p>
+
+                    <p>
+                      <strong>Discount:</strong>
+                      ${verifiedDeliveryDiscount.toLocaleString(
+                        "en-GB"
+                      )} EGP
+                    </p>
+
+                    <p>
+                      <strong>Final delivery:</strong>
+                      ${verifiedDeliveryFee.toLocaleString(
+                        "en-GB"
+                      )} EGP
+                    </p>
 
                     <p style="font-size:20px;">
                       <strong>
@@ -597,6 +672,14 @@ export async function POST(request: Request) {
                   <p style="font-size:21px;font-weight:700;margin:10px 0 0;word-break:break-word;">
                     ${orderNumber}
                   </p>
+
+                  <p style="color:#aaa;margin:20px 0 0;font-size:13px;">
+                    SHIPPING NUMBER
+                  </p>
+
+                  <p style="font-size:18px;font-weight:700;margin:10px 0 0;word-break:break-word;">
+                    ${safeShippingNumber}
+                  </p>
                 </div>
 
                 <div style="background:#f5f5f5;border-radius:18px;padding:22px;margin-top:18px;">
@@ -607,28 +690,42 @@ export async function POST(request: Request) {
                   <p><strong>Product:</strong> ${safeProductName}</p>
                   <p><strong>Colour:</strong> ${safeColour}</p>
                   <p><strong>Quantity:</strong> ${quantity}</p>
-                  <p><strong>Products total:</strong> ${productsTotal.toLocaleString(
-                    "en-GB"
-                  )} EGP</p>
-                  <p><strong>Delivery:</strong> ${
-                    verifiedDeliveryFee === 0
-                      ? "FREE"
-                      : `${verifiedDeliveryFee.toLocaleString(
-                          "en-GB"
-                        )} EGP`
-                  }</p>
+
+                  <p>
+                    <strong>Products total:</strong>
+                    ${productsTotal.toLocaleString(
+                      "en-GB"
+                    )} EGP
+                  </p>
+
+                  <p>
+                    <strong>Delivery:</strong>
+                    ${
+                      verifiedDeliveryFee === 0
+                        ? "FREE"
+                        : `${verifiedDeliveryFee.toLocaleString(
+                            "en-GB"
+                          )} EGP`
+                    }
+                  </p>
 
                   ${
                     verifiedDeliveryDiscount > 0
-                      ? `<p style="color:#16803a;"><strong>Discount:</strong> -${verifiedDeliveryDiscount.toLocaleString(
-                          "en-GB"
-                        )} EGP</p>`
+                      ? `
+                        <p style="color:#16803a;">
+                          <strong>Discount:</strong>
+                          -${verifiedDeliveryDiscount.toLocaleString(
+                            "en-GB"
+                          )} EGP
+                        </p>
+                      `
                       : ""
                   }
 
                   <p style="font-size:21px;border-top:1px solid #ddd;padding-top:16px;margin-bottom:0;">
                     <strong>
-                      Total: ${verifiedTotalPrice.toLocaleString(
+                      Total:
+                      ${verifiedTotalPrice.toLocaleString(
                         "en-GB"
                       )} EGP
                     </strong>
@@ -640,8 +737,15 @@ export async function POST(request: Request) {
                     Delivery details
                   </h2>
 
-                  <p><strong>Governorate:</strong> ${safeGovernorate}</p>
-                  <p><strong>Address:</strong> ${safeAddress}</p>
+                  <p>
+                    <strong>Governorate:</strong>
+                    ${safeGovernorate}
+                  </p>
+
+                  <p>
+                    <strong>Address:</strong>
+                    ${safeAddress}
+                  </p>
                 </div>
 
                 <a
@@ -685,13 +789,16 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       message: "Order placed successfully.",
-      orderNumber,
 
-      order:
-        Array.isArray(savedOrders) &&
-        savedOrders.length > 0
-          ? savedOrders[0]
-          : null,
+      orderNumber,
+      shippingNumber,
+
+      shippingStatus:
+        "ready_to_print",
+
+      labelCreatedAt,
+
+      order: savedOrder,
 
       product: {
         name: productName,
@@ -702,14 +809,25 @@ export async function POST(request: Request) {
         productPrice,
         productsTotal,
         originalDeliveryFee,
+
         deliveryDiscount:
           verifiedDeliveryDiscount,
+
         deliveryFee:
           verifiedDeliveryFee,
+
         totalPrice:
           verifiedTotalPrice,
+
         discountCode:
           verifiedDiscountCode || null,
+      },
+
+      shipping: {
+        shippingNumber,
+        status: "ready_to_print",
+        labelCreatedAt,
+        printedAt: null,
       },
 
       email: {
@@ -723,6 +841,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: false,
+
         message:
           error instanceof Error
             ? error.message
