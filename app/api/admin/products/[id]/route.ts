@@ -62,6 +62,24 @@ const allowedStatuses = [
   "hidden",
 ];
 
+function cleanImages(
+  value: unknown
+): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .map((item) =>
+          String(item || "").trim()
+        )
+        .filter(Boolean)
+    )
+  );
+}
+
 export async function PATCH(
   request: NextRequest,
   context: {
@@ -140,9 +158,28 @@ export async function PATCH(
       body.description || ""
     ).trim();
 
-    const image = String(
-      body.image || "/black.png"
-    ).trim();
+    const submittedImages =
+      cleanImages(body.images);
+
+    const submittedMainImage =
+      String(body.image || "").trim();
+
+    const images =
+      submittedImages.length > 0
+        ? submittedImages
+        : submittedMainImage
+          ? [submittedMainImage]
+          : [];
+
+    const image =
+      images[0] ||
+      submittedMainImage ||
+      "/black.png";
+
+    const finalImages =
+      images.length > 0
+        ? images
+        : [image];
 
     const status = String(
       body.status || "available"
@@ -167,13 +204,13 @@ export async function PATCH(
     );
 
     const showOnHomepage =
-      Boolean(body.showOnHomepage);
+      body.showOnHomepage === true;
 
     const allowWishlist =
-      Boolean(body.allowWishlist);
+      body.allowWishlist === true;
 
     const allowPurchase =
-      Boolean(body.allowPurchase);
+      body.allowPurchase === true;
 
     if (!name) {
       return NextResponse.json(
@@ -292,7 +329,10 @@ export async function PATCH(
         shortDescription,
       description,
       price,
+
       image,
+      images: finalImages,
+
       status,
       stock_quantity:
         stockQuantity,
@@ -320,7 +360,8 @@ export async function PATCH(
         method: "PATCH",
         headers: {
           apikey: supabaseSecretKey,
-          Authorization: `Bearer ${supabaseSecretKey}`,
+          Authorization:
+            `Bearer ${supabaseSecretKey}`,
           "Content-Type":
             "application/json",
           Prefer: "return=representation",
@@ -388,11 +429,36 @@ export async function PATCH(
       );
     }
 
+    const updatedProduct =
+      updatedProducts[0];
+
+    const returnedImages =
+      Array.isArray(
+        updatedProduct.images
+      )
+        ? cleanImages(
+            updatedProduct.images
+          )
+        : updatedProduct.image
+          ? [
+              String(
+                updatedProduct.image
+              ),
+            ]
+          : [];
+
     return NextResponse.json({
       success: true,
       message:
         "Product updated successfully.",
-      product: updatedProducts[0],
+      product: {
+        ...updatedProduct,
+        image:
+          returnedImages[0] ||
+          updatedProduct.image ||
+          "",
+        images: returnedImages,
+      },
     });
   } catch (error) {
     console.error(
@@ -479,7 +545,8 @@ export async function DELETE(
         method: "DELETE",
         headers: {
           apikey: supabaseSecretKey,
-          Authorization: `Bearer ${supabaseSecretKey}`,
+          Authorization:
+            `Bearer ${supabaseSecretKey}`,
           "Content-Type":
             "application/json",
           Prefer: "return=representation",
