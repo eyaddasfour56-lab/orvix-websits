@@ -12,7 +12,7 @@ import Navbar from "@/components/Navbar";
 const PRODUCT_PRICE = 7900;
 
 const INSTAPAY_LOGO =
-  "data:image/jpeg;base64,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";
+  "data:image/webp;base64,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";
 
 const colours = [
   {
@@ -505,6 +505,7 @@ export default function CheckoutPage() {
                       )
                     }
                     disabled={isSending}
+                    aria-label="Decrease quantity"
                     className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-2xl disabled:opacity-50"
                   >
                     −
@@ -522,6 +523,7 @@ export default function CheckoutPage() {
                       )
                     }
                     disabled={isSending}
+                    aria-label="Increase quantity"
                     className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-2xl text-black disabled:opacity-50"
                   >
                     +
@@ -700,7 +702,7 @@ export default function CheckoutPage() {
                     Product
                   </span>
 
-                  <strong>
+                  <strong className="text-right">
                     Google Fitbit Air
                   </strong>
                 </div>
@@ -785,7 +787,7 @@ export default function CheckoutPage() {
                       !selectedArea ||
                       isSending
                     }
-                    className="min-w-0 flex-1 rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
+                    className="min-w-0 flex-1 rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:cursor-not-allowed disabled:opacity-50"
                   />
 
                   <button
@@ -800,7 +802,7 @@ export default function CheckoutPage() {
                       !selectedArea ||
                       isSending
                     }
-                    className="rounded-2xl bg-white px-5 py-4 font-bold text-black disabled:opacity-50"
+                    className="rounded-2xl bg-white px-5 py-4 font-bold text-black disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {checkingDiscount
                       ? "Checking..."
@@ -809,6 +811,13 @@ export default function CheckoutPage() {
                         : "Apply"}
                   </button>
                 </div>
+
+                {!selectedArea && (
+                  <p className="mt-3 text-sm text-gray-500">
+                    Select your delivery area before
+                    applying a code.
+                  </p>
+                )}
 
                 {discountMessage && (
                   <p
@@ -838,42 +847,45 @@ export default function CheckoutPage() {
                 </strong>
               </div>
 
-              <div className="mt-7 rounded-3xl border border-white/10 bg-white/5 p-5">
+              <div className="mt-7 rounded-3xl border border-white/10 bg-black p-5">
                 <div className="flex items-start gap-4">
-                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-white">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black p-1">
                     <img
                       src={INSTAPAY_LOGO}
                       alt="InstaPay"
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-contain"
                     />
                   </div>
 
-                  <div>
-                    <p className="font-black">
+                  <div className="min-w-0">
+                    <p className="font-black text-white">
                       InstaPay on Delivery
                     </p>
 
                     <p className="mt-2 text-sm leading-6 text-gray-400">
-                      Pay through InstaPay only
-                      when your order arrives. No
-                      advance payment is required.
+                      Pay through InstaPay only when
+                      your order arrives. No advance
+                      payment is required.
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-4 border-t border-white/10 pt-4">
                   <p className="text-xs leading-5 text-gray-500">
-                    The official InstaPay payment
-                    details will be provided when
-                    confirming or delivering your
-                    order. Never transfer money to
-                    an unverified account.
+                    Official payment details will
+                    be provided when your order is
+                    confirmed or delivered. Never
+                    transfer money to an unverified
+                    account.
                   </p>
                 </div>
               </div>
 
               {orderError && (
-                <p className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+                <p
+                  role="alert"
+                  className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm leading-6 text-red-300"
+                >
                   {orderError}
                 </p>
               )}
@@ -881,7 +893,7 @@ export default function CheckoutPage() {
               <button
                 type="submit"
                 disabled={isSending}
-                className="mt-8 flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-bold text-black disabled:opacity-50"
+                className="mt-8 flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-bold text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSending
                   ? "Placing order..."
@@ -889,6 +901,12 @@ export default function CheckoutPage() {
                       "en-GB"
                     )} EGP`}
               </button>
+
+              <p className="mt-4 text-center text-xs leading-5 text-gray-500">
+                By placing your order, you confirm
+                that the provided information is
+                correct.
+              </p>
 
               {isSending && (
                 <p className="mt-4 text-center text-sm text-gray-500">
