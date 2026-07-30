@@ -244,6 +244,7 @@ export default function AdminPage() {
       if (response.status === 401) {
         setAuthenticated(false);
         setOrders([]);
+
         setWaitlistStatistics({
           total: 0,
           waiting: 0,
@@ -645,8 +646,8 @@ export default function AdminPage() {
           <p className="mt-4 leading-7 text-gray-400">
             Enter the admin password to
             manage orders, reviews,
-            discount codes and the Garmin
-            waitlist.
+            product stock, discount codes
+            and the Garmin waitlist.
           </p>
 
           <input
@@ -691,25 +692,23 @@ export default function AdminPage() {
   return (
     <main className="min-h-screen bg-[#070707] px-4 py-10 text-white sm:px-6">
       <div className="mx-auto max-w-7xl">
-        <header className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-sm uppercase tracking-[0.3em] text-gray-500">
-              ORVIX Admin
-            </p>
+        <header>
+          <p className="text-sm uppercase tracking-[0.3em] text-gray-500">
+            ORVIX Admin
+          </p>
 
-            <h1 className="mt-3 text-4xl font-black sm:text-5xl">
-              Dashboard
-            </h1>
+          <h1 className="mt-3 text-4xl font-black sm:text-5xl">
+            Dashboard
+          </h1>
 
-            <p className="mt-4 max-w-2xl leading-7 text-gray-400">
-              Manage orders, reviews,
-              Garmin notification requests,
-              delivery statuses and website
-              activity.
-            </p>
-          </div>
+          <p className="mt-4 max-w-2xl leading-7 text-gray-400">
+            Manage orders, reviews,
+            product inventory, Garmin
+            notification requests and
+            website activity.
+          </p>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <Link
               href="/admin/discounts"
               className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-4 text-center font-bold text-black transition hover:bg-gray-200"
@@ -731,13 +730,20 @@ export default function AdminPage() {
               Manage Garmin Waitlist
             </Link>
 
+            <Link
+              href="/admin/inventory"
+              className="inline-flex items-center justify-center rounded-2xl border border-green-500/30 bg-green-500/10 px-5 py-4 text-center font-bold text-green-300 transition hover:bg-green-500/20"
+            >
+              Manage Product Stock
+            </Link>
+
             <button
               type="button"
               onClick={loadOrders}
               disabled={loading}
               className="rounded-2xl border border-white/15 px-5 py-4 font-semibold transition hover:bg-white/10 disabled:opacity-50"
             >
-              Refresh
+              Refresh Dashboard
             </button>
 
             <button
@@ -833,6 +839,23 @@ export default function AdminPage() {
           </div>
 
           <Link
+            href="/admin/inventory"
+            className="rounded-3xl border border-green-500/20 bg-green-500/10 p-6 transition hover:-translate-y-1 hover:bg-green-500/15"
+          >
+            <p className="text-green-200">
+              Product Stock
+            </p>
+
+            <p className="mt-3 text-xl font-black text-green-300">
+              Manage Inventory
+            </p>
+
+            <p className="mt-4 text-sm font-bold text-green-200/60">
+              Change quantities →
+            </p>
+          </Link>
+
+          <Link
             href="/admin/waitlist"
             className="rounded-3xl border border-white/10 bg-white/5 p-6 transition hover:-translate-y-1 hover:border-white/25 hover:bg-white/10"
           >
@@ -842,10 +865,6 @@ export default function AdminPage() {
 
             <p className="mt-3 text-4xl font-black">
               {waitlistStatistics.total}
-            </p>
-
-            <p className="mt-4 text-sm font-bold text-gray-500">
-              View Waitlist →
             </p>
           </Link>
 
