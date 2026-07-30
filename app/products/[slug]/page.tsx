@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
+  TouchEvent,
   useEffect,
   useMemo,
   useState,
@@ -23,6 +24,7 @@ type Product = {
   description: string;
   price: number;
   image: string;
+  images: string[];
   status: ProductStatus;
   stockQuantity: number;
   lowStockLimit: number;
@@ -79,7 +81,76 @@ function readLocalStorage<T>(
   }
 }
 
-function getStatusDetails(product: Product) {
+function cleanImages(
+  images: unknown,
+  fallbackImage = ""
+) {
+  const imageList = Array.isArray(images)
+    ? images
+        .map((image) =>
+          String(image || "").trim()
+        )
+        .filter(Boolean)
+    : [];
+
+  const uniqueImages = Array.from(
+    new Set(imageList)
+  );
+
+  if (
+    uniqueImages.length === 0 &&
+    fallbackImage.trim()
+  ) {
+    return [fallbackImage.trim()];
+  }
+
+  if (uniqueImages.length === 0) {
+    return ["/black.png"];
+  }
+
+  return uniqueImages;
+}
+
+function normaliseProduct(
+  product: Product
+): Product {
+  const images = cleanImages(
+    product.images,
+    product.image
+  );
+
+  return {
+    ...product,
+    name: product.name || "",
+    slug: product.slug || "",
+    shortDescription:
+      product.shortDescription || "",
+    description:
+      product.description || "",
+    image: images[0] || "/black.png",
+    images,
+    price: Number(product.price || 0),
+    stockQuantity: Number(
+      product.stockQuantity || 0
+    ),
+    lowStockLimit: Number(
+      product.lowStockLimit || 0
+    ),
+    showOnHomepage: Boolean(
+      product.showOnHomepage
+    ),
+    allowWishlist: Boolean(
+      product.allowWishlist
+    ),
+    allowPurchase: Boolean(
+      product.allowPurchase
+    ),
+  };
+}
+
+function getStatusDetails(
+  product: Product
+) {
   if (product.status === "coming_soon") {
     return {
       label: "Coming Soon",
@@ -141,8 +212,25 @@ export default function DynamicProductPage() {
   const [message, setMessage] =
     useState("");
 
-  const [isInWishlist, setIsInWishlist] =
-    useState(false);
+  const [
+    isInWishlist,
+    setIsInWishlist,
+  ] = useState(false);
+
+  const [
+    activeImageIndex,
+    setActiveImageIndex,
+  ] = useState(0);
+
+  const [
+    touchStartX,
+    setTouchStartX,
+  ] = useState<number | null>(null);
+
+  const [
+    touchEndX,
+    setTouchEndX,
+  ] = useState<number | null>(null);
 
   useEffect(() => {
     if (!slug) {
@@ -186,7 +274,14 @@ export default function DynamicProductPage() {
           );
         }
 
-        setProduct(result.product);
+        const loadedProduct =
+          normaliseProduct(
+            result.product
+          );
+
+        setProduct(loadedProduct);
+        setActiveImageIndex(0);
+        setQuantity(1);
       } catch (loadError) {
         setError(
           loadError instanceof Error
@@ -221,6 +316,22 @@ export default function DynamicProductPage() {
     );
   }, [product]);
 
+  const productImages = useMemo(() => {
+    if (!product) {
+      return ["/black.png"];
+    }
+
+    return cleanImages(
+      product.images,
+      product.image
+    );
+  }, [product]);
+
+  const activeImage =
+    productImages[activeImageIndex] ||
+    productImages[0] ||
+    "/black.png";
+
   const statusDetails = useMemo(() => {
     if (!product) {
       return null;
@@ -235,6 +346,77 @@ export default function DynamicProductPage() {
       product.stockQuantity > 0 &&
       product.allowPurchase
   );
+
+  function showPreviousImage() {
+    setActiveImageIndex(
+      (currentIndex) =>
+        currentIndex === 0
+          ? productImages.length - 1
+          : currentIndex - 1
+    );
+  }
+
+  function showNextImage() {
+    setActiveImageIndex(
+      (currentIndex) =>
+        currentIndex ===
+        productImages.length - 1
+          ? 0
+          : currentIndex + 1
+    );
+  }
+
+  function handleTouchStart(
+    event: TouchEvent<HTMLDivElement>
+  ) {
+    setTouchEndX(null);
+
+    setTouchStartX(
+      event.targetTouches[0]
+        .clientX
+    );
+  }
+
+  function handleTouchMove(
+    event: TouchEvent<HTMLDivElement>
+  ) {
+    setTouchEndX(
+      event.targetTouches[0]
+        .clientX
+    );
+  }
+
+  function handleTouchEnd() {
+    if (
+      touchStartX === null ||
+      touchEndX === null ||
+      productImages.length <= 1
+    ) {
+      return;
+    }
+
+    const swipeDistance =
+      touchStartX - touchEndX;
+
+    const minimumSwipeDistance = 50;
+
+    if (
+      swipeDistance >
+      minimumSwipeDistance
+    ) {
+      showNextImage();
+    }
+
+    if (
+      swipeDistance <
+      -minimumSwipeDistance
+    ) {
+      showPreviousImage();
+    }
+
+    setTouchStartX(null);
+    setTouchEndX(null);
+  }
 
   function changeQuantity(
     newQuantity: number
@@ -287,7 +469,9 @@ export default function DynamicProductPage() {
         name: product.name,
         slug: product.slug,
         price: product.price,
-        image: product.image,
+        image:
+          productImages[0] ||
+          product.image,
         quantity: Math.min(
           currentQuantity + quantity,
           product.stockQuantity
@@ -300,6 +484,7 @@ export default function DynamicProductPage() {
         slug: product.slug,
         price: product.price,
         image:
+          productImages[0] ||
           product.image ||
           "/black.png",
         quantity: Math.min(
@@ -365,6 +550,7 @@ export default function DynamicProductPage() {
               slug: product.slug,
               price: product.price,
               image:
+                productImages[0] ||
                 product.image ||
                 "/black.png",
             },
@@ -458,16 +644,132 @@ export default function DynamicProductPage() {
           </Link>
 
           <div className="mt-8 grid gap-10 lg:grid-cols-2 lg:items-start">
-            <div className="overflow-hidden rounded-[40px] border border-white/10 bg-white p-6 sm:p-10">
-              {/* Using img allows local paths and external image URLs entered in Admin. */}
-              <img
-                src={
-                  product.image ||
-                  "/black.png"
+            <div>
+              <div
+                onTouchStart={
+                  handleTouchStart
                 }
-                alt={product.name}
-                className="aspect-square h-auto w-full object-contain"
-              />
+                onTouchMove={
+                  handleTouchMove
+                }
+                onTouchEnd={
+                  handleTouchEnd
+                }
+                className="relative touch-pan-y select-none overflow-hidden rounded-[40px] border border-white/10 bg-white p-6 sm:p-10"
+              >
+                <img
+                  key={activeImage}
+                  src={activeImage}
+                  alt={`${product.name} image ${
+                    activeImageIndex + 1
+                  }`}
+                  draggable={false}
+                  className="aspect-square h-auto w-full animate-[fadeIn_250ms_ease-in-out] object-contain"
+                />
+
+                {productImages.length >
+                  1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={
+                        showPreviousImage
+                      }
+                      aria-label="Previous image"
+                      className="absolute left-3 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/80 text-2xl font-black text-white backdrop-blur transition hover:scale-105 hover:bg-black sm:left-5"
+                    >
+                      ‹
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={
+                        showNextImage
+                      }
+                      aria-label="Next image"
+                      className="absolute right-3 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/80 text-2xl font-black text-white backdrop-blur transition hover:scale-105 hover:bg-black sm:right-5"
+                    >
+                      ›
+                    </button>
+
+                    <span className="absolute bottom-4 right-4 rounded-full bg-black/80 px-4 py-2 text-xs font-black text-white backdrop-blur">
+                      {activeImageIndex + 1} /{" "}
+                      {productImages.length}
+                    </span>
+                  </>
+                )}
+              </div>
+
+              {productImages.length > 1 && (
+                <>
+                  <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
+                    {productImages.map(
+                      (
+                        imageUrl,
+                        imageIndex
+                      ) => (
+                        <button
+                          key={`${imageUrl}-${imageIndex}`}
+                          type="button"
+                          onClick={() =>
+                            setActiveImageIndex(
+                              imageIndex
+                            )
+                          }
+                          aria-label={`View image ${
+                            imageIndex + 1
+                          }`}
+                          className={`flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border bg-white p-2 transition ${
+                            activeImageIndex ===
+                            imageIndex
+                              ? "border-white ring-2 ring-white"
+                              : "border-white/15 opacity-60 hover:opacity-100"
+                          }`}
+                        >
+                          <img
+                            src={imageUrl}
+                            alt={`${product.name} thumbnail ${
+                              imageIndex + 1
+                            }`}
+                            draggable={false}
+                            className="h-full w-full object-contain"
+                          />
+                        </button>
+                      )
+                    )}
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-center gap-2">
+                    {productImages.map(
+                      (_, imageIndex) => (
+                        <button
+                          key={imageIndex}
+                          type="button"
+                          onClick={() =>
+                            setActiveImageIndex(
+                              imageIndex
+                            )
+                          }
+                          aria-label={`Go to image ${
+                            imageIndex + 1
+                          }`}
+                          className={`h-2 rounded-full transition-all ${
+                            activeImageIndex ===
+                            imageIndex
+                              ? "w-7 bg-white"
+                              : "w-2 bg-white/25"
+                          }`}
+                        />
+                      )
+                    )}
+                  </div>
+
+                  <p className="mt-4 text-center text-xs font-semibold text-gray-500 sm:hidden">
+                    Swipe left or right to view
+                    more pictures
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="lg:sticky lg:top-28">
