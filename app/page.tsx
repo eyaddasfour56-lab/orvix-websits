@@ -2,16 +2,28 @@ import Image from "next/image";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 
-const products = [
+type Product = {
+  name: string;
+  description: string;
+  image: string;
+  href: string;
+  price: string;
+  status: string;
+  available: boolean;
+  buttonText: string;
+};
+
+const products: Product[] = [
   {
     name: "Google Fitbit Air",
     description:
-      "Screen-free fitness tracking with heart rate, sleep, SpO₂ and up to 7 days battery life.",
+      "Screen-free fitness tracking with heart rate, sleep, SpO₂ and up to 7 days of battery life.",
     image: "/black.png",
     href: "/products/google-fitbit-air",
     price: "7,900 EGP",
     status: "Available now",
     available: true,
+    buttonText: "View Product",
   },
   {
     name: "Garmin CIRQA",
@@ -22,6 +34,7 @@ const products = [
     price: "Coming soon",
     status: "Coming soon",
     available: false,
+    buttonText: "Notify Me When Available",
   },
 ];
 
@@ -50,7 +63,7 @@ const frequentlyAskedQuestions = [
   {
     question: "How can I place an order?",
     answer:
-      "Open the available product, select your preferred colour and quantity, then press Buy Now and complete the checkout form.",
+      "Open the available product, select your preferred colour and quantity, add it to your cart, then complete the checkout form.",
   },
   {
     question: "How do I track my order?",
@@ -65,7 +78,7 @@ const frequentlyAskedQuestions = [
   {
     question: "What payment method is available?",
     answer:
-      "Current orders are paid using cash on delivery. ORVIX will contact you to confirm the order details.",
+      "Payment is completed through InstaPay when your order arrives. No advance payment is required.",
   },
   {
     question: "How much does delivery cost?",
@@ -80,7 +93,12 @@ const frequentlyAskedQuestions = [
   {
     question: "Which colours are currently available?",
     answer:
-      "The Google Fitbit Air is currently available in Black, Lavender and Berry, subject to availability.",
+      "Google Fitbit Air is currently available in Black, Lavender and Berry, subject to availability.",
+  },
+  {
+    question: "How can I get notified about Garmin CIRQA?",
+    answer:
+      "Press Notify Me When Available on the Garmin CIRQA card, choose your preferred colour and size, then enter your email or phone number.",
   },
   {
     question: "How can I contact ORVIX?",
@@ -117,9 +135,15 @@ export default function Home() {
           </div>
 
           <div className="mt-14 grid gap-8 lg:grid-cols-2">
-            {products.map((product) => {
-              const cardContent = (
-                <>
+            {products.map((product) => (
+              <article
+                key={product.name}
+                className="group overflow-hidden rounded-[40px] border border-white/10 bg-white/5 p-5 transition duration-300 hover:-translate-y-1 hover:border-white/25 sm:p-7"
+              >
+                <Link
+                  href={product.href}
+                  className="block"
+                >
                   <div className="relative overflow-hidden rounded-[32px] bg-white p-6">
                     <Image
                       src={product.image}
@@ -139,73 +163,67 @@ export default function Home() {
                       </span>
                     )}
                   </div>
+                </Link>
 
-                  <div className="px-2 pb-2 pt-7">
-                    <div className="flex items-start justify-between gap-5">
-                      <div>
-                        <p className="text-sm uppercase tracking-[0.3em] text-gray-500">
-                          {product.status}
-                        </p>
-
-                        <h2 className="mt-3 text-3xl font-black sm:text-4xl">
-                          {product.name}
-                        </h2>
-                      </div>
-
-                      {product.available && (
-                        <span className="text-3xl transition group-hover:translate-x-1">
-                          →
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="mt-5 leading-7 text-gray-400">
-                      {product.description}
-                    </p>
-
-                    <div className="mt-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <strong className="text-xl">
-                        {product.price}
-                      </strong>
-
-                      <span
-                        className={`rounded-full px-5 py-3 text-center font-bold ${
+                <div className="px-2 pb-2 pt-7">
+                  <div className="flex items-start justify-between gap-5">
+                    <div>
+                      <p
+                        className={`text-sm uppercase tracking-[0.3em] ${
                           product.available
-                            ? "border border-white/15"
-                            : "cursor-not-allowed bg-white/10 text-gray-500"
+                            ? "text-green-400"
+                            : "text-gray-500"
                         }`}
                       >
-                        {product.available
-                          ? "View Product"
-                          : "Not Available Yet"}
-                      </span>
+                        {product.status}
+                      </p>
+
+                      <Link
+                        href={product.href}
+                        className="block"
+                      >
+                        <h2 className="mt-3 text-3xl font-black transition group-hover:text-gray-200 sm:text-4xl">
+                          {product.name}
+                        </h2>
+                      </Link>
                     </div>
+
+                    <span className="text-3xl transition group-hover:translate-x-1">
+                      →
+                    </span>
                   </div>
-                </>
-              );
 
-              if (!product.available) {
-                return (
-                  <article
-                    key={product.name}
-                    aria-disabled="true"
-                    className="group overflow-hidden rounded-[40px] border border-white/10 bg-white/5 p-5 opacity-80 sm:p-7"
-                  >
-                    {cardContent}
-                  </article>
-                );
-              }
+                  <p className="mt-5 leading-7 text-gray-400">
+                    {product.description}
+                  </p>
 
-              return (
-                <Link
-                  key={product.name}
-                  href={product.href}
-                  className="group overflow-hidden rounded-[40px] border border-white/10 bg-white/5 p-5 transition hover:-translate-y-1 hover:border-white/25 sm:p-7"
-                >
-                  {cardContent}
-                </Link>
-              );
-            })}
+                  <div className="mt-7">
+                    <strong className="block text-xl">
+                      {product.price}
+                    </strong>
+
+                    <Link
+                      href={product.href}
+                      className={`mt-5 flex w-full items-center justify-center rounded-full px-6 py-4 text-center font-black transition ${
+                        product.available
+                          ? "bg-white text-black hover:bg-gray-200"
+                          : "border border-white/15 bg-white/5 text-white hover:border-white/30 hover:bg-white/10"
+                      }`}
+                    >
+                      {product.buttonText}
+                    </Link>
+
+                    {!product.available && (
+                      <p className="mt-3 text-center text-xs leading-5 text-gray-500">
+                        Choose your preferred colour
+                        and size, then join the launch
+                        notification list.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </article>
+            ))}
           </div>
         </div>
       </section>
@@ -299,6 +317,47 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Garmin Notification CTA */}
+      <section className="px-4 pb-20 sm:px-6 sm:pb-24">
+        <div className="mx-auto max-w-7xl">
+          <div className="grid overflow-hidden rounded-[36px] border border-white/10 bg-[#111111] lg:grid-cols-[0.8fr_1.2fr]">
+            <div className="bg-white p-6 sm:p-10">
+              <Image
+                src="/black.jpeg"
+                alt="Garmin CIRQA"
+                width={700}
+                height={700}
+                className="h-full w-full object-contain"
+              />
+            </div>
+
+            <div className="flex flex-col justify-center p-7 sm:p-12">
+              <span className="w-fit rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-gray-300">
+                Coming Soon
+              </span>
+
+              <h2 className="mt-5 text-4xl font-black sm:text-6xl">
+                Be first to know.
+              </h2>
+
+              <p className="mt-5 max-w-xl text-lg leading-8 text-gray-400">
+                Choose your Garmin CIRQA colour and
+                size, then join the notification
+                list. We will contact you by email
+                or phone when it becomes available.
+              </p>
+
+              <Link
+                href="/products/garmin-cirqa"
+                className="mt-8 inline-flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-center text-lg font-black text-black transition hover:bg-gray-200 sm:w-fit"
+              >
+                Notify Me When Available
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* FAQ */}
       <section
         id="faq"
@@ -316,8 +375,8 @@ export default function Home() {
 
             <p className="mx-auto mt-5 max-w-2xl leading-7 text-gray-400">
               Everything you need to know about
-              ordering, delivery and tracking your
-              ORVIX order.
+              ordering, delivery, tracking and
+              product notifications.
             </p>
           </div>
 
@@ -348,7 +407,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Contact Us */}
+      {/* Contact */}
       <section
         id="contact"
         className="scroll-mt-24 px-4 py-20 sm:px-6 sm:py-28"
@@ -398,7 +457,7 @@ export default function Home() {
                 </p>
 
                 <a
-                  href="https://www.instagram.com/orvix.tech_/"
+                  href="https://www.instagram.com/orvix_tech/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-5 block break-words text-3xl font-black transition hover:text-gray-300"
@@ -431,6 +490,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Footer */}
       <footer className="border-t border-white/10 px-4 py-8">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 text-center lg:flex-row lg:text-left">
           <div>
@@ -478,10 +538,16 @@ export default function Home() {
             >
               Track Order
             </Link>
+
+            <Link
+              href="/products/garmin-cirqa"
+              className="transition hover:text-white"
+            >
+              Garmin Notifications
+            </Link>
           </div>
         </div>
       </footer>
     </main>
   );
 }
-
