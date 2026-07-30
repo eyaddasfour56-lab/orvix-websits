@@ -8,6 +8,9 @@ import {
 } from "react";
 import Navbar from "@/components/Navbar";
 
+const PRODUCT_NAME = "Garmin CIRQA";
+const PRODUCT_SLUG = "garmin-cirqa";
+
 const colours = [
   {
     name: "Black",
@@ -108,8 +111,7 @@ const featureGroups = [
     title: "Fitness",
     features: [
       {
-        title:
-          "Automatic Activity Detection",
+        title: "Automatic Activity Detection",
         description:
           "Automatically detects activities such as walking and running.",
       },
@@ -183,6 +185,12 @@ function isValidEmail(value: string) {
   );
 }
 
+function isValidPhone(value: string) {
+  const digits = value.replace(/\D/g, "");
+
+  return digits.length >= 10;
+}
+
 export default function GarminCirqaPage() {
   const [
     selectedColour,
@@ -215,6 +223,29 @@ export default function GarminCirqaPage() {
 
   const [success, setSuccess] =
     useState(false);
+
+  function openNotificationForm() {
+    setNotificationFormOpen(true);
+    setMessage("");
+    setSuccess(false);
+
+    window.setTimeout(() => {
+      document
+        .getElementById(
+          "garmin-notification-form"
+        )
+        ?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+    }, 100);
+  }
+
+  function closeNotificationForm() {
+    setNotificationFormOpen(false);
+    setMessage("");
+    setSuccess(false);
+  }
 
   async function handleNotifySubmit(
     event: FormEvent<HTMLFormElement>
@@ -255,6 +286,17 @@ export default function GarminCirqaPage() {
       return;
     }
 
+    if (
+      phone.trim() &&
+      !isValidPhone(phone)
+    ) {
+      setMessage(
+        "Please enter a valid phone number."
+      );
+
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -275,6 +317,9 @@ export default function GarminCirqaPage() {
               .toLowerCase(),
 
             phone: phone.trim(),
+
+            productName: PRODUCT_NAME,
+            productSlug: PRODUCT_SLUG,
 
             colour:
               selectedColour.name,
@@ -297,7 +342,7 @@ export default function GarminCirqaPage() {
 
       setMessage(
         result.message ||
-          "You are on the notification list."
+          "You are on the list. We will notify you when Garmin CIRQA becomes available."
       );
 
       setCustomerName("");
@@ -316,28 +361,11 @@ export default function GarminCirqaPage() {
     }
   }
 
-  function openNotificationForm() {
-    setNotificationFormOpen(true);
-    setMessage("");
-    setSuccess(false);
-
-    window.setTimeout(() => {
-      document
-        .getElementById(
-          "garmin-notification-form"
-        )
-        ?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-    }, 100);
-  }
-
   return (
     <main className="min-h-screen bg-[#070707] text-white">
       <Navbar />
 
-      {/* Product */}
+      {/* Product section */}
       <section className="py-14 sm:py-24">
         <div className="mx-auto grid max-w-7xl items-start gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:gap-20">
           {/* Product image */}
@@ -345,7 +373,7 @@ export default function GarminCirqaPage() {
             <Image
               key={selectedColour.name}
               src={selectedColour.image}
-              alt={`Garmin CIRQA - ${selectedColour.name}`}
+              alt={`${PRODUCT_NAME} - ${selectedColour.name}`}
               width={700}
               height={700}
               priority
@@ -364,14 +392,14 @@ export default function GarminCirqaPage() {
             </p>
 
             <h1 className="mt-5 text-5xl font-black leading-none sm:text-6xl">
-              Garmin CIRQA
+              {PRODUCT_NAME}
             </h1>
 
             <p className="mt-6 max-w-xl text-lg leading-8 text-gray-400">
-              A screen-free smart band
-              designed to track your health,
-              sleep, recovery and daily
-              activity through Garmin Connect.
+              A screen-free smart band designed
+              to track your health, sleep,
+              recovery and daily activity
+              through Garmin Connect.
             </p>
 
             {/* Colour selector */}
@@ -389,11 +417,14 @@ export default function GarminCirqaPage() {
                   <button
                     key={colour.name}
                     type="button"
-                    onClick={() =>
+                    onClick={() => {
                       setSelectedColour(
                         colour
-                      )
-                    }
+                      );
+
+                      setMessage("");
+                      setSuccess(false);
+                    }}
                     className={`flex items-center gap-3 rounded-2xl border p-4 text-left font-bold transition ${
                       selected
                         ? "border-white bg-white text-black"
@@ -428,9 +459,11 @@ export default function GarminCirqaPage() {
                   <button
                     key={size}
                     type="button"
-                    onClick={() =>
-                      setSelectedSize(size)
-                    }
+                    onClick={() => {
+                      setSelectedSize(size);
+                      setMessage("");
+                      setSuccess(false);
+                    }}
                     className={`rounded-2xl border p-4 text-center font-bold transition ${
                       selected
                         ? "border-white bg-white text-black"
@@ -443,7 +476,7 @@ export default function GarminCirqaPage() {
               })}
             </div>
 
-            {/* Selection summary */}
+            {/* Selected option */}
             <div className="mt-10 rounded-3xl border border-white/10 bg-white/5 p-6">
               <p className="text-sm uppercase tracking-[0.25em] text-gray-500">
                 Selected option
@@ -455,11 +488,12 @@ export default function GarminCirqaPage() {
               </p>
 
               <p className="mt-3 text-sm leading-6 text-gray-400">
-                Price and launch date will be
-                announced soon.
+                Price and official launch date
+                will be announced soon.
               </p>
             </div>
 
+            {/* Notification button */}
             <button
               type="button"
               onClick={openNotificationForm}
@@ -493,9 +527,10 @@ export default function GarminCirqaPage() {
             <p className="mt-4 text-center text-sm leading-6 text-gray-500">
               Join the list and we will contact
               you by email or phone when Garmin
-              CIRQA launches.
+              CIRQA becomes available.
             </p>
 
+            {/* Notification form */}
             {notificationFormOpen && (
               <form
                 id="garmin-notification-form"
@@ -511,18 +546,20 @@ export default function GarminCirqaPage() {
                     <h2 className="mt-3 text-2xl font-black">
                       Join the Garmin CIRQA List
                     </h2>
+
+                    <p className="mt-3 text-sm leading-6 text-gray-400">
+                      Enter your email or phone
+                      number and we will contact
+                      you when the product
+                      launches.
+                    </p>
                   </div>
 
                   <button
                     type="button"
-                    onClick={() => {
-                      setNotificationFormOpen(
-                        false
-                      );
-
-                      setMessage("");
-                      setSuccess(false);
-                    }}
+                    onClick={
+                      closeNotificationForm
+                    }
                     aria-label="Close notification form"
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/15 text-2xl transition hover:bg-white/10"
                   >
@@ -663,10 +700,8 @@ export default function GarminCirqaPage() {
                 {success && (
                   <button
                     type="button"
-                    onClick={() =>
-                      setNotificationFormOpen(
-                        false
-                      )
+                    onClick={
+                      closeNotificationForm
                     }
                     className="mt-6 flex w-full items-center justify-center rounded-full border border-white/15 px-7 py-4 font-black transition hover:bg-white/10"
                   >
@@ -684,7 +719,7 @@ export default function GarminCirqaPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="text-center">
             <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
-              Garmin CIRQA
+              {PRODUCT_NAME}
             </p>
 
             <h2 className="mt-5 text-4xl font-black sm:text-6xl">
@@ -746,6 +781,7 @@ export default function GarminCirqaPage() {
         </div>
       </section>
 
+      {/* Footer */}
       <footer className="border-t border-white/10 py-8">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 text-sm text-gray-500 sm:px-6 md:flex-row">
           <p>
