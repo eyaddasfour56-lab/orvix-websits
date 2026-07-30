@@ -16,6 +16,8 @@ type ProductStatus =
   | "out_of_stock"
   | "hidden";
 
+type ColourName = "Black" | "Blue" | "Berry";
+
 type Product = {
   id: string;
   name: string;
@@ -38,7 +40,7 @@ type CartItem = {
   slug: string;
   price: number;
   image: string;
-  colour: string;
+  colour: ColourName;
   quantity: number;
 };
 
@@ -68,16 +70,20 @@ type TechCategory = {
   items: string[];
 };
 
-const colours = [
+const colours: {
+  name: ColourName;
+  value: string;
+  className: string;
+}[] = [
   {
     name: "Black",
     value: "black",
     className: "bg-[#111111]",
   },
   {
-    name: "Lavender",
-    value: "lavender",
-    className: "bg-[#b7a7d8]",
+    name: "Blue",
+    value: "blue",
+    className: "bg-[#86a9d9]",
   },
   {
     name: "Berry",
@@ -86,12 +92,18 @@ const colours = [
   },
 ];
 
+const colourImages: Record<ColourName, string[]> = {
+  Black: ["/Black.png"],
+  Blue: ["/Blue.jpeg"],
+  Berry: ["/Berry.jpeg"],
+};
+
 const features = [
   {
     number: "01",
     title: "Screen-free tracking",
     description:
-      "Track your health and fitness without adding another distracting screen to your wrist.",
+      "Track your daily activity and health without another distracting screen on your wrist.",
   },
   {
     number: "02",
@@ -109,7 +121,7 @@ const features = [
     number: "04",
     title: "Up to 7-day battery",
     description:
-      "Spend less time charging and more time tracking your daily routine.",
+      "Spend less time charging and more time tracking your routine.",
   },
   {
     number: "05",
@@ -130,35 +142,33 @@ const techCategories: TechCategory[] = [
     title: "Memory",
     icon: "◫",
     description:
-      "Detailed health information stays available between syncs.",
+      "Detailed health information stays available between synchronisations.",
     items: [
-      "Saves 7 days of detailed motion data, minute by minute",
-      "Saves daily totals for the last 30 days",
-      "Stores heart-rate data at 2-second intervals",
+      "Saves up to 7 days of detailed motion data",
+      "Saves daily totals for the previous 30 days",
+      "Stores heart-rate information at short intervals",
     ],
   },
   {
     title: "Battery & Power",
     icon: "ϟ",
-    description:
-      "Made to keep tracking through your daily routine.",
     items: [
       "Battery life of up to 7 days",
       "Charging time of approximately 90 minutes",
-      "Quick charge provides up to one day of battery in around 5 minutes",
+      "Quick charging support",
       "USB-C charging cable included",
-      "Battery type: Lithium polymer",
-      "Bluetooth 5.0 radio transceiver",
+      "Lithium-polymer battery",
+      "Bluetooth 5.0 connectivity",
     ],
   },
   {
     title: "Materials",
     icon: "◇",
     items: [
-      "Air housing made with recycled polycarbonate and PBT plastics",
-      "Band made from flexible silicone material",
-      "Packaging uses fibre-based and recyclable materials",
-      "Lightweight construction designed for all-day comfort",
+      "Lightweight tracker housing",
+      "Flexible silicone wristband",
+      "Comfortable construction for everyday wear",
+      "Recyclable fibre-based packaging",
     ],
   },
   {
@@ -168,7 +178,7 @@ const techCategories: TechCategory[] = [
       "Optical heart-rate monitor",
       "Three-axis accelerometer",
       "Gyroscope",
-      "Red and infrared sensors for oxygen-saturation monitoring",
+      "Red and infrared sensors",
       "Temperature sensor",
       "Ambient-light sensor",
       "Vibration motor",
@@ -178,11 +188,10 @@ const techCategories: TechCategory[] = [
     title: "Band Size",
     icon: "⌁",
     items: [
-      "One-size textile and polyurethane band",
-      "Fits wrists approximately 140–210 mm around",
+      "Designed for a wide range of wrist sizes",
       "Small wrist size: approximately 130–175 mm",
       "Large wrist size: approximately 165–210 mm",
-      "Silicone band included",
+      "Flexible silicone band included",
     ],
   },
   {
@@ -190,9 +199,9 @@ const techCategories: TechCategory[] = [
     icon: "≈",
     items: [
       "Water-resistant up to 50 metres",
-      "Suitable for daily wear and light water exposure",
-      "Dry the band completely before wearing again",
-      "Not intended for high-speed or deep-water activities",
+      "Suitable for everyday use and light water exposure",
+      "Dry the tracker completely before wearing again",
+      "Not intended for deep-water or high-speed activities",
     ],
   },
   {
@@ -200,28 +209,28 @@ const techCategories: TechCategory[] = [
     icon: "♥",
     items: [
       "Continuous optical heart-rate tracking",
-      "Heart-rate accuracy can vary by physiology and placement",
-      "Results may also vary with movement and environmental conditions",
-      "Designed for general wellness and fitness information",
+      "Accuracy may vary with movement and placement",
+      "Results can vary by physiology and environment",
+      "Designed for general wellness information",
     ],
   },
   {
     title: "Care",
     icon: "✦",
     items: [
-      "Remove the band occasionally and allow your skin to breathe",
-      "Clean the band gently after workouts or water exposure",
-      "Dry the tracker and band completely before wearing",
-      "Avoid harsh chemicals, abrasive materials and strong cleaners",
+      "Remove the tracker occasionally to let your skin breathe",
+      "Clean the band gently after exercise",
+      "Dry the tracker and band before wearing",
+      "Avoid harsh cleaning chemicals",
     ],
   },
   {
     title: "Dimensions",
     icon: "↔",
     items: [
-      "Length: approximately 1.4 in / 34.9 mm",
-      "Width: approximately 0.7 in / 17 mm",
-      "Height: approximately 0.3 in / 8.3 mm",
+      "Length: approximately 34.9 mm",
+      "Width: approximately 17 mm",
+      "Height: approximately 8.3 mm",
       "Compact screen-free tracker body",
     ],
   },
@@ -231,7 +240,7 @@ const techCategories: TechCategory[] = [
     items: [
       "Tracker weight without band: approximately 5.2 g",
       "Total weight with band: approximately 12 g",
-      "Designed for comfortable day and night wear",
+      "Suitable for day and night wear",
     ],
   },
   {
@@ -239,24 +248,22 @@ const techCategories: TechCategory[] = [
     icon: "⌘",
     items: [
       "Google Account required",
-      "Google Health application required",
-      "Compatible with most supported Android and iOS smartphones",
-      "Android 11.0 or later recommended",
-      "iOS 16.4 or later recommended",
-      "Bluetooth Low Energy connection required",
-      "Internet connection and location permissions may be required",
-      "Maximum syncing range is approximately 30 ft",
+      "Compatible mobile application required",
+      "Compatible with supported Android devices",
+      "Compatible with supported iPhone devices",
+      "Bluetooth Low Energy required",
+      "Internet connection may be required",
     ],
   },
   {
     title: "Safety Information",
     icon: "!",
     items: [
-      "This product is intended for general wellness use",
-      "Health information should not replace professional medical advice",
+      "Designed for general wellness use",
+      "Not a replacement for professional medical advice",
       "Stop using the product if skin irritation develops",
-      "Read all product and safety documentation before use",
-      "Keep the charging cable and small components away from young children",
+      "Read all safety documentation before use",
+      "Keep small components away from young children",
     ],
   },
   {
@@ -266,7 +273,8 @@ const techCategories: TechCategory[] = [
       "Google Fitbit Air tracker",
       "Wristband",
       "USB-C charging cable",
-      "Quick-start and safety information",
+      "Quick-start guide",
+      "Safety information",
     ],
   },
 ];
@@ -277,26 +285,6 @@ function formatPrice(price: number) {
   }
 
   return `${price.toLocaleString("en-GB")} EGP`;
-}
-
-function cleanImages(images: unknown, fallbackImage = "") {
-  const imageList = Array.isArray(images)
-    ? images
-        .map((image) => String(image || "").trim())
-        .filter(Boolean)
-    : [];
-
-  const uniqueImages = Array.from(new Set(imageList));
-
-  if (uniqueImages.length > 0) {
-    return uniqueImages;
-  }
-
-  if (fallbackImage.trim()) {
-    return [fallbackImage.trim()];
-  }
-
-  return ["/black.png"];
 }
 
 function readStorage<T>(key: string, fallback: T): T {
@@ -326,23 +314,25 @@ export default function GoogleFitbitAirPage() {
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
 
-  const [selectedColour, setSelectedColour] = useState("Black");
+  const [selectedColour, setSelectedColour] =
+    useState<ColourName>("Black");
+
   const [quantity, setQuantity] = useState(1);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-  const [touchStartX, setTouchStartX] = useState<number | null>(
-    null
-  );
-  const [touchEndX, setTouchEndX] = useState<number | null>(
-    null
-  );
+  const [touchStartX, setTouchStartX] =
+    useState<number | null>(null);
+
+  const [touchEndX, setTouchEndX] =
+    useState<number | null>(null);
 
   const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState<
-    "success" | "error" | ""
-  >("");
+
+  const [messageType, setMessageType] =
+    useState<"success" | "error" | "">("");
 
   const [isInWishlist, setIsInWishlist] = useState(false);
+
   const [activeSection, setActiveSection] = useState<
     "overview" | "specifications" | "reviews"
   >("overview");
@@ -382,15 +372,8 @@ export default function GoogleFitbitAirPage() {
           );
         }
 
-        const images = cleanImages(
-          result.product.images,
-          result.product.image
-        );
-
         const loadedProduct: Product = {
           ...result.product,
-          images,
-          image: images[0] || "/black.png",
           price: Number(result.product.price || 0),
           stockQuantity: Number(
             result.product.stockQuantity || 0
@@ -407,7 +390,6 @@ export default function GoogleFitbitAirPage() {
         };
 
         setProduct(loadedProduct);
-        setActiveImageIndex(0);
 
         const wishlist = readStorage<WishlistItem[]>(
           "orvixWishlist",
@@ -457,7 +439,8 @@ export default function GoogleFitbitAirPage() {
         const reviewList = Array.isArray(result.reviews)
           ? result.reviews.filter(
               (review: Review) =>
-                !review.status || review.status === "approved"
+                !review.status ||
+                review.status === "approved"
             )
           : [];
 
@@ -472,15 +455,14 @@ export default function GoogleFitbitAirPage() {
     loadReviews();
   }, []);
 
-  const productImages = useMemo(
-    () => cleanImages(product?.images, product?.image),
-    [product]
-  );
+  const productImages = useMemo(() => {
+    return colourImages[selectedColour];
+  }, [selectedColour]);
 
   const activeImage =
     productImages[activeImageIndex] ||
     productImages[0] ||
-    "/black.png";
+    "/Black.png";
 
   const canPurchase = Boolean(
     product &&
@@ -495,7 +477,8 @@ export default function GoogleFitbitAirPage() {
     }
 
     const total = reviews.reduce(
-      (sum, review) => sum + Number(review.rating || 0),
+      (sum, review) =>
+        sum + Number(review.rating || 0),
       0
     );
 
@@ -515,15 +498,24 @@ export default function GoogleFitbitAirPage() {
     }, 4500);
   }
 
+  function selectColour(colour: ColourName) {
+    setSelectedColour(colour);
+    setActiveImageIndex(0);
+  }
+
   function previousImage() {
     setActiveImageIndex((current) =>
-      current === 0 ? productImages.length - 1 : current - 1
+      current === 0
+        ? productImages.length - 1
+        : current - 1
     );
   }
 
   function nextImage() {
     setActiveImageIndex((current) =>
-      current === productImages.length - 1 ? 0 : current + 1
+      current === productImages.length - 1
+        ? 0
+        : current + 1
     );
   }
 
@@ -531,13 +523,17 @@ export default function GoogleFitbitAirPage() {
     event: TouchEvent<HTMLDivElement>
   ) {
     setTouchEndX(null);
-    setTouchStartX(event.targetTouches[0].clientX);
+    setTouchStartX(
+      event.targetTouches[0].clientX
+    );
   }
 
   function handleTouchMove(
     event: TouchEvent<HTMLDivElement>
   ) {
-    setTouchEndX(event.targetTouches[0].clientX);
+    setTouchEndX(
+      event.targetTouches[0].clientX
+    );
   }
 
   function handleTouchEnd() {
@@ -583,7 +579,10 @@ export default function GoogleFitbitAirPage() {
       return;
     }
 
-    const cart = readStorage<CartItem[]>("orvixCart", []);
+    const cart = readStorage<CartItem[]>(
+      "orvixCart",
+      []
+    );
 
     const existingIndex = cart.findIndex(
       (item) =>
@@ -594,8 +593,11 @@ export default function GoogleFitbitAirPage() {
     if (existingIndex >= 0) {
       cart[existingIndex] = {
         ...cart[existingIndex],
+        image: activeImage,
         quantity: Math.min(
-          Number(cart[existingIndex].quantity || 1) + quantity,
+          Number(
+            cart[existingIndex].quantity || 1
+          ) + quantity,
           product.stockQuantity
         ),
       };
@@ -605,10 +607,12 @@ export default function GoogleFitbitAirPage() {
         name: product.name,
         slug: product.slug,
         price: product.price,
-        image:
-          productImages[0] || product.image || "/black.png",
+        image: activeImage,
         colour: selectedColour,
-        quantity: Math.min(quantity, product.stockQuantity),
+        quantity: Math.min(
+          quantity,
+          product.stockQuantity
+        ),
       });
     }
 
@@ -618,6 +622,7 @@ export default function GoogleFitbitAirPage() {
     );
 
     window.dispatchEvent(new Event("storage"));
+
     window.dispatchEvent(
       new CustomEvent("orvix-cart-updated")
     );
@@ -640,7 +645,8 @@ export default function GoogleFitbitAirPage() {
 
     const alreadyAdded = wishlist.some(
       (item) =>
-        item.id === product.id || item.slug === product.slug
+        item.id === product.id ||
+        item.slug === product.slug
     );
 
     const updatedWishlist = alreadyAdded
@@ -656,10 +662,7 @@ export default function GoogleFitbitAirPage() {
             name: product.name,
             slug: product.slug,
             price: product.price,
-            image:
-              productImages[0] ||
-              product.image ||
-              "/black.png",
+            image: activeImage,
           },
         ];
 
@@ -669,6 +672,7 @@ export default function GoogleFitbitAirPage() {
     );
 
     window.dispatchEvent(new Event("storage"));
+
     window.dispatchEvent(
       new CustomEvent("orvix-wishlist-updated")
     );
@@ -689,7 +693,10 @@ export default function GoogleFitbitAirPage() {
     event.preventDefault();
 
     if (!reviewName.trim()) {
-      showMessage("Please enter your name.", "error");
+      showMessage(
+        "Please enter your name.",
+        "error"
+      );
       return;
     }
 
@@ -704,24 +711,34 @@ export default function GoogleFitbitAirPage() {
     setSubmittingReview(true);
 
     try {
-      const response = await fetch("/api/reviews", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          productSlug: "google-fitbit-air",
-          name: reviewName.trim(),
-          rating: reviewRating,
-          comment: reviewComment.trim(),
-        }),
-      });
+      const response = await fetch(
+        "/api/reviews",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            productSlug:
+              "google-fitbit-air",
+            name: reviewName.trim(),
+            rating: reviewRating,
+            comment:
+              reviewComment.trim(),
+          }),
+        }
+      );
 
       const result = await response.json();
 
-      if (!response.ok || !result.success) {
+      if (
+        !response.ok ||
+        !result.success
+      ) {
         throw new Error(
-          result.message || "Review could not be submitted."
+          result.message ||
+            "Review could not be submitted."
         );
       }
 
@@ -822,8 +839,7 @@ export default function GoogleFitbitAirPage() {
             href="/#products"
             className="inline-flex items-center gap-2 text-sm font-bold text-white/45 transition hover:text-white"
           >
-            <span>←</span>
-            Back to products
+            ← Back to products
           </Link>
 
           <div className="mt-8 grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
@@ -836,9 +852,7 @@ export default function GoogleFitbitAirPage() {
               >
                 <img
                   src={activeImage}
-                  alt={`${product.name} image ${
-                    activeImageIndex + 1
-                  }`}
+                  alt={`${product.name} ${selectedColour}`}
                   draggable={false}
                   className="aspect-square h-auto w-full object-contain transition duration-500 group-hover:scale-[1.02]"
                 />
@@ -849,7 +863,7 @@ export default function GoogleFitbitAirPage() {
                       type="button"
                       onClick={previousImage}
                       aria-label="Previous image"
-                      className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/75 text-2xl font-black text-white backdrop-blur transition hover:bg-black sm:left-5"
+                      className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/75 text-2xl font-black sm:left-5"
                     >
                       ‹
                     </button>
@@ -858,12 +872,12 @@ export default function GoogleFitbitAirPage() {
                       type="button"
                       onClick={nextImage}
                       aria-label="Next image"
-                      className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/75 text-2xl font-black text-white backdrop-blur transition hover:bg-black sm:right-5"
+                      className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/75 text-2xl font-black sm:right-5"
                     >
                       ›
                     </button>
 
-                    <div className="absolute bottom-4 right-4 rounded-full border border-white/10 bg-black/75 px-4 py-2 text-xs font-black text-white backdrop-blur">
+                    <div className="absolute bottom-4 right-4 rounded-full bg-black/75 px-4 py-2 text-xs font-black">
                       {activeImageIndex + 1} /{" "}
                       {productImages.length}
                     </div>
@@ -871,38 +885,34 @@ export default function GoogleFitbitAirPage() {
                 )}
               </div>
 
-              {productImages.length > 1 && (
-                <>
-                  <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
-                    {productImages.map((image, index) => (
-                      <button
-                        key={`${image}-${index}`}
-                        type="button"
-                        onClick={() =>
-                          setActiveImageIndex(index)
-                        }
-                        className={`h-20 w-20 shrink-0 overflow-hidden rounded-2xl border bg-white p-2 transition sm:h-24 sm:w-24 ${
-                          activeImageIndex === index
-                            ? "border-white ring-2 ring-white/60"
-                            : "border-white/10 opacity-50 hover:opacity-100"
-                        }`}
-                      >
-                        <img
-                          src={image}
-                          alt={`Product thumbnail ${
-                            index + 1
-                          }`}
-                          className="h-full w-full object-contain"
-                        />
-                      </button>
-                    ))}
-                  </div>
+              <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
+                {colours.map((colour) => {
+                  const image =
+                    colourImages[colour.name][0];
 
-                  <p className="mt-2 text-center text-xs font-semibold text-white/35 sm:hidden">
-                    Swipe left or right to see more images
-                  </p>
-                </>
-              )}
+                  return (
+                    <button
+                      key={colour.name}
+                      type="button"
+                      onClick={() =>
+                        selectColour(colour.name)
+                      }
+                      className={`h-20 w-20 shrink-0 overflow-hidden rounded-2xl border bg-white p-2 transition sm:h-24 sm:w-24 ${
+                        selectedColour ===
+                        colour.name
+                          ? "border-white ring-2 ring-white/60"
+                          : "border-white/10 opacity-50 hover:opacity-100"
+                      }`}
+                    >
+                      <img
+                        src={image}
+                        alt={`${colour.name} product`}
+                        className="h-full w-full object-contain"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="lg:sticky lg:top-28">
@@ -979,7 +989,7 @@ export default function GoogleFitbitAirPage() {
                         key={colour.value}
                         type="button"
                         onClick={() =>
-                          setSelectedColour(colour.name)
+                          selectColour(colour.name)
                         }
                         className={`rounded-2xl border p-3 transition sm:p-4 ${
                           selected
@@ -988,7 +998,7 @@ export default function GoogleFitbitAirPage() {
                         }`}
                       >
                         <span
-                          className={`mx-auto block h-8 w-8 rounded-full border border-black/15 shadow-inner ${colour.className}`}
+                          className={`mx-auto block h-8 w-8 rounded-full border border-black/15 ${colour.className}`}
                         />
 
                         <span className="mt-3 block text-xs font-black sm:text-sm">
@@ -1001,7 +1011,7 @@ export default function GoogleFitbitAirPage() {
               </div>
 
               <div className="mt-5 rounded-[30px] border border-white/10 bg-white/[0.035] p-5 sm:p-6">
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.24em] text-white/35">
                       Quantity
@@ -1018,7 +1028,7 @@ export default function GoogleFitbitAirPage() {
                       onClick={() =>
                         updateQuantity(quantity - 1)
                       }
-                      className="flex h-11 w-11 items-center justify-center rounded-full text-xl font-black transition hover:bg-white/10"
+                      className="flex h-11 w-11 items-center justify-center rounded-full text-xl font-black hover:bg-white/10"
                     >
                       −
                     </button>
@@ -1032,7 +1042,7 @@ export default function GoogleFitbitAirPage() {
                       onClick={() =>
                         updateQuantity(quantity + 1)
                       }
-                      className="flex h-11 w-11 items-center justify-center rounded-full text-xl font-black transition hover:bg-white/10"
+                      className="flex h-11 w-11 items-center justify-center rounded-full text-xl font-black hover:bg-white/10"
                     >
                       +
                     </button>
@@ -1057,7 +1067,7 @@ export default function GoogleFitbitAirPage() {
                   type="button"
                   onClick={addToCart}
                   disabled={!canPurchase}
-                  className="rounded-full bg-white px-7 py-5 text-base font-black text-black transition hover:scale-[1.01] hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-35"
+                  className="rounded-full bg-white px-7 py-5 font-black text-black disabled:opacity-35"
                 >
                   {canPurchase
                     ? "Add to cart"
@@ -1068,8 +1078,7 @@ export default function GoogleFitbitAirPage() {
                   <button
                     type="button"
                     onClick={toggleWishlist}
-                    aria-label="Toggle wishlist"
-                    className="flex h-[64px] items-center justify-center rounded-full border border-white/10 bg-white/5 px-7 text-sm font-black transition hover:bg-white/10 sm:w-[64px] sm:px-0"
+                    className="flex h-[64px] items-center justify-center rounded-full border border-white/10 bg-white/5 px-7 font-black sm:w-[64px] sm:px-0"
                   >
                     <span className="sm:hidden">
                       {isInWishlist
@@ -1083,34 +1092,13 @@ export default function GoogleFitbitAirPage() {
                   </button>
                 )}
               </div>
-
-              <div className="mt-6 grid grid-cols-3 gap-2">
-                {[
-                  ["Secure", "Checkout"],
-                  ["Fast", "Support"],
-                  ["Easy", "Tracking"],
-                ].map(([top, bottom]) => (
-                  <div
-                    key={`${top}-${bottom}`}
-                    className="rounded-2xl border border-white/10 bg-white/[0.025] p-4 text-center"
-                  >
-                    <p className="text-xs font-black">
-                      {top}
-                    </p>
-
-                    <p className="mt-1 text-[11px] text-white/35">
-                      {bottom}
-                    </p>
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <div className="sticky top-[72px] z-30 border-y border-white/10 bg-[#080808]/90 px-4 py-3 backdrop-blur-xl sm:px-6">
-        <div className="mx-auto flex max-w-3xl items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 p-1.5">
+      <div className="sticky top-[72px] z-30 border-y border-white/10 bg-[#080808]/90 px-4 py-3 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-3xl rounded-full border border-white/10 bg-white/5 p-1.5">
           {[
             {
               key: "overview" as const,
@@ -1128,11 +1116,13 @@ export default function GoogleFitbitAirPage() {
             <button
               key={tab.key}
               type="button"
-              onClick={() => scrollToSection(tab.key)}
-              className={`flex-1 rounded-full px-4 py-3 text-xs font-black transition sm:text-sm ${
+              onClick={() =>
+                scrollToSection(tab.key)
+              }
+              className={`flex-1 rounded-full px-4 py-3 text-xs font-black sm:text-sm ${
                 activeSection === tab.key
                   ? "bg-white text-black"
-                  : "text-white/45 hover:text-white"
+                  : "text-white/45"
               }`}
             >
               {tab.label}
@@ -1146,38 +1136,30 @@ export default function GoogleFitbitAirPage() {
         className="scroll-mt-40 border-b border-white/10 px-4 py-20 sm:px-6 sm:py-28"
       >
         <div className="mx-auto max-w-7xl">
-          <div className="max-w-4xl">
-            <p className="text-xs font-black uppercase tracking-[0.36em] text-white/30">
-              Product details
-            </p>
+          <p className="text-xs font-black uppercase tracking-[0.36em] text-white/30">
+            Product details
+          </p>
 
-            <h2 className="mt-5 text-4xl font-black leading-[1.02] tracking-[-0.04em] sm:text-6xl">
-              Fitness tracking without distractions.
-            </h2>
+          <h2 className="mt-5 max-w-4xl text-4xl font-black tracking-[-0.04em] sm:text-6xl">
+            Fitness tracking without distractions.
+          </h2>
 
-            <p className="mt-6 max-w-3xl whitespace-pre-line text-lg leading-8 text-white/50">
-              {product.description ||
-                "Google Fitbit Air combines useful everyday health tracking with a lightweight screen-free design. Wear it through daily activities, workouts and sleep to collect helpful information without constant notifications."}
-            </p>
-          </div>
+          <p className="mt-6 max-w-3xl whitespace-pre-line text-lg leading-8 text-white/50">
+            {product.description ||
+              "Google Fitbit Air combines everyday health tracking with a lightweight screen-free design."}
+          </p>
 
           <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {features.map((feature) => (
               <article
                 key={feature.title}
-                className="group rounded-[30px] border border-white/10 bg-gradient-to-b from-white/[0.055] to-white/[0.018] p-7 transition duration-300 hover:-translate-y-1 hover:border-white/20"
+                className="rounded-[30px] border border-white/10 bg-gradient-to-b from-white/[0.055] to-white/[0.018] p-7"
               >
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-black tracking-[0.2em] text-white/25">
-                    {feature.number}
-                  </p>
+                <p className="text-xs font-black text-white/25">
+                  {feature.number}
+                </p>
 
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm text-white/30">
-                    ↗
-                  </span>
-                </div>
-
-                <h3 className="mt-8 text-2xl font-black tracking-[-0.02em]">
+                <h3 className="mt-8 text-2xl font-black">
                   {feature.title}
                 </h3>
 
@@ -1203,27 +1185,21 @@ export default function GoogleFitbitAirPage() {
             <h2 className="mt-5 text-4xl font-black tracking-[-0.04em] sm:text-6xl">
               Everything, neatly organised.
             </h2>
-
-            <p className="mt-5 text-lg leading-8 text-white/45">
-              Explore product measurements, materials,
-              sensors, compatibility, battery information
-              and everything included in the box.
-            </p>
           </div>
 
           <div className="mt-12 grid items-start gap-5 md:grid-cols-2">
             {techCategories.map((category) => (
               <article
                 key={category.title}
-                className="rounded-[30px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.018] p-6 shadow-xl shadow-black/10 sm:p-8"
+                className="rounded-[30px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.018] p-6 sm:p-8"
               >
                 <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-xl font-black text-white/70">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-xl">
                     {category.icon}
                   </div>
 
                   <div>
-                    <h3 className="text-2xl font-black tracking-[-0.02em]">
+                    <h3 className="text-2xl font-black">
                       {category.title}
                     </h3>
 
@@ -1252,20 +1228,6 @@ export default function GoogleFitbitAirPage() {
               </article>
             ))}
           </div>
-
-          <div className="mt-6 rounded-[30px] border border-white/10 bg-white/[0.025] p-6 sm:p-8">
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-white/30">
-              Important note
-            </p>
-
-            <p className="mt-4 max-w-4xl text-sm leading-7 text-white/40">
-              Battery life, sensor readings and performance
-              can vary depending on usage, settings,
-              environment and device condition. Product
-              specifications may be updated by the
-              manufacturer.
-            </p>
-          </div>
         </div>
       </section>
 
@@ -1280,14 +1242,9 @@ export default function GoogleFitbitAirPage() {
                 Customer reviews
               </p>
 
-              <h2 className="mt-5 text-4xl font-black tracking-[-0.04em] sm:text-5xl">
+              <h2 className="mt-5 text-4xl font-black sm:text-5xl">
                 Share your experience.
               </h2>
-
-              <p className="mt-5 max-w-md leading-7 text-white/45">
-                Tell other customers what you liked about
-                the product and how it worked for you.
-              </p>
 
               <form
                 onSubmit={submitReview}
@@ -1298,13 +1255,11 @@ export default function GoogleFitbitAirPage() {
                 </label>
 
                 <input
-                  type="text"
                   value={reviewName}
                   onChange={(event) =>
                     setReviewName(event.target.value)
                   }
-                  placeholder="Enter your name"
-                  className="mt-3 w-full rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-4 text-white outline-none transition placeholder:text-white/20 focus:border-white/35"
+                  className="mt-3 w-full rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-4 outline-none"
                 />
 
                 <label className="mt-6 block text-sm font-black">
@@ -1319,8 +1274,7 @@ export default function GoogleFitbitAirPage() {
                       onClick={() =>
                         setReviewRating(rating)
                       }
-                      aria-label={`${rating} star rating`}
-                      className={`text-3xl transition ${
+                      className={`text-3xl ${
                         rating <= reviewRating
                           ? "text-yellow-300"
                           : "text-white/15"
@@ -1340,15 +1294,14 @@ export default function GoogleFitbitAirPage() {
                   onChange={(event) =>
                     setReviewComment(event.target.value)
                   }
-                  placeholder="What did you think about the product?"
                   rows={5}
-                  className="mt-3 w-full resize-none rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-4 text-white outline-none transition placeholder:text-white/20 focus:border-white/35"
+                  className="mt-3 w-full resize-none rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-4 outline-none"
                 />
 
                 <button
                   type="submit"
                   disabled={submittingReview}
-                  className="mt-5 w-full rounded-full bg-white px-6 py-4 font-black text-black transition hover:bg-white/90 disabled:opacity-50"
+                  className="mt-5 w-full rounded-full bg-white px-6 py-4 font-black text-black disabled:opacity-50"
                 >
                   {submittingReview
                     ? "Submitting..."
@@ -1358,70 +1311,52 @@ export default function GoogleFitbitAirPage() {
             </div>
 
             <div>
-              <div className="rounded-[30px] border border-white/10 bg-white/[0.035] p-6 sm:p-8">
-                <div className="flex flex-wrap items-end justify-between gap-5">
-                  <div>
-                    <p className="text-6xl font-black tracking-[-0.05em]">
-                      {reviews.length > 0
-                        ? averageRating.toFixed(1)
-                        : "—"}
-                    </p>
+              <div className="rounded-[30px] border border-white/10 bg-white/[0.035] p-8">
+                <p className="text-6xl font-black">
+                  {reviews.length > 0
+                    ? averageRating.toFixed(1)
+                    : "—"}
+                </p>
 
-                    <p className="mt-2 tracking-[0.18em] text-yellow-300">
-                      ★★★★★
-                    </p>
-                  </div>
+                <p className="mt-2 text-yellow-300">
+                  ★★★★★
+                </p>
 
-                  <p className="text-sm font-bold text-white/35">
-                    {reviews.length} review
-                    {reviews.length === 1 ? "" : "s"}
-                  </p>
-                </div>
+                <p className="mt-3 text-sm text-white/35">
+                  {reviews.length} review
+                  {reviews.length === 1 ? "" : "s"}
+                </p>
               </div>
 
               <div className="mt-5 space-y-4">
                 {reviewsLoading ? (
-                  <div className="rounded-[30px] border border-white/10 bg-white/[0.025] p-8 text-white/40">
+                  <div className="rounded-[30px] border border-white/10 p-8 text-white/40">
                     Loading reviews...
                   </div>
                 ) : reviews.length === 0 ? (
-                  <div className="rounded-[30px] border border-white/10 bg-white/[0.025] p-8">
-                    <h3 className="text-xl font-black">
-                      No reviews yet
-                    </h3>
-
-                    <p className="mt-3 text-white/40">
-                      Be the first customer to leave a review.
-                    </p>
+                  <div className="rounded-[30px] border border-white/10 p-8">
+                    No reviews yet.
                   </div>
                 ) : (
                   reviews.map((review) => (
                     <article
                       key={review.id}
-                      className="rounded-[30px] border border-white/10 bg-white/[0.025] p-6 sm:p-7"
+                      className="rounded-[30px] border border-white/10 bg-white/[0.025] p-7"
                     >
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <h3 className="font-black">
-                            {getReviewName(review)}
-                          </h3>
+                      <div className="flex justify-between gap-4">
+                        <h3 className="font-black">
+                          {getReviewName(review)}
+                        </h3>
 
-                          {review.created_at && (
-                            <p className="mt-1 text-xs text-white/25">
-                              {new Date(
-                                review.created_at
-                              ).toLocaleDateString("en-GB")}
-                            </p>
-                          )}
-                        </div>
-
-                        <p className="text-sm tracking-[0.12em] text-yellow-300">
+                        <p className="text-yellow-300">
                           {"★".repeat(
                             Math.max(
                               1,
                               Math.min(
                                 5,
-                                Number(review.rating || 5)
+                                Number(
+                                  review.rating || 5
+                                )
                               )
                             )
                           )}
@@ -1439,27 +1374,6 @@ export default function GoogleFitbitAirPage() {
           </div>
         </div>
       </section>
-
-      <footer className="border-t border-white/10 px-4 py-10 sm:px-6">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 text-center sm:flex-row sm:text-left">
-          <div>
-            <p className="font-black tracking-[0.35em]">
-              ORVIX
-            </p>
-
-            <p className="mt-2 text-xs text-white/25">
-              © 2026 ORVIX. All rights reserved.
-            </p>
-          </div>
-
-          <Link
-            href="/#products"
-            className="text-sm font-black text-white/45 transition hover:text-white"
-          >
-            Explore more products →
-          </Link>
-        </div>
-      </footer>
 
       <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-black/90 p-3 backdrop-blur-xl lg:hidden">
         <div className="mx-auto flex max-w-xl items-center gap-3">
