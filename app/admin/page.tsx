@@ -24,6 +24,21 @@ type Order = {
   created_at: string;
 };
 
+type WaitlistEntry = {
+  id: string;
+  status:
+    | "waiting"
+    | "notified"
+    | "cancelled";
+};
+
+type WaitlistStatistics = {
+  total: number;
+  waiting: number;
+  notified: number;
+  cancelled: number;
+};
+
 const orderStatuses = [
   {
     value: "new",
@@ -51,7 +66,9 @@ const orderStatuses = [
   },
 ];
 
-function formatWhatsAppNumber(phone: string) {
+function formatWhatsAppNumber(
+  phone: string
+) {
   let digits = String(phone || "").replace(
     /\D/g,
     ""
@@ -72,10 +89,11 @@ function formatWhatsAppNumber(phone: string) {
   return `20${digits}`;
 }
 
-function createWhatsAppLink(order: Order) {
-  const phoneNumber = formatWhatsAppNumber(
-    order.phone
-  );
+function createWhatsAppLink(
+  order: Order
+) {
+  const phoneNumber =
+    formatWhatsAppNumber(order.phone);
 
   const message = `Hello ${order.customer_name} 👋
 
@@ -109,10 +127,13 @@ ORVIX`;
   )}`;
 }
 
-function getStatusLabel(status: string) {
-  const matchingStatus = orderStatuses.find(
-    (item) => item.value === status
-  );
+function getStatusLabel(
+  status: string
+) {
+  const matchingStatus =
+    orderStatuses.find(
+      (item) => item.value === status
+    );
 
   return (
     matchingStatus?.label ||
@@ -124,7 +145,9 @@ function getStatusLabel(status: string) {
   );
 }
 
-function getStatusClasses(status: string) {
+function getStatusClasses(
+  status: string
+) {
   if (status === "delivered") {
     return "border-green-500/20 bg-green-500/10 text-green-300";
   }
@@ -159,14 +182,25 @@ export default function AdminPage() {
   const [loading, setLoading] =
     useState(true);
 
-  const [loginLoading, setLoginLoading] =
-    useState(false);
+  const [
+    loginLoading,
+    setLoginLoading,
+  ] = useState(false);
 
-  const [authenticated, setAuthenticated] =
-    useState(false);
+  const [
+    authenticated,
+    setAuthenticated,
+  ] = useState(false);
 
   const [message, setMessage] =
     useState("");
+
+  const [
+    messageType,
+    setMessageType,
+  ] = useState<
+    "success" | "error" | ""
+  >("");
 
   const [
     updatingOrderId,
@@ -180,6 +214,16 @@ export default function AdminPage() {
     useState(0);
 
   const [
+    waitlistStatistics,
+    setWaitlistStatistics,
+  ] = useState<WaitlistStatistics>({
+    total: 0,
+    waiting: 0,
+    notified: 0,
+    cancelled: 0,
+  });
+
+  const [
     resettingOrders,
     setResettingOrders,
   ] = useState(false);
@@ -187,6 +231,7 @@ export default function AdminPage() {
   async function loadOrders() {
     setLoading(true);
     setMessage("");
+    setMessageType("");
 
     try {
       const response = await fetch(
@@ -199,12 +244,23 @@ export default function AdminPage() {
       if (response.status === 401) {
         setAuthenticated(false);
         setOrders([]);
+        setWaitlistStatistics({
+          total: 0,
+          waiting: 0,
+          notified: 0,
+          cancelled: 0,
+        });
+
         return;
       }
 
-      const result = await response.json();
+      const result =
+        await response.json();
 
-      if (!response.ok || !result.success) {
+      if (
+        !response.ok ||
+        !result.success
+      ) {
         throw new Error(
           result.message ||
             "Could not load orders."
@@ -212,40 +268,91 @@ export default function AdminPage() {
       }
 
       setAuthenticated(true);
-      setOrders(result.orders || []);
 
-      const viewsResponse = await fetch(
-        "/api/admin/views",
-        {
-          cache: "no-store",
-        }
+      setOrders(
+        Array.isArray(result.orders)
+          ? result.orders
+          : []
       );
 
-      const viewsResult =
-        await viewsResponse.json();
-
-      if (
-        viewsResponse.ok &&
-        viewsResult.success
-      ) {
-        setTotalViews(
-          Number(
-            viewsResult.totalViews || 0
-          )
+      const viewsResponse =
+        await fetch(
+          "/api/admin/views",
+          {
+            cache: "no-store",
+          }
         );
 
-        setViewsToday(
-          Number(
-            viewsResult.viewsToday || 0
-          )
+      if (viewsResponse.ok) {
+        const viewsResult =
+          await viewsResponse.json();
+
+        if (viewsResult.success) {
+          setTotalViews(
+            Number(
+              viewsResult.totalViews || 0
+            )
+          );
+
+          setViewsToday(
+            Number(
+              viewsResult.viewsToday || 0
+            )
+          );
+        }
+      }
+
+      const waitlistResponse =
+        await fetch(
+          "/api/admin/waitlist",
+          {
+            cache: "no-store",
+          }
         );
+
+      if (waitlistResponse.ok) {
+        const waitlistResult =
+          await waitlistResponse.json();
+
+        if (waitlistResult.success) {
+          const entries: WaitlistEntry[] =
+            Array.isArray(
+              waitlistResult.entries
+            )
+              ? waitlistResult.entries
+              : [];
+
+          setWaitlistStatistics({
+            total: entries.length,
+
+            waiting: entries.filter(
+              (entry) =>
+                entry.status ===
+                "waiting"
+            ).length,
+
+            notified: entries.filter(
+              (entry) =>
+                entry.status ===
+                "notified"
+            ).length,
+
+            cancelled: entries.filter(
+              (entry) =>
+                entry.status ===
+                "cancelled"
+            ).length,
+          });
+        }
       }
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : "Could not load orders."
+          : "Could not load dashboard."
       );
+
+      setMessageType("error");
     } finally {
       setLoading(false);
     }
@@ -262,25 +369,32 @@ export default function AdminPage() {
 
     setLoginLoading(true);
     setMessage("");
+    setMessageType("");
 
     try {
       const response = await fetch(
         "/api/admin/login",
         {
           method: "POST",
+
           headers: {
             "Content-Type":
               "application/json",
           },
+
           body: JSON.stringify({
             password,
           }),
         }
       );
 
-      const result = await response.json();
+      const result =
+        await response.json();
 
-      if (!response.ok || !result.success) {
+      if (
+        !response.ok ||
+        !result.success
+      ) {
         throw new Error(
           result.message ||
             "Incorrect password."
@@ -297,6 +411,8 @@ export default function AdminPage() {
           ? error.message
           : "Could not log in."
       );
+
+      setMessageType("error");
     } finally {
       setLoginLoading(false);
     }
@@ -316,21 +432,26 @@ export default function AdminPage() {
         "This order status is not valid."
       );
 
+      setMessageType("error");
+
       return;
     }
 
     setUpdatingOrderId(orderId);
     setMessage("");
+    setMessageType("");
 
     try {
       const response = await fetch(
         "/api/admin/order-status",
         {
           method: "PATCH",
+
           headers: {
             "Content-Type":
               "application/json",
           },
+
           body: JSON.stringify({
             orderId,
             status,
@@ -338,9 +459,13 @@ export default function AdminPage() {
         }
       );
 
-      const result = await response.json();
+      const result =
+        await response.json();
 
-      if (!response.ok || !result.success) {
+      if (
+        !response.ok ||
+        !result.success
+      ) {
         throw new Error(
           result.message ||
             "Could not update order status."
@@ -363,12 +488,16 @@ export default function AdminPage() {
           status
         )}.`
       );
+
+      setMessageType("success");
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
           : "Could not update order status."
       );
+
+      setMessageType("error");
     } finally {
       setUpdatingOrderId(null);
     }
@@ -380,12 +509,15 @@ export default function AdminPage() {
     );
 
     if (
-      confirmation !== "DELETE ALL ORDERS"
+      confirmation !==
+      "DELETE ALL ORDERS"
     ) {
       if (confirmation !== null) {
         setMessage(
           "Orders were not deleted. Confirmation text was incorrect."
         );
+
+        setMessageType("error");
       }
 
       return;
@@ -393,25 +525,32 @@ export default function AdminPage() {
 
     setResettingOrders(true);
     setMessage("");
+    setMessageType("");
 
     try {
       const response = await fetch(
         "/api/admin/reset-orders",
         {
           method: "DELETE",
+
           headers: {
             "Content-Type":
               "application/json",
           },
+
           body: JSON.stringify({
             confirmation,
           }),
         }
       );
 
-      const result = await response.json();
+      const result =
+        await response.json();
 
-      if (!response.ok || !result.success) {
+      if (
+        !response.ok ||
+        !result.success
+      ) {
         throw new Error(
           result.message ||
             "Could not delete the orders."
@@ -423,12 +562,16 @@ export default function AdminPage() {
       setMessage(
         "All old orders were deleted successfully."
       );
+
+      setMessageType("success");
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
           : "Could not delete the orders."
       );
+
+      setMessageType("error");
     } finally {
       setResettingOrders(false);
     }
@@ -439,14 +582,17 @@ export default function AdminPage() {
       orders.reduce(
         (sum, order) =>
           sum +
-          Number(order.total_price || 0),
+          Number(
+            order.total_price || 0
+          ),
         0
       ),
     [orders]
   );
 
   const todayOrders = useMemo(() => {
-    const today = new Date().toDateString();
+    const today =
+      new Date().toDateString();
 
     return orders.filter(
       (order) =>
@@ -460,7 +606,8 @@ export default function AdminPage() {
     () =>
       orders.filter(
         (order) =>
-          order.status !== "delivered" &&
+          order.status !==
+            "delivered" &&
           order.status !== "cancelled"
       ).length,
     [orders]
@@ -496,9 +643,10 @@ export default function AdminPage() {
           </h1>
 
           <p className="mt-4 leading-7 text-gray-400">
-            Enter the admin password to manage
-            orders, reviews, the Garmin waitlist
-            and discount codes.
+            Enter the admin password to
+            manage orders, reviews,
+            discount codes and the Garmin
+            waitlist.
           </p>
 
           <input
@@ -510,6 +658,7 @@ export default function AdminPage() {
               );
 
               setMessage("");
+              setMessageType("");
             }}
             placeholder="Enter admin password"
             autoComplete="current-password"
@@ -553,9 +702,10 @@ export default function AdminPage() {
             </h1>
 
             <p className="mt-4 max-w-2xl leading-7 text-gray-400">
-              Manage orders, reviews, Garmin
-              notification requests, delivery
-              statuses and website activity.
+              Manage orders, reviews,
+              Garmin notification requests,
+              delivery statuses and website
+              activity.
             </p>
           </div>
 
@@ -609,12 +759,7 @@ export default function AdminPage() {
         {message && (
           <p
             className={`mt-6 rounded-2xl border p-4 ${
-              message
-                .toLowerCase()
-                .includes("success") ||
-              message
-                .toLowerCase()
-                .includes("updated")
+              messageType === "success"
                 ? "border-green-500/20 bg-green-500/10 text-green-300"
                 : "border-red-500/20 bg-red-500/10 text-red-300"
             }`}
@@ -623,7 +768,7 @@ export default function AdminPage() {
           </p>
         )}
 
-        <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+        <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
             <p className="text-gray-400">
               Total views
@@ -686,6 +831,62 @@ export default function AdminPage() {
               EGP
             </p>
           </div>
+
+          <Link
+            href="/admin/waitlist"
+            className="rounded-3xl border border-white/10 bg-white/5 p-6 transition hover:-translate-y-1 hover:border-white/25 hover:bg-white/10"
+          >
+            <p className="text-gray-400">
+              Garmin Waitlist
+            </p>
+
+            <p className="mt-3 text-4xl font-black">
+              {waitlistStatistics.total}
+            </p>
+
+            <p className="mt-4 text-sm font-bold text-gray-500">
+              View Waitlist →
+            </p>
+          </Link>
+
+          <Link
+            href="/admin/waitlist"
+            className="rounded-3xl border border-yellow-500/20 bg-yellow-500/10 p-6 transition hover:-translate-y-1 hover:bg-yellow-500/15"
+          >
+            <p className="text-yellow-200">
+              Waiting
+            </p>
+
+            <p className="mt-3 text-4xl font-black text-yellow-300">
+              {waitlistStatistics.waiting}
+            </p>
+          </Link>
+
+          <Link
+            href="/admin/waitlist"
+            className="rounded-3xl border border-green-500/20 bg-green-500/10 p-6 transition hover:-translate-y-1 hover:bg-green-500/15"
+          >
+            <p className="text-green-200">
+              Notified
+            </p>
+
+            <p className="mt-3 text-4xl font-black text-green-300">
+              {waitlistStatistics.notified}
+            </p>
+          </Link>
+
+          <Link
+            href="/admin/waitlist"
+            className="rounded-3xl border border-red-500/20 bg-red-500/10 p-6 transition hover:-translate-y-1 hover:bg-red-500/15"
+          >
+            <p className="text-red-200">
+              Cancelled
+            </p>
+
+            <p className="mt-3 text-4xl font-black text-red-300">
+              {waitlistStatistics.cancelled}
+            </p>
+          </Link>
         </section>
 
         <section className="mt-8 space-y-4">
@@ -706,7 +907,8 @@ export default function AdminPage() {
           ) : (
             orders.map((order) => {
               const isUpdating =
-                updatingOrderId === order.id;
+                updatingOrderId ===
+                order.id;
 
               return (
                 <article
@@ -758,8 +960,12 @@ export default function AdminPage() {
                         {orderStatuses.map(
                           (status) => (
                             <option
-                              key={status.value}
-                              value={status.value}
+                              key={
+                                status.value
+                              }
+                              value={
+                                status.value
+                              }
                             >
                               {status.label}
                             </option>
@@ -858,7 +1064,9 @@ export default function AdminPage() {
                   <p className="mt-4 text-xs text-gray-500">
                     {new Date(
                       order.created_at
-                    ).toLocaleString("en-GB")}
+                    ).toLocaleString(
+                      "en-GB"
+                    )}
                   </p>
                 </article>
               );
