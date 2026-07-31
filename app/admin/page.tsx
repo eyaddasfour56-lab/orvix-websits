@@ -846,62 +846,86 @@ export default function AdminPage() {
     context.lineWidth = 5;
     context.stroke();
 
-    const rows = [
-      [
-        "اسم العميل",
-        order.customer_name,
-      ],
-      ["رقم الهاتف", order.phone],
-      [
-        "المحافظة",
-        order.governorate,
-      ],
-      ["العنوان", order.address],
-      [
-        "المنتج",
-        `${
+    const rows: Array<{
+      title: string;
+      value: string;
+      direction?: "rtl" | "ltr";
+    }> = [
+      {
+        title: "اسم العميل",
+        value:
+          order.customer_name || "-",
+      },
+      {
+        title: "رقم الهاتف",
+        value: order.phone || "-",
+        direction: "ltr",
+      },
+      {
+        title: "المحافظة",
+        value:
+          order.governorate || "-",
+      },
+      {
+        title: "العنوان",
+        value: order.address || "-",
+      },
+      {
+        title: "المنتج",
+        value: `${
           order.product_name ||
           "Google Fitbit Air"
         } - ${order.colour}`,
-      ],
-      [
-        "الكمية",
-        String(order.quantity),
-      ],
-      [
-        "طريقة الدفع",
-        getPaymentMethodName(
+      },
+      {
+        title: "الكمية",
+        value: String(order.quantity),
+      },
+      {
+        title: "طريقة الدفع",
+        value: getPaymentMethodName(
           order.payment_method
         ),
-      ],
-      [
-        "ملاحظات",
-        order.notes || "-",
-      ],
+      },
+      {
+        title: "ملاحظات",
+        value: order.notes || "-",
+      },
     ];
 
     let currentY = 220;
 
-    rows.forEach(([title, value]) => {
-      context.font = "bold 31px Arial";
+    rows.forEach(
+      ({
+        title,
+        value,
+        direction = "rtl",
+      }) => {
+        context.direction = "rtl";
+        context.textAlign = "right";
+        context.font =
+          "bold 31px Arial";
 
-      context.fillText(
-        `${title}:`,
-        canvas.width - 60,
-        currentY
-      );
+        context.fillText(
+          `${title}:`,
+          canvas.width - 60,
+          currentY
+        );
 
-      context.font = "29px Arial";
+        context.direction = direction;
+        context.textAlign = "right";
+        context.font = "29px Arial";
 
-      context.fillText(
-        value || "-",
-        canvas.width - 310,
-        currentY,
-        canvas.width - 390
-      );
+        context.fillText(
+          value || "-",
+          canvas.width - 310,
+          currentY,
+          canvas.width - 390
+        );
 
-      currentY += 60;
-    });
+        currentY += 60;
+      }
+    );
 
     const totalBoxY =
       canvas.height - 145;
@@ -926,6 +950,7 @@ export default function AdminPage() {
     );
 
     context.fillStyle = "#111111";
+    context.direction = "rtl";
     context.textAlign = "center";
 
     context.font = "bold 39px Arial";
@@ -1490,7 +1515,10 @@ export default function AdminPage() {
                           }
                         </h3>
 
-                        <p className="mt-1 text-gray-400">
+                        <p
+                          dir="ltr"
+                          className="mt-1 text-left text-gray-400"
+                        >
                           {order.phone}
                         </p>
 
@@ -1795,6 +1823,7 @@ function ShippingLabel({
         <LabelInformation
           title="رقم الهاتف"
           value={order.phone}
+          direction="ltr"
         />
 
         <LabelInformation
@@ -1925,15 +1954,26 @@ function ShippingLabel({
 function LabelInformation({
   title,
   value,
+  direction = "rtl",
 }: {
   title: string;
   value: string;
+  direction?: "rtl" | "ltr";
 }) {
   return (
     <div className="information">
       <strong>{title}:</strong>
 
-      <span>{value || "-"}</span>
+      <span
+        dir={direction}
+        className={
+          direction === "ltr"
+            ? "ltrValue"
+            : ""
+        }
+      >
+        {value || "-"}
+      </span>
 
       <style jsx>{`
         .information {
@@ -1950,6 +1990,13 @@ function LabelInformation({
 
         span {
           overflow-wrap: anywhere;
+        }
+
+        .ltrValue {
+          direction: ltr;
+          unicode-bidi: isolate;
+          display: inline-block;
+          text-align: right;
         }
       `}</style>
     </div>
