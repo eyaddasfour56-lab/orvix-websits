@@ -128,6 +128,9 @@ Total: ${Number(
     order.total_price
   ).toLocaleString("en-GB")} EGP
 
+Payment will be made directly to ORVIX through InstaPay when your order arrives.
+The delivery courier will not collect any cash.
+
 Please reply with "Confirm" to confirm your order.
 
 Thank you,
@@ -210,7 +213,7 @@ function getPaymentMethodName(
   method?: string | null
 ) {
   if (method === "instapay_on_delivery") {
-    return "InstaPay عند الاستلام";
+    return "InstaPay إلى ORVIX عند الاستلام";
   }
 
   if (method === "cash_on_delivery") {
@@ -221,7 +224,10 @@ function getPaymentMethodName(
     return "مدفوع مسبقًا";
   }
 
-  return method || "الدفع عند الاستلام";
+  return (
+    method ||
+    "InstaPay إلى ORVIX عند الاستلام"
+  );
 }
 
 function formatMoney(
@@ -888,12 +894,16 @@ export default function AdminPage() {
         ),
       },
       {
+        title: "تحصيل المندوب",
+        value: "0 جنيه - لا يوجد تحصيل نقدي",
+      },
+      {
         title: "ملاحظات",
         value: order.notes || "-",
       },
     ];
 
-    let currentY = 220;
+    let currentY = 205;
 
     rows.forEach(
       ({
@@ -904,7 +914,7 @@ export default function AdminPage() {
         context.direction = "rtl";
         context.textAlign = "right";
         context.font =
-          "bold 31px Arial";
+          "bold 29px Arial";
 
         context.fillText(
           `${title}:`,
@@ -914,7 +924,7 @@ export default function AdminPage() {
 
         context.direction = direction;
         context.textAlign = "right";
-        context.font = "29px Arial";
+        context.font = "27px Arial";
 
         context.fillText(
           value || "-",
@@ -923,12 +933,12 @@ export default function AdminPage() {
           canvas.width - 390
         );
 
-        currentY += 60;
+        currentY += 55;
       }
     );
 
     const totalBoxY =
-      canvas.height - 145;
+      canvas.height - 155;
 
     context.fillStyle = "#f3f3f3";
 
@@ -936,7 +946,7 @@ export default function AdminPage() {
       55,
       totalBoxY,
       canvas.width - 110,
-      90
+      100
     );
 
     context.strokeStyle = "#111111";
@@ -946,21 +956,31 @@ export default function AdminPage() {
       55,
       totalBoxY,
       canvas.width - 110,
-      90
+      100
     );
 
     context.fillStyle = "#111111";
     context.direction = "rtl";
     context.textAlign = "center";
 
-    context.font = "bold 39px Arial";
+    context.font = "bold 34px Arial";
 
     context.fillText(
-      `المبلغ المطلوب تحصيله: ${formatMoney(
+      `إجمالي الطلب: ${formatMoney(
         order.total_price
       )} جنيه`,
       canvas.width / 2,
-      totalBoxY + 58
+      totalBoxY + 39,
+      canvas.width - 150
+    );
+
+    context.font = "bold 28px Arial";
+
+    context.fillText(
+      "الدفع لـ ORVIX عبر InstaPay عند الاستلام - تحصيل المندوب: 0 جنيه",
+      canvas.width / 2,
+      totalBoxY + 78,
+      canvas.width - 150
     );
 
     const imageUrl =
@@ -1857,22 +1877,35 @@ function ShippingLabel({
         />
 
         <LabelInformation
+          title="تحصيل المندوب"
+          value="0 جنيه - لا يوجد تحصيل نقدي"
+        />
+
+        <LabelInformation
           title="ملاحظات"
           value={order.notes || "-"}
         />
       </div>
 
       <footer className="shippingFooter">
-        <span>
-          المبلغ المطلوب تحصيله
-        </span>
+        <div className="paymentDetails">
+          <span>
+            إجمالي الطلب:{" "}
+            {formatMoney(
+              order.total_price
+            )}{" "}
+            جنيه
+          </span>
 
-        <strong>
-          {formatMoney(
-            order.total_price
-          )}{" "}
-          جنيه
-        </strong>
+          <strong>
+            تحصيل المندوب: 0 جنيه
+          </strong>
+
+          <span>
+            الدفع لـORVIX عبر InstaPay
+            عند الاستلام
+          </span>
+        </div>
       </footer>
 
       <style jsx>{`
@@ -1925,9 +1958,9 @@ function ShippingLabel({
             2,
             minmax(0, 1fr)
           );
-          gap: 2mm 5mm;
+          gap: 1.6mm 5mm;
           flex: 1;
-          padding: 3mm 0;
+          padding: 2.5mm 0;
           overflow: hidden;
         }
 
@@ -1935,15 +1968,25 @@ function ShippingLabel({
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 2mm;
-          padding: 2.5mm;
+          padding: 2mm;
           border: 0.6mm solid #111111;
           background: #f2f2f2;
-          font-size: 4.1mm;
-          font-weight: bold;
+          text-align: center;
         }
 
-        .shippingFooter strong {
+        .paymentDetails {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 0.7mm;
+          width: 100%;
+          font-size: 3.8mm;
+          font-weight: bold;
+          line-height: 1.2;
+        }
+
+        .paymentDetails strong {
           font-size: 5mm;
         }
       `}</style>
@@ -1980,8 +2023,8 @@ function LabelInformation({
           display: flex;
           gap: 1.5mm;
           min-width: 0;
-          font-size: 3.7mm;
-          line-height: 1.35;
+          font-size: 3.5mm;
+          line-height: 1.3;
         }
 
         strong {
