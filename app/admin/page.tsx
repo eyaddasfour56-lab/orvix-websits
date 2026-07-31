@@ -128,8 +128,15 @@ Total: ${Number(
     order.total_price
   ).toLocaleString("en-GB")} EGP
 
-Payment will be made directly to ORVIX through InstaPay when your order arrives.
-The delivery courier will not collect any cash.
+When your order arrives, please transfer the products total of ${Number(
+    order.products_total
+  ).toLocaleString(
+    "en-GB"
+  )} EGP directly to ORVIX through InstaPay.
+
+The delivery courier will collect only the delivery fee of ${Number(
+    order.delivery_fee
+  ).toLocaleString("en-GB")} EGP.
 
 Please reply with "Confirm" to confirm your order.
 
@@ -213,7 +220,7 @@ function getPaymentMethodName(
   method?: string | null
 ) {
   if (method === "instapay_on_delivery") {
-    return "InstaPay إلى ORVIX عند الاستلام";
+    return "ثمن المنتج عبر InstaPay عند الاستلام";
   }
 
   if (method === "cash_on_delivery") {
@@ -226,7 +233,7 @@ function getPaymentMethodName(
 
   return (
     method ||
-    "InstaPay إلى ORVIX عند الاستلام"
+    "ثمن المنتج عبر InstaPay عند الاستلام"
   );
 }
 
@@ -895,7 +902,9 @@ export default function AdminPage() {
       },
       {
         title: "تحصيل المندوب",
-        value: "0 جنيه - لا يوجد تحصيل نقدي",
+        value: `${formatMoney(
+          order.delivery_fee
+        )} جنيه - مصاريف الشحن فقط`,
       },
       {
         title: "ملاحظات",
@@ -963,23 +972,27 @@ export default function AdminPage() {
     context.direction = "rtl";
     context.textAlign = "center";
 
-    context.font = "bold 34px Arial";
+    context.font = "bold 33px Arial";
 
     context.fillText(
       `إجمالي الطلب: ${formatMoney(
         order.total_price
       )} جنيه`,
       canvas.width / 2,
-      totalBoxY + 39,
+      totalBoxY + 38,
       canvas.width - 150
     );
 
-    context.font = "bold 28px Arial";
+    context.font = "bold 27px Arial";
 
     context.fillText(
-      "الدفع لـ ORVIX عبر InstaPay عند الاستلام - تحصيل المندوب: 0 جنيه",
+      `تحويل InstaPay لـ ORVIX: ${formatMoney(
+        order.products_total
+      )} جنيه - تحصيل المندوب: ${formatMoney(
+        order.delivery_fee
+      )} جنيه`,
       canvas.width / 2,
-      totalBoxY + 78,
+      totalBoxY + 77,
       canvas.width - 150
     );
 
@@ -1878,7 +1891,9 @@ function ShippingLabel({
 
         <LabelInformation
           title="تحصيل المندوب"
-          value="0 جنيه - لا يوجد تحصيل نقدي"
+          value={`${formatMoney(
+            order.delivery_fee
+          )} جنيه - مصاريف الشحن فقط`}
         />
 
         <LabelInformation
@@ -1897,13 +1912,24 @@ function ShippingLabel({
             جنيه
           </span>
 
+          <span>
+            تحويل InstaPay لـORVIX:{" "}
+            {formatMoney(
+              order.products_total
+            )}{" "}
+            جنيه
+          </span>
+
           <strong>
-            تحصيل المندوب: 0 جنيه
+            تحصيل المندوب:{" "}
+            {formatMoney(
+              order.delivery_fee
+            )}{" "}
+            جنيه
           </strong>
 
           <span>
-            الدفع لـORVIX عبر InstaPay
-            عند الاستلام
+            مصاريف الشحن فقط
           </span>
         </div>
       </footer>
@@ -1979,15 +2005,15 @@ function ShippingLabel({
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 0.7mm;
+          gap: 0.6mm;
           width: 100%;
-          font-size: 3.8mm;
+          font-size: 3.5mm;
           font-weight: bold;
-          line-height: 1.2;
+          line-height: 1.15;
         }
 
         .paymentDetails strong {
-          font-size: 5mm;
+          font-size: 4.8mm;
         }
       `}</style>
     </article>
