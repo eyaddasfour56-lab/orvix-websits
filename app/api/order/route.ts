@@ -40,15 +40,20 @@ const deliveryAreas = [
   },
 ];
 
+type DiscountType =
+  | "free_delivery"
+  | "fixed_amount"
+  | "percentage";
+
 type OrderData = {
-  fullName: string;
-  phone: string;
-  customerEmail: string;
-  governorate: string;
-  address: string;
+  fullName?: string;
+  phone?: string;
+  customerEmail?: string | null;
+  governorate?: string;
+  address?: string;
   notes?: string;
-  colour: string;
-  quantity: number;
+  colour?: string;
+  quantity?: number;
   discountCode?: string;
 };
 
@@ -94,6 +99,45 @@ function createShippingNumber() {
   return `SHIP-${Date.now()}-${randomPart}`;
 }
 
+function normaliseDiscountType(
+  value: string
+): DiscountType | null {
+  const cleanValue = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replaceAll("-", "_")
+    .replaceAll(" ", "_");
+
+  if (
+    cleanValue === "free_delivery" ||
+    cleanValue === "free_shipping" ||
+    cleanValue === "delivery" ||
+    cleanValue === "shipping"
+  ) {
+    return "free_delivery";
+  }
+
+  if (
+    cleanValue === "fixed_amount" ||
+    cleanValue === "fixed" ||
+    cleanValue === "amount" ||
+    cleanValue === "cash" ||
+    cleanValue === "money"
+  ) {
+    return "fixed_amount";
+  }
+
+  if (
+    cleanValue === "percentage" ||
+    cleanValue === "percent" ||
+    cleanValue === "percentage_off"
+  ) {
+    return "percentage";
+  }
+
+  return null;
+}
+
 async function findDiscountCode(
   code: string
 ): Promise<DiscountRow | null> {
@@ -116,6 +160,13 @@ async function findDiscountCode(
   );
 
   if (!response.ok) {
+    const errorText = await response.text();
+
+    console.error(
+      "Discount lookup error:",
+      errorText
+    );
+
     throw new Error(
       "Could not check the discount code."
     );
@@ -150,11 +201,34 @@ function validateDiscount(
     return "This discount code has reached its usage limit.";
   }
 
+  const discountType =
+    normaliseDiscountType(
+      discount.discount_type
+    );
+
+  if (!discountType) {
+    return "This discount code has an unsupported discount type.";
+  }
+
+  const discountValue = Number(
+    discount.discount_value
+  );
+
   if (
-    discount.discount_type !==
-    "free_delivery"
+    discountType === "fixed_amount" &&
+    (!Number.isFinite(discountValue) ||
+      discountValue <= 0)
   ) {
-    return "This code cannot be used for free delivery.";
+    return "This discount code has an invalid discount amount.";
+  }
+
+  if (
+    discountType === "percentage" &&
+    (!Number.isFinite(discountValue) ||
+      discountValue <= 0 ||
+      discountValue > 100)
+  ) {
+    return "This discount code has an invalid discount percentage.";
   }
 
   return null;
@@ -185,6 +259,13 @@ async function increaseDiscountUsage(
   );
 
   if (!response.ok) {
+    const errorText = await response.text();
+
+    console.error(
+      "Discount usage update error:",
+      errorText
+    );
+
     throw new Error(
       "Could not update discount usage."
     );
@@ -207,14 +288,49 @@ export async function POST(request: Request) {
     const order =
       (await request.json()) as OrderData;
 
+    const fullName = String(
+      order.fullName ?? ""
+    ).trim();
+
+    const phone = String(
+      order.phone ?? ""
+    ).trim();
+
+    const customerEmail = String(
+      order.customerEmail ?? ""
+    )
+      .trim()
+      .toLowerCase();
+
+    const governorate = String(
+      order.governorate ?? ""
+    ).trim();
+
+    const address = String(
+      order.address ?? ""
+    ).trim();
+
+    const notes =
+      String(order.notes ?? "").trim() ||
+      "No notes";
+
+    const colour = String(
+      order.colour ?? ""
+    ).trim();
+
+    const quantity = Number(order.quantity);
+
+    /*
+      Email is intentionally not included here
+      because it is optional.
+    */
     if (
-      !order.fullName ||
-      !order.phone ||
-      !order.customerEmail ||
-      !order.governorate ||
-      !order.address ||
-      !order.colour ||
-      !order.quantity
+      !fullName ||
+      !phone ||
+      !governorate ||
+      !address ||
+      !colour ||
+      !quantity
     ) {
       return NextResponse.json(
         {
@@ -226,42 +342,19 @@ export async function POST(request: Request) {
       );
     }
 
-    const fullName = String(
-      order.fullName
-    ).trim();
-
-    const phone = String(order.phone).trim();
-
-    const customerEmail = String(
-      order.customerEmail
-    )
-      .trim()
-      .toLowerCase();
-
-    const governorate = String(
-      order.governorate
-    ).trim();
-
-    const address = String(
-      order.address
-    ).trim();
-
-    const notes =
-      String(order.notes || "").trim() ||
-      "No notes";
-
-    const colour = String(
-      order.colour
-    ).trim();
-
-    const quantity = Number(order.quantity);
-
-    if (!isValidEmail(customerEmail)) {
+    /*
+      Validate the email only when the customer
+      has entered one.
+    */
+    if (
+      customerEmail &&
+      !isValidEmail(customerEmail)
+    ) {
       return NextResponse.json(
         {
           success: false,
           message:
-            "Please enter a valid email address.",
+            "Please enter a valid email address or leave it empty.",
         },
         { status: 400 }
       );
@@ -308,18 +401,29 @@ export async function POST(request: Request) {
     const originalDeliveryFee =
       selectedDeliveryArea.fee;
 
+    let verifiedProductDiscount = 0;
+    let verifiedDeliveryDiscount = 0;
+
+    let verifiedProductsTotal =
+      productsTotal;
+
     let verifiedDeliveryFee =
       originalDeliveryFee;
 
-    let verifiedDeliveryDiscount = 0;
     let verifiedDiscountCode = "";
+
+    let verifiedDiscountType:
+      | DiscountType
+      | null = null;
+
+    let verifiedDiscountValue = 0;
 
     let verifiedDiscount:
       | DiscountRow
       | null = null;
 
     const submittedDiscountCode = String(
-      order.discountCode || ""
+      order.discountCode ?? ""
     )
       .trim()
       .toUpperCase();
@@ -353,18 +457,93 @@ export async function POST(request: Request) {
         );
       }
 
+      const discountType =
+        normaliseDiscountType(
+          discount.discount_type
+        );
+
+      if (!discountType) {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              "This discount code has an unsupported discount type.",
+          },
+          { status: 400 }
+        );
+      }
+
+      const discountValue = Math.max(
+        Number(discount.discount_value) || 0,
+        0
+      );
+
       verifiedDiscount = discount;
-      verifiedDiscountCode =
-        discount.code;
 
-      verifiedDeliveryDiscount =
-        originalDeliveryFee;
+      verifiedDiscountCode = String(
+        discount.code
+      )
+        .trim()
+        .toUpperCase();
 
-      verifiedDeliveryFee = 0;
+      verifiedDiscountType =
+        discountType;
+
+      verifiedDiscountValue =
+        discountValue;
+
+      if (
+        discountType === "free_delivery"
+      ) {
+        verifiedDeliveryDiscount =
+          originalDeliveryFee;
+
+        verifiedDeliveryFee = 0;
+      }
+
+      if (
+        discountType === "fixed_amount"
+      ) {
+        verifiedProductDiscount = Math.min(
+          Math.round(discountValue),
+          productsTotal
+        );
+
+        verifiedProductsTotal = Math.max(
+          productsTotal -
+            verifiedProductDiscount,
+          0
+        );
+      }
+
+      if (
+        discountType === "percentage"
+      ) {
+        verifiedProductDiscount = Math.min(
+          Math.round(
+            productsTotal *
+              (discountValue / 100)
+          ),
+          productsTotal
+        );
+
+        verifiedProductsTotal = Math.max(
+          productsTotal -
+            verifiedProductDiscount,
+          0
+        );
+      }
     }
 
-    const verifiedTotalPrice =
-      productsTotal + verifiedDeliveryFee;
+    const verifiedTotalDiscount =
+      verifiedProductDiscount +
+      verifiedDeliveryDiscount;
+
+    const verifiedTotalPrice = Math.max(
+      verifiedProductsTotal +
+        verifiedDeliveryFee,
+      0
+    );
 
     const orderNumber =
       createOrderNumber();
@@ -382,13 +561,15 @@ export async function POST(request: Request) {
         headers: {
           apikey: supabaseSecretKey,
           Authorization: `Bearer ${supabaseSecretKey}`,
-          "Content-Type": "application/json",
+          "Content-Type":
+            "application/json",
           Prefer: "return=representation",
         },
         body: JSON.stringify({
           order_number: orderNumber,
 
           shipping_number: shippingNumber,
+
           shipping_status:
             "ready_to_print",
 
@@ -405,7 +586,12 @@ export async function POST(request: Request) {
 
           customer_name: fullName,
           phone,
-          customer_email: customerEmail,
+
+          /*
+            Saves NULL when no email was entered.
+          */
+          customer_email:
+            customerEmail || null,
 
           governorate,
           address,
@@ -414,13 +600,22 @@ export async function POST(request: Request) {
           quantity,
 
           product_price: productPrice,
+
+          /*
+            This remains the original products
+            total before the discount.
+          */
           products_total: productsTotal,
 
           delivery_fee:
             verifiedDeliveryFee,
 
+          /*
+            Stores product and delivery discounts
+            together.
+          */
           discount_amount:
-            verifiedDeliveryDiscount,
+            verifiedTotalDiscount,
 
           total_price:
             verifiedTotalPrice,
@@ -488,7 +683,9 @@ export async function POST(request: Request) {
       escapeHtml(phone);
 
     const safeCustomerEmail =
-      escapeHtml(customerEmail);
+      customerEmail
+        ? escapeHtml(customerEmail)
+        : "Not provided";
 
     const safeGovernorate =
       escapeHtml(governorate);
@@ -505,6 +702,11 @@ export async function POST(request: Request) {
     const safeDiscountCode =
       escapeHtml(
         verifiedDiscountCode || "None"
+      );
+
+    const safeDiscountType =
+      escapeHtml(
+        verifiedDiscountType || "None"
       );
 
     const safeTrackOrderUrl =
@@ -525,6 +727,10 @@ export async function POST(request: Request) {
     let customerEmailSent = false;
 
     if (resend) {
+      /*
+        Admin email can still be sent even when
+        the customer did not enter an email.
+      */
       if (notificationEmail) {
         try {
           const adminEmailResult =
@@ -560,18 +766,52 @@ export async function POST(request: Request) {
                   </div>
 
                   <div style="background:#f4f4f4;border-radius:16px;padding:20px;margin-top:16px;">
-                    <p><strong>Customer:</strong> ${safeFullName}</p>
-                    <p><strong>Phone:</strong> ${safePhone}</p>
-                    <p><strong>Email:</strong> ${safeCustomerEmail}</p>
-                    <p><strong>Governorate:</strong> ${safeGovernorate}</p>
-                    <p><strong>Address:</strong> ${safeAddress}</p>
-                    <p><strong>Notes:</strong> ${safeNotes}</p>
+                    <p>
+                      <strong>Customer:</strong>
+                      ${safeFullName}
+                    </p>
+
+                    <p>
+                      <strong>Phone:</strong>
+                      ${safePhone}
+                    </p>
+
+                    <p>
+                      <strong>Email:</strong>
+                      ${safeCustomerEmail}
+                    </p>
+
+                    <p>
+                      <strong>Governorate:</strong>
+                      ${safeGovernorate}
+                    </p>
+
+                    <p>
+                      <strong>Address:</strong>
+                      ${safeAddress}
+                    </p>
+
+                    <p>
+                      <strong>Notes:</strong>
+                      ${safeNotes}
+                    </p>
                   </div>
 
                   <div style="background:#f4f4f4;border-radius:16px;padding:20px;margin-top:16px;">
-                    <p><strong>Product:</strong> ${safeProductName}</p>
-                    <p><strong>Colour:</strong> ${safeColour}</p>
-                    <p><strong>Quantity:</strong> ${quantity}</p>
+                    <p>
+                      <strong>Product:</strong>
+                      ${safeProductName}
+                    </p>
+
+                    <p>
+                      <strong>Colour:</strong>
+                      ${safeColour}
+                    </p>
+
+                    <p>
+                      <strong>Quantity:</strong>
+                      ${quantity}
+                    </p>
 
                     <p>
                       <strong>Product price:</strong>
@@ -587,11 +827,48 @@ export async function POST(request: Request) {
                       )} EGP
                     </p>
 
+                    ${
+                      verifiedProductDiscount > 0
+                        ? `
+                          <p style="color:#16803a;">
+                            <strong>Product discount:</strong>
+                            -${verifiedProductDiscount.toLocaleString(
+                              "en-GB"
+                            )} EGP
+                          </p>
+                        `
+                        : ""
+                    }
+
                     <p>
                       <strong>Original delivery:</strong>
                       ${originalDeliveryFee.toLocaleString(
                         "en-GB"
                       )} EGP
+                    </p>
+
+                    ${
+                      verifiedDeliveryDiscount > 0
+                        ? `
+                          <p style="color:#16803a;">
+                            <strong>Delivery discount:</strong>
+                            -${verifiedDeliveryDiscount.toLocaleString(
+                              "en-GB"
+                            )} EGP
+                          </p>
+                        `
+                        : ""
+                    }
+
+                    <p>
+                      <strong>Final delivery:</strong>
+                      ${
+                        verifiedDeliveryFee === 0
+                          ? "FREE"
+                          : `${verifiedDeliveryFee.toLocaleString(
+                              "en-GB"
+                            )} EGP`
+                      }
                     </p>
 
                     <p>
@@ -600,15 +877,20 @@ export async function POST(request: Request) {
                     </p>
 
                     <p>
-                      <strong>Discount:</strong>
-                      ${verifiedDeliveryDiscount.toLocaleString(
-                        "en-GB"
-                      )} EGP
+                      <strong>Discount type:</strong>
+                      ${safeDiscountType}
                     </p>
 
                     <p>
-                      <strong>Final delivery:</strong>
-                      ${verifiedDeliveryFee.toLocaleString(
+                      <strong>Discount value:</strong>
+                      ${verifiedDiscountValue.toLocaleString(
+                        "en-GB"
+                      )}
+                    </p>
+
+                    <p>
+                      <strong>Total discount:</strong>
+                      ${verifiedTotalDiscount.toLocaleString(
                         "en-GB"
                       )} EGP
                     </p>
@@ -642,143 +924,184 @@ export async function POST(request: Request) {
         }
       }
 
-      try {
-        const customerEmailResult =
-          await resend.emails.send({
-            from: senderEmail,
-            to: customerEmail,
-            subject: `Your ORVIX order — ${orderNumber}`,
-            html: `
-              <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;padding:24px;color:#111;background:#ffffff;">
-                <div style="text-align:center;padding:10px 0 24px;">
-                  <p style="letter-spacing:5px;font-weight:700;margin:0;">
-                    ORVIX
-                  </p>
+      /*
+        Customer email is sent only when an email
+        address was entered.
+      */
+      if (customerEmail) {
+        try {
+          const customerEmailResult =
+            await resend.emails.send({
+              from: senderEmail,
+              to: customerEmail,
+              subject: `Your ORVIX order — ${orderNumber}`,
+              html: `
+                <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;padding:24px;color:#111;background:#ffffff;">
+                  <div style="text-align:center;padding:10px 0 24px;">
+                    <p style="letter-spacing:5px;font-weight:700;margin:0;">
+                      ORVIX
+                    </p>
 
-                  <h1 style="margin:24px 0 8px;font-size:30px;">
-                    Order Received
-                  </h1>
+                    <h1 style="margin:24px 0 8px;font-size:30px;">
+                      Order Received
+                    </h1>
 
-                  <p style="color:#666;line-height:1.6;margin:0;">
-                    Thank you, ${safeFullName}. Your order has been received successfully.
-                  </p>
-                </div>
+                    <p style="color:#666;line-height:1.6;margin:0;">
+                      Thank you, ${safeFullName}. Your order has been received successfully.
+                    </p>
+                  </div>
 
-                <div style="background:#111;color:#fff;border-radius:18px;padding:22px;text-align:center;">
-                  <p style="color:#aaa;margin:0;font-size:13px;">
-                    ORDER NUMBER
-                  </p>
+                  <div style="background:#111;color:#fff;border-radius:18px;padding:22px;text-align:center;">
+                    <p style="color:#aaa;margin:0;font-size:13px;">
+                      ORDER NUMBER
+                    </p>
 
-                  <p style="font-size:21px;font-weight:700;margin:10px 0 0;word-break:break-word;">
-                    ${orderNumber}
-                  </p>
+                    <p style="font-size:21px;font-weight:700;margin:10px 0 0;word-break:break-word;">
+                      ${orderNumber}
+                    </p>
 
-                  <p style="color:#aaa;margin:20px 0 0;font-size:13px;">
-                    SHIPPING NUMBER
-                  </p>
+                    <p style="color:#aaa;margin:20px 0 0;font-size:13px;">
+                      SHIPPING NUMBER
+                    </p>
 
-                  <p style="font-size:18px;font-weight:700;margin:10px 0 0;word-break:break-word;">
-                    ${safeShippingNumber}
-                  </p>
-                </div>
+                    <p style="font-size:18px;font-weight:700;margin:10px 0 0;word-break:break-word;">
+                      ${safeShippingNumber}
+                    </p>
+                  </div>
 
-                <div style="background:#f5f5f5;border-radius:18px;padding:22px;margin-top:18px;">
-                  <h2 style="margin-top:0;font-size:20px;">
-                    Order summary
-                  </h2>
+                  <div style="background:#f5f5f5;border-radius:18px;padding:22px;margin-top:18px;">
+                    <h2 style="margin-top:0;font-size:20px;">
+                      Order summary
+                    </h2>
 
-                  <p><strong>Product:</strong> ${safeProductName}</p>
-                  <p><strong>Colour:</strong> ${safeColour}</p>
-                  <p><strong>Quantity:</strong> ${quantity}</p>
+                    <p>
+                      <strong>Product:</strong>
+                      ${safeProductName}
+                    </p>
 
-                  <p>
-                    <strong>Products total:</strong>
-                    ${productsTotal.toLocaleString(
-                      "en-GB"
-                    )} EGP
-                  </p>
+                    <p>
+                      <strong>Colour:</strong>
+                      ${safeColour}
+                    </p>
 
-                  <p>
-                    <strong>Delivery:</strong>
-                    ${
-                      verifiedDeliveryFee === 0
-                        ? "FREE"
-                        : `${verifiedDeliveryFee.toLocaleString(
-                            "en-GB"
-                          )} EGP`
-                    }
-                  </p>
+                    <p>
+                      <strong>Quantity:</strong>
+                      ${quantity}
+                    </p>
 
-                  ${
-                    verifiedDeliveryDiscount > 0
-                      ? `
-                        <p style="color:#16803a;">
-                          <strong>Discount:</strong>
-                          -${verifiedDeliveryDiscount.toLocaleString(
-                            "en-GB"
-                          )} EGP
-                        </p>
-                      `
-                      : ""
-                  }
-
-                  <p style="font-size:21px;border-top:1px solid #ddd;padding-top:16px;margin-bottom:0;">
-                    <strong>
-                      Total:
-                      ${verifiedTotalPrice.toLocaleString(
+                    <p>
+                      <strong>Products total:</strong>
+                      ${productsTotal.toLocaleString(
                         "en-GB"
                       )} EGP
-                    </strong>
+                    </p>
+
+                    ${
+                      verifiedProductDiscount > 0
+                        ? `
+                          <p style="color:#16803a;">
+                            <strong>Product discount:</strong>
+                            -${verifiedProductDiscount.toLocaleString(
+                              "en-GB"
+                            )} EGP
+                          </p>
+                        `
+                        : ""
+                    }
+
+                    <p>
+                      <strong>Delivery:</strong>
+                      ${
+                        verifiedDeliveryFee === 0
+                          ? "FREE"
+                          : `${verifiedDeliveryFee.toLocaleString(
+                              "en-GB"
+                            )} EGP`
+                      }
+                    </p>
+
+                    ${
+                      verifiedDeliveryDiscount > 0
+                        ? `
+                          <p style="color:#16803a;">
+                            <strong>Delivery discount:</strong>
+                            -${verifiedDeliveryDiscount.toLocaleString(
+                              "en-GB"
+                            )} EGP
+                          </p>
+                        `
+                        : ""
+                    }
+
+                    ${
+                      verifiedDiscountCode
+                        ? `
+                          <p>
+                            <strong>Discount code:</strong>
+                            ${safeDiscountCode}
+                          </p>
+                        `
+                        : ""
+                    }
+
+                    <p style="font-size:21px;border-top:1px solid #ddd;padding-top:16px;margin-bottom:0;">
+                      <strong>
+                        Total:
+                        ${verifiedTotalPrice.toLocaleString(
+                          "en-GB"
+                        )} EGP
+                      </strong>
+                    </p>
+                  </div>
+
+                  <div style="background:#f5f5f5;border-radius:18px;padding:22px;margin-top:18px;">
+                    <h2 style="margin-top:0;font-size:20px;">
+                      Delivery details
+                    </h2>
+
+                    <p>
+                      <strong>Governorate:</strong>
+                      ${safeGovernorate}
+                    </p>
+
+                    <p>
+                      <strong>Address:</strong>
+                      ${safeAddress}
+                    </p>
+                  </div>
+
+                  <a
+                    href="${safeTrackOrderUrl}"
+                    style="display:block;background:#111;color:#fff;text-decoration:none;text-align:center;font-weight:700;border-radius:999px;padding:17px 24px;margin-top:22px;"
+                  >
+                    Track Your Order
+                  </a>
+
+                  <p style="color:#777;font-size:13px;line-height:1.6;text-align:center;margin-top:24px;">
+                    Keep your order number. You will need it with the phone number used during checkout to track your order.
+                  </p>
+
+                  <p style="color:#999;font-size:12px;text-align:center;margin-top:24px;">
+                    © 2026 ORVIX. All rights reserved.
                   </p>
                 </div>
+              `,
+            });
 
-                <div style="background:#f5f5f5;border-radius:18px;padding:22px;margin-top:18px;">
-                  <h2 style="margin-top:0;font-size:20px;">
-                    Delivery details
-                  </h2>
-
-                  <p>
-                    <strong>Governorate:</strong>
-                    ${safeGovernorate}
-                  </p>
-
-                  <p>
-                    <strong>Address:</strong>
-                    ${safeAddress}
-                  </p>
-                </div>
-
-                <a
-                  href="${safeTrackOrderUrl}"
-                  style="display:block;background:#111;color:#fff;text-decoration:none;text-align:center;font-weight:700;border-radius:999px;padding:17px 24px;margin-top:22px;"
-                >
-                  Track Your Order
-                </a>
-
-                <p style="color:#777;font-size:13px;line-height:1.6;text-align:center;margin-top:24px;">
-                  Keep your order number. You will need it with the phone number used during checkout to track your order.
-                </p>
-
-                <p style="color:#999;font-size:12px;text-align:center;margin-top:24px;">
-                  © 2026 ORVIX. All rights reserved.
-                </p>
-              </div>
-            `,
-          });
-
-        if (customerEmailResult.error) {
+          if (customerEmailResult.error) {
+            console.error(
+              "Customer Resend email error:",
+              customerEmailResult.error
+            );
+          } else {
+            customerEmailSent = true;
+          }
+        } catch (customerEmailError) {
           console.error(
             "Customer Resend email error:",
-            customerEmailResult.error
+            customerEmailError
           );
-        } else {
-          customerEmailSent = true;
         }
-      } catch (customerEmailError) {
-        console.error(
-          "Customer Resend email error:",
-          customerEmailError
-        );
       }
     } else {
       console.warn(
@@ -808,10 +1131,20 @@ export async function POST(request: Request) {
       pricing: {
         productPrice,
         productsTotal,
+
+        discountedProductsTotal:
+          verifiedProductsTotal,
+
         originalDeliveryFee,
+
+        productDiscount:
+          verifiedProductDiscount,
 
         deliveryDiscount:
           verifiedDeliveryDiscount,
+
+        totalDiscount:
+          verifiedTotalDiscount,
 
         deliveryFee:
           verifiedDeliveryFee,
@@ -821,6 +1154,12 @@ export async function POST(request: Request) {
 
         discountCode:
           verifiedDiscountCode || null,
+
+        discountType:
+          verifiedDiscountType,
+
+        discountValue:
+          verifiedDiscountValue,
       },
 
       shipping: {
@@ -831,8 +1170,13 @@ export async function POST(request: Request) {
       },
 
       email: {
+        provided:
+          customerEmail.length > 0,
+
         adminSent: adminEmailSent,
-        customerSent: customerEmailSent,
+
+        customerSent:
+          customerEmailSent,
       },
     });
   } catch (error) {
@@ -851,6 +1195,7 @@ export async function POST(request: Request) {
     );
   }
 }
+
 export async function GET() {
   try {
     if (!supabaseUrl || !supabaseSecretKey) {
@@ -877,7 +1222,8 @@ export async function GET() {
     );
 
     if (!response.ok) {
-      const errorText = await response.text();
+      const errorText =
+        await response.text();
 
       console.error(
         "Could not load orders:",
@@ -900,11 +1246,15 @@ export async function GET() {
       orders,
     });
   } catch (error) {
-    console.error("Orders GET error:", error);
+    console.error(
+      "Orders GET error:",
+      error
+    );
 
     return NextResponse.json(
       {
         success: false,
+
         message:
           error instanceof Error
             ? error.message
