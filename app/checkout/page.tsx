@@ -33,6 +33,53 @@ type CartItem = {
   slug: string;
 };
 
+type DiscountType =
+  | "free_delivery"
+  | "fixed_amount"
+  | "percentage";
+
+type AppliedDiscount = {
+  code: string;
+  type: DiscountType;
+  value: number;
+};
+
+type DiscountApiResult = {
+  success?: boolean;
+  message?: string;
+
+  code?: string;
+
+  discountType?: string;
+  discount_type?: string;
+  type?: string;
+
+  discountValue?: number | string;
+  discount_value?: number | string;
+  value?: number | string;
+  amount?: number | string;
+  percentage?: number | string;
+
+  discount?: {
+    code?: string;
+
+    type?: string;
+    discountType?: string;
+    discount_type?: string;
+
+    value?: number | string;
+    discountValue?: number | string;
+    discount_value?: number | string;
+    amount?: number | string;
+    percentage?: number | string;
+  };
+};
+
+type DiscountMessageType =
+  | "success"
+  | "error"
+  | "neutral";
+
 const colours: Colour[] = [
   {
     name: "Black",
@@ -144,6 +191,93 @@ function readFirstCartItem(): CartItem | null {
   }
 }
 
+function normaliseDiscountType(
+  result: DiscountApiResult
+): DiscountType | null {
+  const rawType =
+    result.discountType ??
+    result.discount_type ??
+    result.type ??
+    result.discount?.discountType ??
+    result.discount?.discount_type ??
+    result.discount?.type ??
+    "";
+
+  const cleanType = String(rawType)
+    .trim()
+    .toLowerCase()
+    .replaceAll("-", "_")
+    .replaceAll(" ", "_");
+
+  if (
+    cleanType === "free_delivery" ||
+    cleanType === "free_shipping" ||
+    cleanType === "delivery" ||
+    cleanType === "shipping"
+  ) {
+    return "free_delivery";
+  }
+
+  if (
+    cleanType === "fixed_amount" ||
+    cleanType === "fixed" ||
+    cleanType === "amount" ||
+    cleanType === "cash" ||
+    cleanType === "money"
+  ) {
+    return "fixed_amount";
+  }
+
+  if (
+    cleanType === "percentage" ||
+    cleanType === "percent" ||
+    cleanType === "percentage_off"
+  ) {
+    return "percentage";
+  }
+
+  return null;
+}
+
+function getDiscountValue(
+  result: DiscountApiResult
+) {
+  const rawValue =
+    result.discountValue ??
+    result.discount_value ??
+    result.value ??
+    result.amount ??
+    result.percentage ??
+    result.discount?.discountValue ??
+    result.discount?.discount_value ??
+    result.discount?.value ??
+    result.discount?.amount ??
+    result.discount?.percentage ??
+    0;
+
+  const parsedValue = Number(rawValue);
+
+  if (!Number.isFinite(parsedValue)) {
+    return 0;
+  }
+
+  return Math.max(parsedValue, 0);
+}
+
+function getReturnedDiscountCode(
+  result: DiscountApiResult,
+  fallbackCode: string
+) {
+  const returnedCode =
+    result.code ??
+    result.discount?.code ??
+    fallbackCode;
+
+  return String(returnedCode)
+    .trim()
+    .toUpperCase();
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
 
@@ -168,12 +302,17 @@ export default function CheckoutPage() {
     useState("");
 
   const [
-    appliedDiscountCode,
-    setAppliedDiscountCode,
-  ] = useState("");
+    appliedDiscount,
+    setAppliedDiscount,
+  ] = useState<AppliedDiscount | null>(null);
 
   const [discountMessage, setDiscountMessage] =
     useState("");
+
+  const [
+    discountMessageType,
+    setDiscountMessageType,
+  ] = useState<DiscountMessageType>("neutral");
 
   const [
     checkingDiscount,
@@ -195,20 +334,56 @@ export default function CheckoutPage() {
   const productsTotal =
     PRODUCT_PRICE * quantity;
 
-  const hasFreeDelivery =
-    appliedDiscountCode.length > 0;
+  const hasAppliedDiscount =
+    appliedDiscount !== null;
 
-  const deliveryDiscount = hasFreeDelivery
-    ? deliveryFee
-    : 0;
+  let productDiscount = 0;
+  let deliveryDiscount = 0;
+
+  if (
+    appliedDiscount?.type === "free_delivery"
+  ) {
+    deliveryDiscount = deliveryFee;
+  }
+
+  if (
+    appliedDiscount?.type === "fixed_amount"
+  ) {
+    productDiscount = Math.min(
+      Math.round(appliedDiscount.value),
+      productsTotal
+    );
+  }
+
+  if (
+    appliedDiscount?.type === "percentage"
+  ) {
+    productDiscount = Math.min(
+      Math.round(
+        productsTotal *
+          (appliedDiscount.value / 100)
+      ),
+      productsTotal
+    );
+  }
+
+  const finalProductsTotal = Math.max(
+    productsTotal - productDiscount,
+    0
+  );
 
   const finalDeliveryFee = Math.max(
     deliveryFee - deliveryDiscount,
     0
   );
 
-  const finalTotal =
-    productsTotal + finalDeliveryFee;
+  const totalDiscount =
+    productDiscount + deliveryDiscount;
+
+  const finalTotal = Math.max(
+    finalProductsTotal + finalDeliveryFee,
+    0
+  );
 
   useEffect(() => {
     const searchParams = new URLSearchParams(
@@ -261,8 +436,9 @@ export default function CheckoutPage() {
   }, []);
 
   useEffect(() => {
-    setAppliedDiscountCode("");
+    setAppliedDiscount(null);
     setDiscountMessage("");
+    setDiscountMessageType("neutral");
     setDiscountCode("");
   }, [selectedAreaCode]);
 
@@ -272,27 +448,30 @@ export default function CheckoutPage() {
       .toUpperCase();
 
     if (!selectedArea) {
-      setAppliedDiscountCode("");
+      setAppliedDiscount(null);
 
       setDiscountMessage(
         "Please select your delivery area first."
       );
 
+      setDiscountMessageType("error");
       return;
     }
 
     if (!cleanCode) {
-      setAppliedDiscountCode("");
+      setAppliedDiscount(null);
 
       setDiscountMessage(
         "Please enter a discount code."
       );
 
+      setDiscountMessageType("error");
       return;
     }
 
     setCheckingDiscount(true);
     setDiscountMessage("");
+    setDiscountMessageType("neutral");
 
     try {
       const response = await fetch(
@@ -304,59 +483,137 @@ export default function CheckoutPage() {
           },
           body: JSON.stringify({
             code: cleanCode,
+            productsTotal,
+            deliveryFee,
+            orderTotal:
+              productsTotal + deliveryFee,
           }),
         }
       );
 
-      const result = await response.json();
+      const result =
+        (await response.json()) as DiscountApiResult;
 
       if (!response.ok || !result.success) {
-        setAppliedDiscountCode("");
+        setAppliedDiscount(null);
 
         setDiscountMessage(
           result.message ||
             "Invalid discount code."
         );
 
+        setDiscountMessageType("error");
+        return;
+      }
+
+      const discountType =
+        normaliseDiscountType(result);
+
+      const discountValue =
+        getDiscountValue(result);
+
+      const returnedCode =
+        getReturnedDiscountCode(
+          result,
+          cleanCode
+        );
+
+      if (!discountType) {
+        setAppliedDiscount(null);
+
+        setDiscountMessage(
+          "This discount code has an unsupported discount type."
+        );
+
+        setDiscountMessageType("error");
         return;
       }
 
       if (
-        result.discountType !== "free_delivery"
+        discountType === "fixed_amount" &&
+        discountValue <= 0
       ) {
-        setAppliedDiscountCode("");
+        setAppliedDiscount(null);
 
         setDiscountMessage(
-          "This code cannot be used for delivery."
+          "This discount code does not have a valid discount amount."
+        );
+
+        setDiscountMessageType("error");
+        return;
+      }
+
+      if (
+        discountType === "percentage" &&
+        (discountValue <= 0 ||
+          discountValue > 100)
+      ) {
+        setAppliedDiscount(null);
+
+        setDiscountMessage(
+          "This discount code does not have a valid percentage."
+        );
+
+        setDiscountMessageType("error");
+        return;
+      }
+
+      setAppliedDiscount({
+        code: returnedCode,
+        type: discountType,
+        value: discountValue,
+      });
+
+      setDiscountCode(returnedCode);
+      setDiscountMessageType("success");
+
+      if (
+        discountType === "free_delivery"
+      ) {
+        setDiscountMessage(
+          "Free delivery applied successfully."
         );
 
         return;
       }
 
-      setAppliedDiscountCode(result.code);
-      setDiscountCode(result.code);
+      if (
+        discountType === "percentage"
+      ) {
+        setDiscountMessage(
+          `${discountValue}% discount applied successfully.`
+        );
+
+        return;
+      }
 
       setDiscountMessage(
-        "Free delivery applied successfully."
+        `${discountValue.toLocaleString(
+          "en-GB"
+        )} EGP discount applied successfully.`
       );
     } catch {
-      setAppliedDiscountCode("");
+      setAppliedDiscount(null);
 
       setDiscountMessage(
         "Could not check the discount code."
       );
+
+      setDiscountMessageType("error");
     } finally {
       setCheckingDiscount(false);
     }
   }
 
   function removeDiscountCode() {
-    setAppliedDiscountCode("");
+    setAppliedDiscount(null);
     setDiscountCode("");
 
     setDiscountMessage(
       "Discount code removed."
     );
+
+    setDiscountMessageType("neutral");
   }
 
   async function handleOrderSubmit(
@@ -394,17 +651,16 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (!customerEmail.trim()) {
-      setOrderError(
-        "Please enter your email address."
-      );
+    const normalisedEmail = customerEmail
+      .trim()
+      .toLowerCase();
 
-      return;
-    }
-
-    if (!isValidEmail(customerEmail)) {
+    if (
+      normalisedEmail &&
+      !isValidEmail(normalisedEmail)
+    ) {
       setOrderError(
-        "Please enter a valid email address."
+        "Please enter a valid email address or leave it empty."
       );
 
       return;
@@ -432,9 +688,8 @@ export default function CheckoutPage() {
             fullName: fullName.trim(),
             phone: phone.trim(),
 
-            customerEmail: customerEmail
-              .trim()
-              .toLowerCase(),
+            customerEmail:
+              normalisedEmail || null,
 
             governorate: selectedArea.name,
             address: address.trim(),
@@ -447,17 +702,28 @@ export default function CheckoutPage() {
             quantity,
 
             productPrice: PRODUCT_PRICE,
+            productsTotal,
 
-            deliveryFee:
-              finalDeliveryFee,
-
+            deliveryFee: finalDeliveryFee,
             originalDeliveryFee:
               deliveryFee,
 
             discountCode:
-              appliedDiscountCode || "",
+              appliedDiscount?.code || "",
 
+            discountType:
+              appliedDiscount?.type || null,
+
+            discountValue:
+              appliedDiscount?.value || 0,
+
+            productDiscount,
             deliveryDiscount,
+            totalDiscount,
+
+            discountedProductsTotal:
+              finalProductsTotal,
+
             totalPrice: finalTotal,
 
             paymentMethod:
@@ -490,10 +756,16 @@ export default function CheckoutPage() {
         phone.trim()
       );
 
-      sessionStorage.setItem(
-        "orvixLastOrderEmail",
-        customerEmail.trim().toLowerCase()
-      );
+      if (normalisedEmail) {
+        sessionStorage.setItem(
+          "orvixLastOrderEmail",
+          normalisedEmail
+        );
+      } else {
+        sessionStorage.removeItem(
+          "orvixLastOrderEmail"
+        );
+      }
 
       window.localStorage.removeItem(
         CART_STORAGE_KEY
@@ -638,7 +910,10 @@ export default function CheckoutPage() {
                     type="button"
                     onClick={() =>
                       setQuantity((current) =>
-                        Math.max(1, current - 1)
+                        Math.max(
+                          1,
+                          current - 1
+                        )
                       )
                     }
                     disabled={isSending}
@@ -656,7 +931,10 @@ export default function CheckoutPage() {
                     type="button"
                     onClick={() =>
                       setQuantity((current) =>
-                        Math.min(10, current + 1)
+                        Math.min(
+                          10,
+                          current + 1
+                        )
                       )
                     }
                     disabled={isSending}
@@ -704,7 +982,9 @@ export default function CheckoutPage() {
                       type="tel"
                       value={phone}
                       onChange={(event) =>
-                        setPhone(event.target.value)
+                        setPhone(
+                          event.target.value
+                        )
                       }
                       placeholder="01XXXXXXXXX"
                       autoComplete="tel"
@@ -717,7 +997,7 @@ export default function CheckoutPage() {
 
                   <label>
                     <span className="mb-2 block text-sm font-bold text-gray-300">
-                      Email address
+                      Email address — optional
                     </span>
 
                     <input
@@ -732,14 +1012,13 @@ export default function CheckoutPage() {
                       autoComplete="email"
                       inputMode="email"
                       disabled={isSending}
-                      required
                       className="w-full rounded-2xl border border-white/15 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
                     />
 
                     <p className="mt-2 text-sm leading-6 text-gray-500">
-                      Your order number and tracking
-                      details will be sent to this
-                      email.
+                      If you enter an email, your
+                      order and tracking details
+                      can be sent to it.
                     </p>
                   </label>
                 </div>
@@ -875,6 +1154,22 @@ export default function CheckoutPage() {
                   </strong>
                 </div>
 
+                {productDiscount > 0 && (
+                  <div className="flex justify-between gap-5 text-green-400">
+                    <span>
+                      Product discount
+                    </span>
+
+                    <strong>
+                      -
+                      {productDiscount.toLocaleString(
+                        "en-GB"
+                      )}{" "}
+                      EGP
+                    </strong>
+                  </div>
+                )}
+
                 <div className="flex justify-between gap-5">
                   <span className="text-gray-400">
                     Delivery
@@ -896,7 +1191,23 @@ export default function CheckoutPage() {
                     </span>
 
                     <strong>
-                      -{deliveryDiscount} EGP
+                      -
+                      {deliveryDiscount.toLocaleString(
+                        "en-GB"
+                      )}{" "}
+                      EGP
+                    </strong>
+                  </div>
+                )}
+
+                {appliedDiscount && (
+                  <div className="flex justify-between gap-5">
+                    <span className="text-gray-400">
+                      Discount code
+                    </span>
+
+                    <strong className="text-green-400">
+                      {appliedDiscount.code}
                     </strong>
                   </div>
                 )}
@@ -904,7 +1215,7 @@ export default function CheckoutPage() {
 
               <div className="mt-8 border-t border-white/10 pt-8">
                 <p className="text-sm uppercase tracking-[0.25em] text-gray-500">
-                  Delivery discount code
+                  Discount code
                 </p>
 
                 <div className="mt-4 flex gap-3">
@@ -916,8 +1227,11 @@ export default function CheckoutPage() {
                         event.target.value.toUpperCase()
                       );
 
-                      setAppliedDiscountCode("");
+                      setAppliedDiscount(null);
                       setDiscountMessage("");
+                      setDiscountMessageType(
+                        "neutral"
+                      );
                     }}
                     placeholder="Enter code"
                     disabled={
@@ -930,7 +1244,7 @@ export default function CheckoutPage() {
                   <button
                     type="button"
                     onClick={
-                      hasFreeDelivery
+                      hasAppliedDiscount
                         ? removeDiscountCode
                         : applyDiscountCode
                     }
@@ -943,7 +1257,7 @@ export default function CheckoutPage() {
                   >
                     {checkingDiscount
                       ? "Checking..."
-                      : hasFreeDelivery
+                      : hasAppliedDiscount
                         ? "Remove"
                         : "Apply"}
                   </button>
@@ -959,9 +1273,13 @@ export default function CheckoutPage() {
                 {discountMessage && (
                   <p
                     className={`mt-3 text-sm ${
-                      hasFreeDelivery
+                      discountMessageType ===
+                      "success"
                         ? "text-green-400"
-                        : "text-red-400"
+                        : discountMessageType ===
+                            "error"
+                          ? "text-red-400"
+                          : "text-gray-400"
                     }`}
                   >
                     {discountMessage}
@@ -970,6 +1288,22 @@ export default function CheckoutPage() {
               </div>
 
               <div className="my-8 h-px bg-white/10" />
+
+              {totalDiscount > 0 && (
+                <div className="mb-5 flex justify-between gap-5 text-green-400">
+                  <span className="font-bold">
+                    Total saved
+                  </span>
+
+                  <strong>
+                    -
+                    {totalDiscount.toLocaleString(
+                      "en-GB"
+                    )}{" "}
+                    EGP
+                  </strong>
+                </div>
+              )}
 
               <div className="flex items-end justify-between gap-5">
                 <span className="text-xl font-black">
