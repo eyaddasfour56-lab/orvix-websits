@@ -312,7 +312,10 @@ export default function CheckoutPage() {
   const [
     discountMessageType,
     setDiscountMessageType,
-  ] = useState<DiscountMessageType>("neutral");
+  ] =
+    useState<DiscountMessageType>(
+      "neutral"
+    );
 
   const [
     checkingDiscount,
@@ -406,7 +409,10 @@ export default function CheckoutPage() {
       setQuantity(quantityFromUrl);
     }
 
-    if (!colourFromUrl || !quantityFromUrl) {
+    if (
+      !colourFromUrl ||
+      !quantityFromUrl
+    ) {
       const cartItem = readFirstCartItem();
 
       if (!cartItem) {
@@ -478,13 +484,17 @@ export default function CheckoutPage() {
         "/api/discounts/validate",
         {
           method: "POST",
+
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
+
           body: JSON.stringify({
             code: cleanCode,
             productsTotal,
             deliveryFee,
+
             orderTotal:
               productsTotal + deliveryFee,
           }),
@@ -494,7 +504,10 @@ export default function CheckoutPage() {
       const result =
         (await response.json()) as DiscountApiResult;
 
-      if (!response.ok || !result.success) {
+      if (
+        !response.ok ||
+        !result.success
+      ) {
         setAppliedDiscount(null);
 
         setDiscountMessage(
@@ -621,7 +634,10 @@ export default function CheckoutPage() {
   ) {
     event.preventDefault();
 
-    if (isSending) {
+    if (
+      isSending ||
+      checkingDiscount
+    ) {
       return;
     }
 
@@ -674,6 +690,35 @@ export default function CheckoutPage() {
       return;
     }
 
+    /*
+      لو العميل كتب كود خصم
+      لكنه لم يضغط Apply.
+    */
+    if (
+      discountCode.trim() &&
+      !appliedDiscount
+    ) {
+      setOrderError(
+        "Please press Apply to verify your discount code before placing the order."
+      );
+
+      return;
+    }
+
+    /*
+      ناخد كود الخصم المطبق.
+
+      ولو حصلت مشكلة في appliedDiscount،
+      ناخده من خانة الخصم نفسها.
+    */
+    const submittedDiscountCode = String(
+      appliedDiscount?.code ||
+        discountCode ||
+        ""
+    )
+      .trim()
+      .toUpperCase();
+
     setIsSending(true);
 
     try {
@@ -681,9 +726,12 @@ export default function CheckoutPage() {
         "/api/order",
         {
           method: "POST",
+
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
+
           body: JSON.stringify({
             fullName: fullName.trim(),
             phone: phone.trim(),
@@ -691,7 +739,9 @@ export default function CheckoutPage() {
             customerEmail:
               normalisedEmail || null,
 
-            governorate: selectedArea.name,
+            governorate:
+              selectedArea.name,
+
             address: address.trim(),
             notes: notes.trim(),
 
@@ -704,18 +754,55 @@ export default function CheckoutPage() {
             productPrice: PRODUCT_PRICE,
             productsTotal,
 
-            deliveryFee: finalDeliveryFee,
+            deliveryFee:
+              finalDeliveryFee,
+
             originalDeliveryFee:
               deliveryFee,
 
+            /*
+              إرسال الكود بأكثر من اسم
+              لضمان وصوله إلى الـAPI.
+            */
             discountCode:
-              appliedDiscount?.code || "",
+              submittedDiscountCode ||
+              null,
+
+            discount_code:
+              submittedDiscountCode ||
+              null,
+
+            couponCode:
+              submittedDiscountCode ||
+              null,
+
+            coupon_code:
+              submittedDiscountCode ||
+              null,
+
+            appliedDiscount:
+              submittedDiscountCode
+                ? {
+                    code:
+                      submittedDiscountCode,
+
+                    type:
+                      appliedDiscount?.type ||
+                      null,
+
+                    value:
+                      appliedDiscount?.value ||
+                      0,
+                  }
+                : null,
 
             discountType:
-              appliedDiscount?.type || null,
+              appliedDiscount?.type ||
+              null,
 
             discountValue:
-              appliedDiscount?.value || 0,
+              appliedDiscount?.value ||
+              0,
 
             productDiscount,
             deliveryDiscount,
@@ -732,9 +819,13 @@ export default function CheckoutPage() {
         }
       );
 
-      const result = await response.json();
+      const result =
+        await response.json();
 
-      if (!response.ok || !result.success) {
+      if (
+        !response.ok ||
+        !result.success
+      ) {
         throw new Error(
           result.message ||
             "Could not place your order."
@@ -772,7 +863,9 @@ export default function CheckoutPage() {
       );
 
       window.dispatchEvent(
-        new Event("orvix-cart-updated")
+        new Event(
+          "orvix-cart-updated"
+        )
       );
 
       router.push(
@@ -876,7 +969,9 @@ export default function CheckoutPage() {
                         key={colour.name}
                         type="button"
                         onClick={() =>
-                          setSelectedColour(colour)
+                          setSelectedColour(
+                            colour
+                          )
                         }
                         disabled={isSending}
                         className={`flex items-center gap-3 rounded-2xl border p-4 text-left font-bold transition disabled:opacity-50 ${
@@ -890,7 +985,9 @@ export default function CheckoutPage() {
                             selected
                               ? "border-black/20"
                               : "border-white/20"
-                          } ${colour.buttonStyle}`}
+                          } ${
+                            colour.buttonStyle
+                          }`}
                         />
 
                         {colour.name}
@@ -1229,6 +1326,7 @@ export default function CheckoutPage() {
 
                       setAppliedDiscount(null);
                       setDiscountMessage("");
+
                       setDiscountMessageType(
                         "neutral"
                       );
@@ -1363,14 +1461,19 @@ export default function CheckoutPage() {
 
               <button
                 type="submit"
-                disabled={isSending}
+                disabled={
+                  isSending ||
+                  checkingDiscount
+                }
                 className="mt-8 flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-bold text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSending
                   ? "Placing order..."
-                  : `Place order — ${finalTotal.toLocaleString(
-                      "en-GB"
-                    )} EGP`}
+                  : checkingDiscount
+                    ? "Checking discount..."
+                    : `Place order — ${finalTotal.toLocaleString(
+                        "en-GB"
+                      )} EGP`}
               </button>
 
               <p className="mt-4 text-center text-xs leading-5 text-gray-500">
