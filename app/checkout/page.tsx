@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   FormEvent,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import Navbar from "@/components/Navbar";
@@ -15,7 +16,41 @@ const PRODUCT_PRICE = 7900;
 const CART_STORAGE_KEY = "orvixCart";
 
 const INSTAPAY_LOGO =
-  "data:image/webp;base64,UklGRpYEAABXRUJQVlA4IIoEAADQHQCdASqgAKAAPp1Mn0wlpCKiJTUJ0LATiU3cLlF/gIuekT0Pmn3ns1hkoV+3E8xvnAelj0AP6J1NW8+ftbhNVnnGn3JoPptQWL9uCxj36AlNUIKk6x788RawO9mkzhpNg/X1Xog17Mcb/qcokWN7fUK5xSXkwkK7rXdOD3AIJcb96/bZKQgmqcOrVBFLUjVQgLcPQTju688xmUBZLJ1WaZlMNhGVvgfMEicY/uwvZ+vwh8pSFZb8FeGHRio1wzPTi0qbQIx591DY4+MfKmfjLThbCTuxyCTazh5ciIsyXF6kO7970fyrySUEfvfoCU1QxftwWMdYAP7/LfgA7hYGEerK87IhgJUgJFS0xCb/g8N/udzPABaXg+cGWddzDkA/ii3q5/fH8v+AhcokpDm5x9FJUxLPGu9ivJe/bzTTHOjDzR95aVBrSxnpw32edjhslcRbVFwVnTETsgeFYXqdsC9XCK3rM8P2btemaHJuXzOTal1U2oT8j3/Mz3lK0/h6iae8Ex+ZBu3JAMicrRcXakrfS87FzILD624O9mTurRooi5Kl9S+WDxW7N9BnN3xVz1wySBmly/kMjuizbEm6EL4wghQG3QDNaZQ5bz/AsqSwJD0dJ/iGpVYR3cX7NqH4IUXkUCM9cNErz0vUPw20FansPbYacwjKeTYMxaourzlOkFUU3vl37Jegvgi3+xOSi6XvxBtHkeig2zm/yjhgqbMs+JQMfxOzAG8+nW6UYEfmNkdDPh1JdXVK0m5HEBx2lL2t56HYuTQaZ7oStvaTyih92yAmR6BgOiHerGoFIChPHpYFrY0gXvttDoZGUY/w+LtT6BV5ziCMPmT9XZMO9PtaHu0N4C+OphyyzQ3xO14/S0zfmXzRkJVvK95yewEi8FfmDxgzP2NzBRmffwO/97rmJetcx8ZpQ+GdCsHKo8EH5ePY+LqA8FgM6Ym2Rmy8N/ETj2cov5hPigzzMAK83sOHu9TQbVA237FGdrmrvNBonKlr+Lxgiipqi8XXiMyHl8/c3HOWX6SZgjUAk4H0hyMspVIAPQMfKNvbUepzw4jxm4Fmku6iK0POXN9xHg9pT32Xr+2iRtNyTqd44fyaAQASiWI0bQBAAAWO26VOYQkZsGOUEHiqAIEvz9ZYXkhFkMbJ1hpb/pbwG2l6aaODAvtAq97qV7fINf8VaiwjApmuzZ5XawZXi/vW8+yk9cdvbG/yyFrRl0h6PyMFGhh+wLQ0GCDa/jHzto9eQGG59aCBYr3fgf6cfj5GPCE33jFjj8NzKKNABHOEsAx8Y/XJeBTZIl4lWEL5RokBkWip3axl+aH/b2vBiLwUBTwJJyH0W2q25kDOmjiNlwrywjmOBxzYmfRQ9eNCU5eme4Nzac1pcIfWW8c4PVkP9lfeFbvrUVGDtPoYetO+2ltd1itantBIf+DhQ6eP4rwin2X5/BfznMST2LHTPUymtrSvRyzrYjRko1UbMEyxCDB1vbIw0jnJMdsrKzqQVQEpz7pNZw6Pbc/ES5+sCXHFr7E4MN9W4/0AAAAAAAAA";
+  "data:image/svg+xml;charset=UTF-8," +
+  encodeURIComponent(`
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="240"
+      height="240"
+      viewBox="0 0 240 240"
+    >
+      <rect
+        width="240"
+        height="240"
+        rx="45"
+        fill="#101010"
+      />
+
+      <circle
+        cx="120"
+        cy="120"
+        r="82"
+        fill="#7b2cbf"
+      />
+
+      <text
+        x="120"
+        y="137"
+        text-anchor="middle"
+        font-family="Arial, sans-serif"
+        font-size="58"
+        font-weight="900"
+        fill="white"
+      >
+        IP
+      </text>
+    </svg>
+  `);
 
 type Colour = {
   name: string;
@@ -50,15 +85,28 @@ type DiscountApiResult = {
 
   code?: string;
 
+  type?: string;
   discountType?: string;
   discount_type?: string;
-  type?: string;
 
-  discountValue?: number | string;
-  discount_value?: number | string;
   value?: number | string;
   amount?: number | string;
   percentage?: number | string;
+
+  discountValue?: number | string;
+  discount_value?: number | string;
+
+  discountAmount?: number | string;
+  discount_amount?: number | string;
+
+  productDiscount?: number | string;
+  product_discount?: number | string;
+
+  deliveryDiscount?: number | string;
+  delivery_discount?: number | string;
+
+  totalDiscount?: number | string;
+  total_discount?: number | string;
 
   discount?: {
     code?: string;
@@ -68,10 +116,23 @@ type DiscountApiResult = {
     discount_type?: string;
 
     value?: number | string;
-    discountValue?: number | string;
-    discount_value?: number | string;
     amount?: number | string;
     percentage?: number | string;
+
+    discountValue?: number | string;
+    discount_value?: number | string;
+
+    discountAmount?: number | string;
+    discount_amount?: number | string;
+
+    productDiscount?: number | string;
+    product_discount?: number | string;
+
+    deliveryDiscount?: number | string;
+    delivery_discount?: number | string;
+
+    totalDiscount?: number | string;
+    total_discount?: number | string;
   };
 };
 
@@ -131,6 +192,22 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
     value.trim()
   );
+}
+
+function safeNumber(
+  value:
+    | number
+    | string
+    | null
+    | undefined
+) {
+  const parsedValue = Number(value);
+
+  if (!Number.isFinite(parsedValue)) {
+    return 0;
+  }
+
+  return Math.max(parsedValue, 0);
 }
 
 function findColour(value: string | null) {
@@ -209,29 +286,50 @@ function normaliseDiscountType(
     .replaceAll("-", "_")
     .replaceAll(" ", "_");
 
+  const freeDeliveryTypes = [
+    "free_delivery",
+    "free_shipping",
+    "free_delivery_code",
+    "shipping",
+    "delivery",
+    "shipping_discount",
+    "delivery_discount",
+  ];
+
   if (
-    cleanType === "free_delivery" ||
-    cleanType === "free_shipping" ||
-    cleanType === "delivery" ||
-    cleanType === "shipping"
+    freeDeliveryTypes.includes(cleanType)
   ) {
     return "free_delivery";
   }
 
+  const fixedAmountTypes = [
+    "fixed_amount",
+    "fixed",
+    "amount",
+    "money",
+    "cash",
+    "fixed_discount",
+    "amount_discount",
+    "cash_discount",
+  ];
+
   if (
-    cleanType === "fixed_amount" ||
-    cleanType === "fixed" ||
-    cleanType === "amount" ||
-    cleanType === "cash" ||
-    cleanType === "money"
+    fixedAmountTypes.includes(cleanType)
   ) {
     return "fixed_amount";
   }
 
+  const percentageTypes = [
+    "percentage",
+    "percent",
+    "percentage_off",
+    "percent_off",
+    "percentage_discount",
+    "percent_discount",
+  ];
+
   if (
-    cleanType === "percentage" ||
-    cleanType === "percent" ||
-    cleanType === "percentage_off"
+    percentageTypes.includes(cleanType)
   ) {
     return "percentage";
   }
@@ -248,20 +346,58 @@ function getDiscountValue(
     result.value ??
     result.amount ??
     result.percentage ??
+    result.discountAmount ??
+    result.discount_amount ??
     result.discount?.discountValue ??
     result.discount?.discount_value ??
     result.discount?.value ??
     result.discount?.amount ??
     result.discount?.percentage ??
+    result.discount?.discountAmount ??
+    result.discount?.discount_amount ??
     0;
 
-  const parsedValue = Number(rawValue);
+  return safeNumber(rawValue);
+}
 
-  if (!Number.isFinite(parsedValue)) {
-    return 0;
-  }
+function getApiProductDiscount(
+  result: DiscountApiResult
+) {
+  return safeNumber(
+    result.productDiscount ??
+      result.product_discount ??
+      result.discount?.productDiscount ??
+      result.discount?.product_discount ??
+      0
+  );
+}
 
-  return Math.max(parsedValue, 0);
+function getApiDeliveryDiscount(
+  result: DiscountApiResult
+) {
+  return safeNumber(
+    result.deliveryDiscount ??
+      result.delivery_discount ??
+      result.discount?.deliveryDiscount ??
+      result.discount?.delivery_discount ??
+      0
+  );
+}
+
+function getApiTotalDiscount(
+  result: DiscountApiResult
+) {
+  return safeNumber(
+    result.totalDiscount ??
+      result.total_discount ??
+      result.discount?.totalDiscount ??
+      result.discount?.total_discount ??
+      result.discountAmount ??
+      result.discount_amount ??
+      result.discount?.discountAmount ??
+      result.discount?.discount_amount ??
+      0
+  );
 }
 
 function getReturnedDiscountCode(
@@ -278,41 +414,165 @@ function getReturnedDiscountCode(
     .toUpperCase();
 }
 
+function createAppliedDiscount(
+  result: DiscountApiResult,
+  fallbackCode: string,
+  productsTotal: number,
+  deliveryFee: number
+): AppliedDiscount | null {
+  let discountType =
+    normaliseDiscountType(result);
+
+  let discountValue =
+    getDiscountValue(result);
+
+  const apiProductDiscount =
+    getApiProductDiscount(result);
+
+  const apiDeliveryDiscount =
+    getApiDeliveryDiscount(result);
+
+  const apiTotalDiscount =
+    getApiTotalDiscount(result);
+
+  /*
+    بعض نسخ الـ API القديمة ممكن ترجع
+    قيمة الخصم من غير نوع الخصم.
+    الكود ده بيحاول يحدد النوع تلقائيًا.
+  */
+  if (!discountType) {
+    if (
+      apiDeliveryDiscount > 0 &&
+      apiProductDiscount === 0
+    ) {
+      discountType = "free_delivery";
+    } else if (
+      apiProductDiscount > 0 ||
+      apiTotalDiscount > 0
+    ) {
+      discountType = "fixed_amount";
+    }
+  }
+
+  if (!discountType) {
+    return null;
+  }
+
+  if (
+    discountType === "free_delivery"
+  ) {
+    return {
+      code: getReturnedDiscountCode(
+        result,
+        fallbackCode
+      ),
+      type: "free_delivery",
+      value: deliveryFee,
+    };
+  }
+
+  if (discountValue <= 0) {
+    discountValue =
+      apiProductDiscount ||
+      apiTotalDiscount;
+  }
+
+  if (
+    discountType === "fixed_amount"
+  ) {
+    const fixedValue = Math.min(
+      Math.round(discountValue),
+      productsTotal
+    );
+
+    if (fixedValue <= 0) {
+      return null;
+    }
+
+    return {
+      code: getReturnedDiscountCode(
+        result,
+        fallbackCode
+      ),
+      type: "fixed_amount",
+      value: fixedValue,
+    };
+  }
+
+  if (
+    discountValue <= 0 ||
+    discountValue > 100
+  ) {
+    return null;
+  }
+
+  return {
+    code: getReturnedDiscountCode(
+      result,
+      fallbackCode
+    ),
+    type: "percentage",
+    value: discountValue,
+  };
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
 
-  const [selectedColour, setSelectedColour] =
-    useState<Colour>(colours[0]);
+  const [
+    selectedColour,
+    setSelectedColour,
+  ] = useState<Colour>(colours[0]);
 
-  const [selectedAreaCode, setSelectedAreaCode] =
+  const [
+    selectedAreaCode,
+    setSelectedAreaCode,
+  ] = useState("");
+
+  const [quantity, setQuantity] =
+    useState(1);
+
+  const [fullName, setFullName] =
     useState("");
 
-  const [quantity, setQuantity] = useState(1);
-
-  const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
-
-  const [customerEmail, setCustomerEmail] =
+  const [phone, setPhone] =
     useState("");
 
-  const [address, setAddress] = useState("");
-  const [notes, setNotes] = useState("");
+  const [
+    customerEmail,
+    setCustomerEmail,
+  ] = useState("");
 
-  const [discountCode, setDiscountCode] =
+  const [address, setAddress] =
     useState("");
+
+  const [notes, setNotes] =
+    useState("");
+
+  const [
+    discountCode,
+    setDiscountCode,
+  ] = useState("");
 
   const [
     appliedDiscount,
     setAppliedDiscount,
-  ] = useState<AppliedDiscount | null>(null);
+  ] = useState<AppliedDiscount | null>(
+    null
+  );
 
-  const [discountMessage, setDiscountMessage] =
-    useState("");
+  const [
+    discountMessage,
+    setDiscountMessage,
+  ] = useState("");
 
   const [
     discountMessageType,
     setDiscountMessageType,
-  ] = useState<DiscountMessageType>("neutral");
+  ] =
+    useState<DiscountMessageType>(
+      "neutral"
+    );
 
   const [
     checkingDiscount,
@@ -325,50 +585,65 @@ export default function CheckoutPage() {
   const [orderError, setOrderError] =
     useState("");
 
-  const selectedArea = deliveryAreas.find(
-    (area) => area.code === selectedAreaCode
-  );
+  const selectedArea =
+    deliveryAreas.find(
+      (area) =>
+        area.code === selectedAreaCode
+    );
 
-  const deliveryFee = selectedArea?.fee ?? 0;
+  const deliveryFee =
+    selectedArea?.fee ?? 0;
 
-  const productsTotal =
+  const originalProductsTotal =
     PRODUCT_PRICE * quantity;
 
-  const hasAppliedDiscount =
-    appliedDiscount !== null;
+  const productDiscount =
+    useMemo(() => {
+      if (!appliedDiscount) {
+        return 0;
+      }
 
-  let productDiscount = 0;
-  let deliveryDiscount = 0;
+      if (
+        appliedDiscount.type ===
+        "fixed_amount"
+      ) {
+        return Math.min(
+          Math.round(
+            appliedDiscount.value
+          ),
+          originalProductsTotal
+        );
+      }
 
-  if (
-    appliedDiscount?.type === "free_delivery"
-  ) {
-    deliveryDiscount = deliveryFee;
-  }
+      if (
+        appliedDiscount.type ===
+        "percentage"
+      ) {
+        return Math.min(
+          Math.round(
+            originalProductsTotal *
+              (appliedDiscount.value /
+                100)
+          ),
+          originalProductsTotal
+        );
+      }
 
-  if (
-    appliedDiscount?.type === "fixed_amount"
-  ) {
-    productDiscount = Math.min(
-      Math.round(appliedDiscount.value),
-      productsTotal
-    );
-  }
+      return 0;
+    }, [
+      appliedDiscount,
+      originalProductsTotal,
+    ]);
 
-  if (
-    appliedDiscount?.type === "percentage"
-  ) {
-    productDiscount = Math.min(
-      Math.round(
-        productsTotal *
-          (appliedDiscount.value / 100)
-      ),
-      productsTotal
-    );
-  }
+  const deliveryDiscount =
+    appliedDiscount?.type ===
+    "free_delivery"
+      ? deliveryFee
+      : 0;
 
   const finalProductsTotal = Math.max(
-    productsTotal - productDiscount,
+    originalProductsTotal -
+      productDiscount,
     0
   );
 
@@ -380,56 +655,79 @@ export default function CheckoutPage() {
   const totalDiscount =
     productDiscount + deliveryDiscount;
 
+  const originalTotal =
+    originalProductsTotal + deliveryFee;
+
   const finalTotal = Math.max(
-    finalProductsTotal + finalDeliveryFee,
+    finalProductsTotal +
+      finalDeliveryFee,
     0
   );
 
+  const hasAppliedDiscount =
+    appliedDiscount !== null;
+
   useEffect(() => {
-    const searchParams = new URLSearchParams(
-      window.location.search
-    );
+    const searchParams =
+      new URLSearchParams(
+        window.location.search
+      );
 
     const colourFromUrl = findColour(
       searchParams.get("colour")
     );
 
-    const quantityFromUrl = parseQuantity(
-      searchParams.get("quantity")
-    );
+    const quantityFromUrl =
+      parseQuantity(
+        searchParams.get("quantity")
+      );
 
     if (colourFromUrl) {
-      setSelectedColour(colourFromUrl);
+      setSelectedColour(
+        colourFromUrl
+      );
     }
 
     if (quantityFromUrl) {
       setQuantity(quantityFromUrl);
     }
 
-    if (!colourFromUrl || !quantityFromUrl) {
-      const cartItem = readFirstCartItem();
+    if (
+      !colourFromUrl ||
+      !quantityFromUrl
+    ) {
+      const cartItem =
+        readFirstCartItem();
 
       if (!cartItem) {
         return;
       }
 
       if (!colourFromUrl) {
-        const cartColour = findColour(
-          cartItem.colour
-        );
+        const cartColour =
+          findColour(
+            cartItem.colour
+          );
 
         if (cartColour) {
-          setSelectedColour(cartColour);
+          setSelectedColour(
+            cartColour
+          );
         }
       }
 
       if (!quantityFromUrl) {
-        const cartQuantity = parseQuantity(
-          String(cartItem.quantity)
-        );
+        const cartQuantity =
+          parseQuantity(
+            String(
+              cartItem.quantity
+            )
+          );
 
         if (cartQuantity) {
-          setQuantity(cartQuantity);
+          setQuantity(
+            cartQuantity
+          );
         }
       }
     }
@@ -438,8 +736,10 @@ export default function CheckoutPage() {
   useEffect(() => {
     setAppliedDiscount(null);
     setDiscountMessage("");
-    setDiscountMessageType("neutral");
     setDiscountCode("");
+    setDiscountMessageType(
+      "neutral"
+    );
   }, [selectedAreaCode]);
 
   async function applyDiscountCode() {
@@ -454,7 +754,10 @@ export default function CheckoutPage() {
         "Please select your delivery area first."
       );
 
-      setDiscountMessageType("error");
+      setDiscountMessageType(
+        "error"
+      );
+
       return;
     }
 
@@ -465,28 +768,55 @@ export default function CheckoutPage() {
         "Please enter a discount code."
       );
 
-      setDiscountMessageType("error");
+      setDiscountMessageType(
+        "error"
+      );
+
       return;
     }
 
     setCheckingDiscount(true);
     setDiscountMessage("");
-    setDiscountMessageType("neutral");
+    setDiscountMessageType(
+      "neutral"
+    );
 
     try {
       const response = await fetch(
         "/api/discounts/validate",
         {
           method: "POST",
+
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
+
           body: JSON.stringify({
             code: cleanCode,
-            productsTotal,
+
+            productName:
+              PRODUCT_NAME,
+
+            productSlug:
+              PRODUCT_SLUG,
+
+            quantity,
+
+            productPrice:
+              PRODUCT_PRICE,
+
+            productsTotal:
+              originalProductsTotal,
+
+            originalProductsTotal,
+
             deliveryFee,
+
             orderTotal:
-              productsTotal + deliveryFee,
+              originalTotal,
+
+            originalTotal,
           }),
         }
       );
@@ -494,7 +824,10 @@ export default function CheckoutPage() {
       const result =
         (await response.json()) as DiscountApiResult;
 
-      if (!response.ok || !result.success) {
+      if (
+        !response.ok ||
+        !result.success
+      ) {
         setAppliedDiscount(null);
 
         setDiscountMessage(
@@ -502,73 +835,50 @@ export default function CheckoutPage() {
             "Invalid discount code."
         );
 
-        setDiscountMessageType("error");
+        setDiscountMessageType(
+          "error"
+        );
+
         return;
       }
 
-      const discountType =
-        normaliseDiscountType(result);
-
-      const discountValue =
-        getDiscountValue(result);
-
-      const returnedCode =
-        getReturnedDiscountCode(
+      const parsedDiscount =
+        createAppliedDiscount(
           result,
-          cleanCode
+          cleanCode,
+          originalProductsTotal,
+          deliveryFee
         );
 
-      if (!discountType) {
+      if (!parsedDiscount) {
         setAppliedDiscount(null);
 
         setDiscountMessage(
-          "This discount code has an unsupported discount type."
+          "The discount code was found, but its discount settings are not valid."
         );
 
-        setDiscountMessageType("error");
+        setDiscountMessageType(
+          "error"
+        );
+
         return;
       }
 
-      if (
-        discountType === "fixed_amount" &&
-        discountValue <= 0
-      ) {
-        setAppliedDiscount(null);
+      setAppliedDiscount(
+        parsedDiscount
+      );
 
-        setDiscountMessage(
-          "This discount code does not have a valid discount amount."
-        );
+      setDiscountCode(
+        parsedDiscount.code
+      );
 
-        setDiscountMessageType("error");
-        return;
-      }
+      setDiscountMessageType(
+        "success"
+      );
 
       if (
-        discountType === "percentage" &&
-        (discountValue <= 0 ||
-          discountValue > 100)
-      ) {
-        setAppliedDiscount(null);
-
-        setDiscountMessage(
-          "This discount code does not have a valid percentage."
-        );
-
-        setDiscountMessageType("error");
-        return;
-      }
-
-      setAppliedDiscount({
-        code: returnedCode,
-        type: discountType,
-        value: discountValue,
-      });
-
-      setDiscountCode(returnedCode);
-      setDiscountMessageType("success");
-
-      if (
-        discountType === "free_delivery"
+        parsedDiscount.type ===
+        "free_delivery"
       ) {
         setDiscountMessage(
           "Free delivery applied successfully."
@@ -578,17 +888,18 @@ export default function CheckoutPage() {
       }
 
       if (
-        discountType === "percentage"
+        parsedDiscount.type ===
+        "percentage"
       ) {
         setDiscountMessage(
-          `${discountValue}% discount applied successfully.`
+          `${parsedDiscount.value}% discount applied successfully.`
         );
 
         return;
       }
 
       setDiscountMessage(
-        `${discountValue.toLocaleString(
+        `${parsedDiscount.value.toLocaleString(
           "en-GB"
         )} EGP discount applied successfully.`
       );
@@ -599,7 +910,9 @@ export default function CheckoutPage() {
         "Could not check the discount code."
       );
 
-      setDiscountMessageType("error");
+      setDiscountMessageType(
+        "error"
+      );
     } finally {
       setCheckingDiscount(false);
     }
@@ -613,7 +926,9 @@ export default function CheckoutPage() {
       "Discount code removed."
     );
 
-    setDiscountMessageType("neutral");
+    setDiscountMessageType(
+      "neutral"
+    );
   }
 
   async function handleOrderSubmit(
@@ -651,9 +966,10 @@ export default function CheckoutPage() {
       return;
     }
 
-    const normalisedEmail = customerEmail
-      .trim()
-      .toLowerCase();
+    const normalisedEmail =
+      customerEmail
+        .trim()
+        .toLowerCase();
 
     if (
       normalisedEmail &&
@@ -681,50 +997,98 @@ export default function CheckoutPage() {
         "/api/order",
         {
           method: "POST",
+
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
+
           body: JSON.stringify({
-            fullName: fullName.trim(),
+            fullName:
+              fullName.trim(),
+
             phone: phone.trim(),
 
             customerEmail:
-              normalisedEmail || null,
+              normalisedEmail ||
+              null,
 
-            governorate: selectedArea.name,
-            address: address.trim(),
+            governorate:
+              selectedArea.name,
+
+            governorateCode:
+              selectedArea.code,
+
+            address:
+              address.trim(),
+
             notes: notes.trim(),
 
-            productName: PRODUCT_NAME,
-            productSlug: PRODUCT_SLUG,
+            productName:
+              PRODUCT_NAME,
 
-            colour: selectedColour.name,
+            productSlug:
+              PRODUCT_SLUG,
+
+            colour:
+              selectedColour.name,
+
             quantity,
 
-            productPrice: PRODUCT_PRICE,
-            productsTotal,
+            productPrice:
+              PRODUCT_PRICE,
 
-            deliveryFee: finalDeliveryFee,
-            originalDeliveryFee:
-              deliveryFee,
+            /*
+              مهم جدًا:
 
-            discountCode:
-              appliedDiscount?.code || "",
+              productsTotal يتم إرساله
+              بعد الخصم، علشان الأدمن
+              والبوليصة يعرضوا المبلغ
+              الصحيح المطلوب لـ ORVIX.
+            */
+            productsTotal:
+              finalProductsTotal,
 
-            discountType:
-              appliedDiscount?.type || null,
-
-            discountValue:
-              appliedDiscount?.value || 0,
-
-            productDiscount,
-            deliveryDiscount,
-            totalDiscount,
+            /*
+              السعر الأصلي محفوظ لو احتجته
+              في الأدمن أو التقارير.
+            */
+            originalProductsTotal,
 
             discountedProductsTotal:
               finalProductsTotal,
 
-            totalPrice: finalTotal,
+            deliveryFee:
+              finalDeliveryFee,
+
+            originalDeliveryFee:
+              deliveryFee,
+
+            discountCode:
+              appliedDiscount?.code ||
+              null,
+
+            discountType:
+              appliedDiscount?.type ||
+              null,
+
+            discountValue:
+              appliedDiscount?.value ||
+              0,
+
+            productDiscount,
+
+            deliveryDiscount,
+
+            totalDiscount,
+
+            originalTotalPrice:
+              originalTotal,
+
+            totalPrice:
+              finalTotal,
+
+            finalTotal,
 
             paymentMethod:
               "instapay_on_delivery",
@@ -732,9 +1096,13 @@ export default function CheckoutPage() {
         }
       );
 
-      const result = await response.json();
+      const result =
+        await response.json();
 
-      if (!response.ok || !result.success) {
+      if (
+        !response.ok ||
+        !result.success
+      ) {
         throw new Error(
           result.message ||
             "Could not place your order."
@@ -772,7 +1140,9 @@ export default function CheckoutPage() {
       );
 
       window.dispatchEvent(
-        new Event("orvix-cart-updated")
+        new Event(
+          "orvix-cart-updated"
+        )
       );
 
       router.push(
@@ -807,9 +1177,10 @@ export default function CheckoutPage() {
             </h1>
 
             <p className="mt-5 max-w-2xl leading-7 text-gray-400">
-              Review your product, enter your
-              delivery information and pay using
-              InstaPay when your order arrives.
+              Review your product, enter
+              your delivery information and
+              pay using InstaPay when your
+              order arrives.
             </p>
           </div>
 
@@ -826,8 +1197,12 @@ export default function CheckoutPage() {
                 <div className="mt-6 grid gap-6 sm:grid-cols-[180px_1fr] sm:items-center">
                   <div className="rounded-[24px] bg-white p-4">
                     <Image
-                      key={selectedColour.name}
-                      src={selectedColour.image}
+                      key={
+                        selectedColour.name
+                      }
+                      src={
+                        selectedColour.image
+                      }
                       alt={`${PRODUCT_NAME} - ${selectedColour.name}`}
                       width={500}
                       height={500}
@@ -853,8 +1228,10 @@ export default function CheckoutPage() {
                     </p>
 
                     <p className="mt-2 text-sm text-gray-500">
-                      {selectedColour.name} ·
-                      Quantity {quantity}
+                      {
+                        selectedColour.name
+                      }{" "}
+                      · Quantity {quantity}
                     </p>
                   </div>
                 </div>
@@ -866,37 +1243,47 @@ export default function CheckoutPage() {
                 </h2>
 
                 <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                  {colours.map((colour) => {
-                    const selected =
-                      selectedColour.name ===
-                      colour.name;
+                  {colours.map(
+                    (colour) => {
+                      const selected =
+                        selectedColour.name ===
+                        colour.name;
 
-                    return (
-                      <button
-                        key={colour.name}
-                        type="button"
-                        onClick={() =>
-                          setSelectedColour(colour)
-                        }
-                        disabled={isSending}
-                        className={`flex items-center gap-3 rounded-2xl border p-4 text-left font-bold transition disabled:opacity-50 ${
-                          selected
-                            ? "border-white bg-white text-black"
-                            : "border-white/15 bg-black/20 text-white hover:border-white/30"
-                        }`}
-                      >
-                        <span
-                          className={`h-6 w-6 rounded-full border ${
+                      return (
+                        <button
+                          key={
+                            colour.name
+                          }
+                          type="button"
+                          onClick={() =>
+                            setSelectedColour(
+                              colour
+                            )
+                          }
+                          disabled={
+                            isSending
+                          }
+                          className={`flex items-center gap-3 rounded-2xl border p-4 text-left font-bold transition disabled:opacity-50 ${
                             selected
-                              ? "border-black/20"
-                              : "border-white/20"
-                          } ${colour.buttonStyle}`}
-                        />
+                              ? "border-white bg-white text-black"
+                              : "border-white/15 bg-black/20 text-white hover:border-white/30"
+                          }`}
+                        >
+                          <span
+                            className={`h-6 w-6 rounded-full border ${
+                              selected
+                                ? "border-black/20"
+                                : "border-white/20"
+                            } ${
+                              colour.buttonStyle
+                            }`}
+                          />
 
-                        {colour.name}
-                      </button>
-                    );
-                  })}
+                          {colour.name}
+                        </button>
+                      );
+                    }
+                  )}
                 </div>
               </section>
 
@@ -909,11 +1296,12 @@ export default function CheckoutPage() {
                   <button
                     type="button"
                     onClick={() =>
-                      setQuantity((current) =>
-                        Math.max(
-                          1,
-                          current - 1
-                        )
+                      setQuantity(
+                        (current) =>
+                          Math.max(
+                            1,
+                            current - 1
+                          )
                       )
                     }
                     disabled={isSending}
@@ -930,11 +1318,12 @@ export default function CheckoutPage() {
                   <button
                     type="button"
                     onClick={() =>
-                      setQuantity((current) =>
-                        Math.min(
-                          10,
-                          current + 1
-                        )
+                      setQuantity(
+                        (current) =>
+                          Math.min(
+                            10,
+                            current + 1
+                          )
                       )
                     }
                     disabled={isSending}
@@ -962,7 +1351,8 @@ export default function CheckoutPage() {
                       value={fullName}
                       onChange={(event) =>
                         setFullName(
-                          event.target.value
+                          event.target
+                            .value
                         )
                       }
                       placeholder="Enter your full name"
@@ -983,7 +1373,8 @@ export default function CheckoutPage() {
                       value={phone}
                       onChange={(event) =>
                         setPhone(
-                          event.target.value
+                          event.target
+                            .value
                         )
                       }
                       placeholder="01XXXXXXXXX"
@@ -997,7 +1388,8 @@ export default function CheckoutPage() {
 
                   <label>
                     <span className="mb-2 block text-sm font-bold text-gray-300">
-                      Email address — optional
+                      Email address —
+                      optional
                     </span>
 
                     <input
@@ -1005,7 +1397,8 @@ export default function CheckoutPage() {
                       value={customerEmail}
                       onChange={(event) =>
                         setCustomerEmail(
-                          event.target.value
+                          event.target
+                            .value
                         )
                       }
                       placeholder="name@example.com"
@@ -1016,9 +1409,10 @@ export default function CheckoutPage() {
                     />
 
                     <p className="mt-2 text-sm leading-6 text-gray-500">
-                      If you enter an email, your
-                      order and tracking details
-                      can be sent to it.
+                      If you enter an
+                      email, your order and
+                      tracking details can
+                      be sent to it.
                     </p>
                   </label>
                 </div>
@@ -1032,14 +1426,18 @@ export default function CheckoutPage() {
                 <div className="mt-6 grid gap-5">
                   <label>
                     <span className="mb-2 block text-sm font-bold text-gray-300">
-                      Governorate / delivery area
+                      Governorate /
+                      delivery area
                     </span>
 
                     <select
-                      value={selectedAreaCode}
+                      value={
+                        selectedAreaCode
+                      }
                       onChange={(event) =>
                         setSelectedAreaCode(
-                          event.target.value
+                          event.target
+                            .value
                         )
                       }
                       disabled={isSending}
@@ -1047,14 +1445,19 @@ export default function CheckoutPage() {
                       className="w-full rounded-2xl border border-white/15 bg-black px-5 py-4 text-white outline-none focus:border-white disabled:opacity-50"
                     >
                       <option value="">
-                        Select your delivery area
+                        Select your
+                        delivery area
                       </option>
 
                       {deliveryAreas.map(
                         (area) => (
                           <option
-                            key={area.code}
-                            value={area.code}
+                            key={
+                              area.code
+                            }
+                            value={
+                              area.code
+                            }
                           >
                             {area.name} —{" "}
                             {area.fee} EGP
@@ -1073,7 +1476,8 @@ export default function CheckoutPage() {
                       value={address}
                       onChange={(event) =>
                         setAddress(
-                          event.target.value
+                          event.target
+                            .value
                         )
                       }
                       placeholder="Area, street, building, floor and apartment"
@@ -1087,14 +1491,16 @@ export default function CheckoutPage() {
 
                   <label>
                     <span className="mb-2 block text-sm font-bold text-gray-300">
-                      Order notes — optional
+                      Order notes —
+                      optional
                     </span>
 
                     <textarea
                       value={notes}
                       onChange={(event) =>
                         setNotes(
-                          event.target.value
+                          event.target
+                            .value
                         )
                       }
                       placeholder="Add any useful delivery notes"
@@ -1113,103 +1519,85 @@ export default function CheckoutPage() {
               </h2>
 
               <div className="mt-7 space-y-5">
-                <div className="flex justify-between gap-5">
-                  <span className="text-gray-400">
-                    Product
-                  </span>
+                <SummaryRow
+                  title="Product"
+                  value={PRODUCT_NAME}
+                />
 
-                  <strong className="text-right">
-                    {PRODUCT_NAME}
-                  </strong>
-                </div>
+                <SummaryRow
+                  title="Colour"
+                  value={
+                    selectedColour.name
+                  }
+                />
 
-                <div className="flex justify-between gap-5">
-                  <span className="text-gray-400">
-                    Colour
-                  </span>
+                <SummaryRow
+                  title="Quantity"
+                  value={String(quantity)}
+                />
 
-                  <strong>
-                    {selectedColour.name}
-                  </strong>
-                </div>
+                <SummaryRow
+                  title="Products total"
+                  value={`${originalProductsTotal.toLocaleString(
+                    "en-GB"
+                  )} EGP`}
+                />
 
-                <div className="flex justify-between gap-5">
-                  <span className="text-gray-400">
-                    Quantity
-                  </span>
-
-                  <strong>{quantity}</strong>
-                </div>
-
-                <div className="flex justify-between gap-5">
-                  <span className="text-gray-400">
-                    Products total
-                  </span>
-
-                  <strong>
-                    {productsTotal.toLocaleString(
+                {productDiscount >
+                  0 && (
+                  <SummaryRow
+                    title="Product discount"
+                    value={`-${productDiscount.toLocaleString(
                       "en-GB"
-                    )}{" "}
-                    EGP
-                  </strong>
-                </div>
-
-                {productDiscount > 0 && (
-                  <div className="flex justify-between gap-5 text-green-400">
-                    <span>
-                      Product discount
-                    </span>
-
-                    <strong>
-                      -
-                      {productDiscount.toLocaleString(
-                        "en-GB"
-                      )}{" "}
-                      EGP
-                    </strong>
-                  </div>
+                    )} EGP`}
+                    green
+                  />
                 )}
 
-                <div className="flex justify-between gap-5">
-                  <span className="text-gray-400">
-                    Delivery
-                  </span>
+                {productDiscount >
+                  0 && (
+                  <SummaryRow
+                    title="Products after discount"
+                    value={`${finalProductsTotal.toLocaleString(
+                      "en-GB"
+                    )} EGP`}
+                    green
+                  />
+                )}
 
-                  <strong>
-                    {!selectedArea
+                <SummaryRow
+                  title="Delivery"
+                  value={
+                    !selectedArea
                       ? "Select area"
-                      : finalDeliveryFee === 0
+                      : finalDeliveryFee ===
+                          0
                         ? "FREE"
-                        : `${finalDeliveryFee} EGP`}
-                  </strong>
-                </div>
+                        : `${finalDeliveryFee.toLocaleString(
+                            "en-GB"
+                          )} EGP`
+                  }
+                />
 
-                {deliveryDiscount > 0 && (
-                  <div className="flex justify-between gap-5 text-green-400">
-                    <span>
-                      Delivery discount
-                    </span>
-
-                    <strong>
-                      -
-                      {deliveryDiscount.toLocaleString(
-                        "en-GB"
-                      )}{" "}
-                      EGP
-                    </strong>
-                  </div>
+                {deliveryDiscount >
+                  0 && (
+                  <SummaryRow
+                    title="Delivery discount"
+                    value={`-${deliveryDiscount.toLocaleString(
+                      "en-GB"
+                    )} EGP`}
+                    green
+                  />
                 )}
 
                 {appliedDiscount && (
-                  <div className="flex justify-between gap-5">
-                    <span className="text-gray-400">
-                      Discount code
-                    </span>
-
-                    <strong className="text-green-400">
-                      {appliedDiscount.code}
-                    </strong>
-                  </div>
+                  <SummaryRow
+                    title="Discount code"
+                    value={
+                      appliedDiscount.code
+                    }
+                    green
+                  />
                 )}
               </div>
 
@@ -1223,12 +1611,27 @@ export default function CheckoutPage() {
                     type="text"
                     value={discountCode}
                     onChange={(event) => {
+                      const newCode =
+                        event.target.value.toUpperCase();
+
                       setDiscountCode(
-                        event.target.value.toUpperCase()
+                        newCode
                       );
 
-                      setAppliedDiscount(null);
-                      setDiscountMessage("");
+                      if (
+                        appliedDiscount &&
+                        newCode !==
+                          appliedDiscount.code
+                      ) {
+                        setAppliedDiscount(
+                          null
+                        );
+                      }
+
+                      setDiscountMessage(
+                        ""
+                      );
+
                       setDiscountMessageType(
                         "neutral"
                       );
@@ -1265,8 +1668,9 @@ export default function CheckoutPage() {
 
                 {!selectedArea && (
                   <p className="mt-3 text-sm text-gray-500">
-                    Select your delivery area before
-                    applying a code.
+                    Select your delivery
+                    area before applying a
+                    code.
                   </p>
                 )}
 
@@ -1318,6 +1722,15 @@ export default function CheckoutPage() {
                 </strong>
               </div>
 
+              {totalDiscount > 0 && (
+                <p className="mt-2 text-right text-sm text-gray-500 line-through">
+                  {originalTotal.toLocaleString(
+                    "en-GB"
+                  )}{" "}
+                  EGP
+                </p>
+              )}
+
               <div className="mt-7 rounded-3xl border border-white/10 bg-black p-5">
                 <div className="flex items-start gap-4">
                   <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black p-1">
@@ -1334,21 +1747,45 @@ export default function CheckoutPage() {
                     </p>
 
                     <p className="mt-2 text-sm leading-6 text-gray-400">
-                      Pay through InstaPay only when
-                      your order arrives. No advance
-                      payment is required.
+                      Pay the products
+                      total through
+                      InstaPay to ORVIX
+                      when your order
+                      arrives. The courier
+                      collects the delivery
+                      fee only.
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-4 border-t border-white/10 pt-4">
-                  <p className="text-xs leading-5 text-gray-500">
-                    Official payment details will
-                    be provided when your order is
-                    confirmed or delivered. Never
-                    transfer money to an unverified
-                    account.
-                  </p>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between gap-4">
+                      <span className="text-gray-500">
+                        InstaPay to ORVIX
+                      </span>
+
+                      <strong>
+                        {finalProductsTotal.toLocaleString(
+                          "en-GB"
+                        )}{" "}
+                        EGP
+                      </strong>
+                    </div>
+
+                    <div className="flex justify-between gap-4">
+                      <span className="text-gray-500">
+                        Courier collection
+                      </span>
+
+                      <strong>
+                        {finalDeliveryFee.toLocaleString(
+                          "en-GB"
+                        )}{" "}
+                        EGP
+                      </strong>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1374,15 +1811,15 @@ export default function CheckoutPage() {
               </button>
 
               <p className="mt-4 text-center text-xs leading-5 text-gray-500">
-                By placing your order, you confirm
-                that the provided information is
-                correct.
+                By placing your order, you
+                confirm that the provided
+                information is correct.
               </p>
 
               {isSending && (
                 <p className="mt-4 text-center text-sm text-gray-500">
-                  Please do not close or refresh
-                  this page.
+                  Please do not close or
+                  refresh this page.
                 </p>
               )}
             </aside>
@@ -1392,9 +1829,42 @@ export default function CheckoutPage() {
 
       <footer className="border-t border-white/10 py-8">
         <p className="text-center text-sm text-gray-600">
-          © 2026 ORVIX. All rights reserved.
+          © 2026 ORVIX. All rights
+          reserved.
         </p>
       </footer>
     </main>
+  );
+}
+
+function SummaryRow({
+  title,
+  value,
+  green = false,
+}: {
+  title: string;
+  value: string;
+  green?: boolean;
+}) {
+  return (
+    <div
+      className={`flex justify-between gap-5 ${
+        green ? "text-green-400" : ""
+      }`}
+    >
+      <span
+        className={
+          green
+            ? "text-green-400"
+            : "text-gray-400"
+        }
+      >
+        {title}
+      </span>
+
+      <strong className="text-right">
+        {value}
+      </strong>
+    </div>
   );
 }
