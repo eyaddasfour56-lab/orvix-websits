@@ -81,11 +81,97 @@ const orderStatuses = [
   },
 ];
 
-function formatWhatsAppNumber(phone: string) {
-  let digits = String(phone || "").replace(
-    /\D/g,
-    ""
+function toSafeNumber(
+  value:
+    | number
+    | string
+    | null
+    | undefined
+) {
+  const numberValue = Number(value || 0);
+
+  if (!Number.isFinite(numberValue)) {
+    return 0;
+  }
+
+  return Math.max(numberValue, 0);
+}
+
+/*
+  قيمة المنتجات التي يتم تحويلها
+  إلى ORVIX عبر InstaPay.
+*/
+function getOrvixCollection(order: Order) {
+  const storedProductsTotal =
+    toSafeNumber(order.products_total);
+
+  if (storedProductsTotal > 0) {
+    return storedProductsTotal;
+  }
+
+  /*
+    احتياطي للأوردرات القديمة:
+    لو products_total غير موجود،
+    نحسب قيمة المنتجات من الإجمالي
+    ناقص الشحن.
+  */
+  const storedTotal = toSafeNumber(
+    order.total_price
   );
+
+  const deliveryFee = toSafeNumber(
+    order.delivery_fee
+  );
+
+  return Math.max(
+    storedTotal - deliveryFee,
+    0
+  );
+}
+
+/*
+  المبلغ الوحيد الذي يحصل عليه
+  مندوب الشحن.
+*/
+function getCourierCollection(
+  order: Order
+) {
+  return toSafeNumber(
+    order.delivery_fee
+  );
+}
+
+/*
+  إجمالي الأوردر =
+  قيمة المنتجات + الشحن.
+*/
+function getCalculatedOrderTotal(
+  order: Order
+) {
+  return (
+    getOrvixCollection(order) +
+    getCourierCollection(order)
+  );
+}
+
+function formatMoney(
+  value:
+    | number
+    | string
+    | null
+    | undefined
+) {
+  return toSafeNumber(
+    value
+  ).toLocaleString("en-GB");
+}
+
+function formatWhatsAppNumber(
+  phone: string
+) {
+  let digits = String(
+    phone || ""
+  ).replace(/\D/g, "");
 
   if (digits.startsWith("0020")) {
     digits = digits.slice(2);
@@ -102,41 +188,61 @@ function formatWhatsAppNumber(phone: string) {
   return `20${digits}`;
 }
 
-function createWhatsAppLink(order: Order) {
+function createWhatsAppLink(
+  order: Order
+) {
   const phoneNumber =
     formatWhatsAppNumber(order.phone);
+
+  const orvixCollection =
+    getOrvixCollection(order);
+
+  const courierCollection =
+    getCourierCollection(order);
+
+  const calculatedTotal =
+    getCalculatedOrderTotal(order);
+
+  const courierMessage =
+    courierCollection > 0
+      ? `The delivery courier will collect only the delivery fee of ${formatMoney(
+          courierCollection
+        )} EGP.`
+      : `Delivery is free, so the courier will not collect any money.`;
 
   const message = `Hello ${order.customer_name} 👋
 
 Thank you for ordering from ORVIX.
 
 Order Number: ${order.order_number}
+Product: ${
+    order.product_name ||
+    "ORVIX Product"
+  }
 Colour: ${order.colour}
 Quantity: ${order.quantity}
 Governorate: ${order.governorate}
 Address: ${order.address}
 
-Products Total: ${Number(
-    order.products_total
-  ).toLocaleString("en-GB")} EGP
+Products Total: ${formatMoney(
+    orvixCollection
+  )} EGP
 
-Delivery Fee: ${Number(
-    order.delivery_fee
-  ).toLocaleString("en-GB")} EGP
+Delivery Fee: ${formatMoney(
+    courierCollection
+  )} EGP
 
-Total: ${Number(
-    order.total_price
-  ).toLocaleString("en-GB")} EGP
+Order Total: ${formatMoney(
+    calculatedTotal
+  )} EGP
 
-When your order arrives, please transfer the products total of ${Number(
-    order.products_total
-  ).toLocaleString(
-    "en-GB"
+When your order arrives, please transfer the products total of ${formatMoney(
+    orvixCollection
   )} EGP directly to ORVIX through InstaPay.
 
-The delivery courier will collect only the delivery fee of ${Number(
-    order.delivery_fee
-  ).toLocaleString("en-GB")} EGP.
+${courierMessage}
+
+The courier must not collect the products price.
 
 Please reply with "Confirm" to confirm your order.
 
@@ -148,7 +254,9 @@ ORVIX`;
   )}`;
 }
 
-function getStatusLabel(status: string) {
+function getStatusLabel(
+  status: string
+) {
   const matchingStatus =
     orderStatuses.find(
       (item) => item.value === status
@@ -164,7 +272,9 @@ function getStatusLabel(status: string) {
   );
 }
 
-function getStatusClasses(status: string) {
+function getStatusClasses(
+  status: string
+) {
   if (status === "delivered") {
     return "border-green-500/20 bg-green-500/10 text-green-300";
   }
@@ -173,7 +283,9 @@ function getStatusClasses(status: string) {
     return "border-red-500/20 bg-red-500/10 text-red-300";
   }
 
-  if (status === "out_for_delivery") {
+  if (
+    status === "out_for_delivery"
+  ) {
     return "border-orange-500/20 bg-orange-500/10 text-orange-300";
   }
 
@@ -219,34 +331,17 @@ function getShippingStatusLabel(
 function getPaymentMethodName(
   method?: string | null
 ) {
-  if (method === "instapay_on_delivery") {
-    return "ثمن المنتج عبر InstaPay عند الاستلام";
-  }
-
-  if (method === "cash_on_delivery") {
-    return "كاش عند الاستلام";
-  }
-
   if (method === "paid") {
-    return "مدفوع مسبقًا";
+    return "قيمة المنتجات مدفوعة مسبقًا إلى ORVIX";
   }
 
-  return (
-    method ||
-    "ثمن المنتج عبر InstaPay عند الاستلام"
-  );
-}
-
-function formatMoney(
-  value: number | string | null | undefined
-) {
-  const numberValue = Number(value || 0);
-
-  if (!Number.isFinite(numberValue)) {
-    return "0";
-  }
-
-  return numberValue.toLocaleString("en-GB");
+  /*
+    حتى لو كان اسم طريقة الدفع القديمة
+    instapay_on_delivery، البوليصة ستوضح
+    أن قيمة المنتجات تذهب إلى ORVIX
+    والمندوب يحصل الشحن فقط.
+  */
+  return "قيمة المنتجات تُحوّل إلى ORVIX عبر InstaPay";
 }
 
 function splitIntoPages<T>(
@@ -261,7 +356,10 @@ function splitIntoPages<T>(
     index += pageSize
   ) {
     pages.push(
-      items.slice(index, index + pageSize)
+      items.slice(
+        index,
+        index + pageSize
+      )
     );
   }
 
@@ -346,12 +444,13 @@ export default function AdminPage() {
     setMessageType("");
 
     try {
-      const ordersResponse = await fetch(
-        "/api/admin/orders",
-        {
-          cache: "no-store",
-        }
-      );
+      const ordersResponse =
+        await fetch(
+          "/api/admin/orders",
+          {
+            cache: "no-store",
+          }
+        );
 
       if (
         ordersResponse.status === 401
@@ -384,27 +483,32 @@ export default function AdminPage() {
       }
 
       const receivedOrders: Order[] =
-        Array.isArray(ordersResult.orders)
+        Array.isArray(
+          ordersResult.orders
+        )
           ? ordersResult.orders
           : [];
 
       setAuthenticated(true);
       setOrders(receivedOrders);
 
-      setSelectedOrderIds((currentIds) =>
-        currentIds.filter((id) =>
-          receivedOrders.some(
-            (order) => order.id === id
+      setSelectedOrderIds(
+        (currentIds) =>
+          currentIds.filter((id) =>
+            receivedOrders.some(
+              (order) =>
+                order.id === id
+            )
           )
-        )
       );
 
-      const viewsResponse = await fetch(
-        "/api/admin/views",
-        {
-          cache: "no-store",
-        }
-      );
+      const viewsResponse =
+        await fetch(
+          "/api/admin/views",
+          {
+            cache: "no-store",
+          }
+        );
 
       if (viewsResponse.ok) {
         const viewsResult =
@@ -413,13 +517,15 @@ export default function AdminPage() {
         if (viewsResult.success) {
           setTotalViews(
             Number(
-              viewsResult.totalViews || 0
+              viewsResult.totalViews ||
+                0
             )
           );
 
           setViewsToday(
             Number(
-              viewsResult.viewsToday || 0
+              viewsResult.viewsToday ||
+                0
             )
           );
         }
@@ -494,7 +600,9 @@ export default function AdminPage() {
       savedPageSize === "3"
     ) {
       setLabelsPerPage(
-        Number(savedPageSize) as 2 | 3
+        Number(
+          savedPageSize
+        ) as 2 | 3
       );
     }
   }, []);
@@ -568,7 +676,8 @@ export default function AdminPage() {
   ) {
     const isValidStatus =
       orderStatuses.some(
-        (item) => item.value === status
+        (item) =>
+          item.value === status
       );
 
     if (!isValidStatus) {
@@ -648,9 +757,10 @@ export default function AdminPage() {
   }
 
   async function resetAllOrders() {
-    const confirmation = window.prompt(
-      "To delete all orders permanently, type: DELETE ALL ORDERS"
-    );
+    const confirmation =
+      window.prompt(
+        "To delete all orders permanently, type: DELETE ALL ORDERS"
+      );
 
     if (
       confirmation !==
@@ -732,13 +842,18 @@ export default function AdminPage() {
           ? currentIds.filter(
               (id) => id !== orderId
             )
-          : [...currentIds, orderId]
+          : [
+              ...currentIds,
+              orderId,
+            ]
     );
   }
 
   function selectAllOrders() {
     setSelectedOrderIds(
-      orders.map((order) => order.id)
+      orders.map(
+        (order) => order.id
+      )
     );
   }
 
@@ -746,7 +861,9 @@ export default function AdminPage() {
     setSelectedOrderIds([]);
   }
 
-  function printOneOrder(order: Order) {
+  function printOneOrder(
+    order: Order
+  ) {
     setPrintOrders([order]);
 
     window.setTimeout(() => {
@@ -755,12 +872,16 @@ export default function AdminPage() {
   }
 
   function printSelectedLabels() {
-    const selectedOrders =
+    const selectedOrdersForPrint =
       orders.filter((order) =>
-        selectedOrderIds.includes(order.id)
+        selectedOrderIds.includes(
+          order.id
+        )
       );
 
-    if (selectedOrders.length === 0) {
+    if (
+      selectedOrdersForPrint.length === 0
+    ) {
       window.alert(
         "Select at least one order first."
       );
@@ -768,19 +889,34 @@ export default function AdminPage() {
       return;
     }
 
-    setPrintOrders(selectedOrders);
+    setPrintOrders(
+      selectedOrdersForPrint
+    );
 
     window.setTimeout(() => {
       window.print();
     }, 200);
   }
 
-  function saveOrderAsPng(order: Order) {
+  function saveOrderAsPng(
+    order: Order
+  ) {
+    const orvixCollection =
+      getOrvixCollection(order);
+
+    const courierCollection =
+      getCourierCollection(order);
+
+    const calculatedTotal =
+      getCalculatedOrderTotal(order);
+
     const canvas =
-      document.createElement("canvas");
+      document.createElement(
+        "canvas"
+      );
 
     canvas.width = 1600;
-    canvas.height = 900;
+    canvas.height = 950;
 
     const context =
       canvas.getContext("2d");
@@ -816,7 +952,8 @@ export default function AdminPage() {
 
     context.direction = "ltr";
     context.textAlign = "left";
-    context.font = "900 70px Arial";
+    context.font =
+      "900 70px Arial";
 
     context.fillText(
       "ORVIX",
@@ -827,7 +964,8 @@ export default function AdminPage() {
     context.direction = "rtl";
     context.textAlign = "right";
 
-    context.font = "bold 31px Arial";
+    context.font =
+      "bold 31px Arial";
 
     context.fillText(
       `رقم الطلب: ${
@@ -881,30 +1019,40 @@ export default function AdminPage() {
       },
       {
         title: "العنوان",
-        value: order.address || "-",
+        value:
+          order.address || "-",
       },
       {
         title: "المنتج",
         value: `${
           order.product_name ||
-          "Google Fitbit Air"
+          "ORVIX Product"
         } - ${order.colour}`,
       },
       {
         title: "الكمية",
-        value: String(order.quantity),
+        value: String(
+          order.quantity || 1
+        ),
       },
       {
-        title: "طريقة الدفع",
-        value: getPaymentMethodName(
-          order.payment_method
-        ),
+        title: "دفع المنتجات",
+        value:
+          getPaymentMethodName(
+            order.payment_method
+          ),
+      },
+      {
+        title: "تحصيل ORVIX",
+        value: `${formatMoney(
+          orvixCollection
+        )} جنيه عبر InstaPay`,
       },
       {
         title: "تحصيل المندوب",
         value: `${formatMoney(
-          order.delivery_fee
-        )} جنيه - مصاريف الشحن فقط`,
+          courierCollection
+        )} جنيه - الشحن فقط`,
       },
       {
         title: "ملاحظات",
@@ -912,7 +1060,7 @@ export default function AdminPage() {
       },
     ];
 
-    let currentY = 205;
+    let currentY = 200;
 
     rows.forEach(
       ({
@@ -923,7 +1071,7 @@ export default function AdminPage() {
         context.direction = "rtl";
         context.textAlign = "right";
         context.font =
-          "bold 29px Arial";
+          "bold 28px Arial";
 
         context.fillText(
           `${title}:`,
@@ -931,23 +1079,26 @@ export default function AdminPage() {
           currentY
         );
 
-        context.direction = direction;
+        context.direction =
+          direction;
+
         context.textAlign = "right";
-        context.font = "27px Arial";
+        context.font =
+          "26px Arial";
 
         context.fillText(
           value || "-",
-          canvas.width - 310,
+          canvas.width - 330,
           currentY,
-          canvas.width - 390
+          canvas.width - 410
         );
 
-        currentY += 55;
+        currentY += 50;
       }
     );
 
     const totalBoxY =
-      canvas.height - 155;
+      canvas.height - 190;
 
     context.fillStyle = "#f3f3f3";
 
@@ -955,7 +1106,7 @@ export default function AdminPage() {
       55,
       totalBoxY,
       canvas.width - 110,
-      100
+      135
     );
 
     context.strokeStyle = "#111111";
@@ -965,34 +1116,46 @@ export default function AdminPage() {
       55,
       totalBoxY,
       canvas.width - 110,
-      100
+      135
     );
 
     context.fillStyle = "#111111";
     context.direction = "rtl";
     context.textAlign = "center";
 
-    context.font = "bold 33px Arial";
+    context.font =
+      "bold 31px Arial";
 
     context.fillText(
-      `إجمالي الطلب: ${formatMoney(
-        order.total_price
+      `إجمالي الأوردر: ${formatMoney(
+        calculatedTotal
       )} جنيه`,
       canvas.width / 2,
-      totalBoxY + 38,
+      totalBoxY + 35,
       canvas.width - 150
     );
 
-    context.font = "bold 27px Arial";
+    context.font =
+      "bold 27px Arial";
 
     context.fillText(
-      `تحويل InstaPay لـ ORVIX: ${formatMoney(
-        order.products_total
-      )} جنيه - تحصيل المندوب: ${formatMoney(
-        order.delivery_fee
+      `تحويل إلى ORVIX عبر InstaPay: ${formatMoney(
+        orvixCollection
       )} جنيه`,
       canvas.width / 2,
-      totalBoxY + 77,
+      totalBoxY + 75,
+      canvas.width - 150
+    );
+
+    context.font =
+      "bold 29px Arial";
+
+    context.fillText(
+      `تحصيل المندوب: ${formatMoney(
+        courierCollection
+      )} جنيه - مصاريف الشحن فقط`,
+      canvas.width / 2,
+      totalBoxY + 115,
       canvas.width - 150
     );
 
@@ -1020,14 +1183,16 @@ export default function AdminPage() {
     );
   }
 
+  /*
+    مبيعات ORVIX تشمل المنتجات فقط.
+    مصاريف الشحن ليست ضمن مبيعات ORVIX.
+  */
   const totalSales = useMemo(
     () =>
       orders.reduce(
         (sum, order) =>
           sum +
-          Number(
-            order.total_price || 0
-          ),
+          getOrvixCollection(order),
         0
       ),
     [orders]
@@ -1051,7 +1216,8 @@ export default function AdminPage() {
         (order) =>
           order.status !==
             "delivered" &&
-          order.status !== "cancelled"
+          order.status !==
+            "cancelled"
       ).length,
     [orders]
   );
@@ -1245,7 +1411,8 @@ export default function AdminPage() {
           {message && (
             <p
               className={`mt-6 rounded-2xl border p-4 ${
-                messageType === "success"
+                messageType ===
+                "success"
                   ? "border-green-500/20 bg-green-500/10 text-green-300"
                   : "border-red-500/20 bg-red-500/10 text-red-300"
               }`}
@@ -1315,16 +1482,21 @@ export default function AdminPage() {
               </p>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-              <p className="text-gray-400">
-                Total sales
+            <div className="rounded-3xl border border-violet-500/20 bg-violet-500/10 p-6">
+              <p className="text-violet-200">
+                ORVIX product sales
               </p>
 
-              <p className="mt-3 text-3xl font-black">
-                {totalSales.toLocaleString(
-                  "en-GB"
+              <p className="mt-3 text-3xl font-black text-violet-300">
+                {formatMoney(
+                  totalSales
                 )}{" "}
                 EGP
+              </p>
+
+              <p className="mt-2 text-xs text-violet-200/60">
+                Products only — delivery
+                fees excluded
               </p>
             </div>
 
@@ -1354,7 +1526,9 @@ export default function AdminPage() {
               </p>
 
               <p className="mt-3 text-4xl font-black">
-                {waitlistStatistics.total}
+                {
+                  waitlistStatistics.total
+                }
               </p>
             </Link>
 
@@ -1367,7 +1541,9 @@ export default function AdminPage() {
               </p>
 
               <p className="mt-3 text-4xl font-black text-yellow-300">
-                {waitlistStatistics.waiting}
+                {
+                  waitlistStatistics.waiting
+                }
               </p>
             </Link>
 
@@ -1380,7 +1556,9 @@ export default function AdminPage() {
               </p>
 
               <p className="mt-3 text-4xl font-black text-green-300">
-                {waitlistStatistics.notified}
+                {
+                  waitlistStatistics.notified
+                }
               </p>
             </Link>
 
@@ -1393,7 +1571,9 @@ export default function AdminPage() {
               </p>
 
               <p className="mt-3 text-4xl font-black text-red-300">
-                {waitlistStatistics.cancelled}
+                {
+                  waitlistStatistics.cancelled
+                }
               </p>
             </Link>
           </section>
@@ -1425,7 +1605,8 @@ export default function AdminPage() {
                     onChange={(event) =>
                       setLabelsPerPage(
                         Number(
-                          event.target.value
+                          event.target
+                            .value
                         ) as 2 | 3
                       )
                     }
@@ -1509,6 +1690,21 @@ export default function AdminPage() {
                     order.id
                   );
 
+                const orvixCollection =
+                  getOrvixCollection(
+                    order
+                  );
+
+                const courierCollection =
+                  getCourierCollection(
+                    order
+                  );
+
+                const calculatedTotal =
+                  getCalculatedOrderTotal(
+                    order
+                  );
+
                 return (
                   <article
                     key={order.id}
@@ -1539,7 +1735,9 @@ export default function AdminPage() {
                       <div>
                         <p className="text-sm text-gray-500">
                           Order #
-                          {order.order_number}
+                          {
+                            order.order_number
+                          }
                         </p>
 
                         <h3 className="mt-1 text-2xl font-bold">
@@ -1582,10 +1780,13 @@ export default function AdminPage() {
                         <select
                           value={order.status}
                           disabled={isUpdating}
-                          onChange={(event) =>
+                          onChange={(
+                            event
+                          ) =>
                             updateOrderStatus(
                               order.id,
-                              event.target.value
+                              event.target
+                                .value
                             )
                           }
                           className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-bold text-black outline-none disabled:cursor-not-allowed disabled:opacity-50"
@@ -1600,7 +1801,9 @@ export default function AdminPage() {
                                   status.value
                                 }
                               >
-                                {status.label}
+                                {
+                                  status.label
+                                }
                               </option>
                             )
                           )}
@@ -1608,7 +1811,8 @@ export default function AdminPage() {
 
                         {isUpdating && (
                           <p className="mt-2 text-xs text-gray-500">
-                            Updating status...
+                            Updating
+                            status...
                           </p>
                         )}
                       </div>
@@ -1658,14 +1862,48 @@ export default function AdminPage() {
                         </p>
                       </div>
 
+                      <div className="rounded-2xl border border-violet-500/20 bg-violet-500/10 p-4">
+                        <p className="text-violet-200/70">
+                          ORVIX InstaPay
+                        </p>
+
+                        <p className="mt-1 font-black text-violet-300">
+                          {formatMoney(
+                            orvixCollection
+                          )}{" "}
+                          EGP
+                        </p>
+
+                        <p className="mt-1 text-xs text-violet-200/50">
+                          Products only
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
+                        <p className="text-blue-200/70">
+                          Courier Collection
+                        </p>
+
+                        <p className="mt-1 font-black text-blue-300">
+                          {formatMoney(
+                            courierCollection
+                          )}{" "}
+                          EGP
+                        </p>
+
+                        <p className="mt-1 text-xs text-blue-200/50">
+                          Delivery only
+                        </p>
+                      </div>
+
                       <div className="rounded-2xl bg-black/40 p-4">
                         <p className="text-gray-500">
-                          Total
+                          Full Order Total
                         </p>
 
                         <p className="mt-1 font-semibold">
                           {formatMoney(
-                            order.total_price
+                            calculatedTotal
                           )}{" "}
                           EGP
                         </p>
@@ -1686,17 +1924,22 @@ export default function AdminPage() {
                       <button
                         type="button"
                         onClick={() =>
-                          printOneOrder(order)
+                          printOneOrder(
+                            order
+                          )
                         }
                         className="flex w-full items-center justify-center rounded-2xl bg-blue-500 px-5 py-4 text-center font-black text-white transition hover:bg-blue-400"
                       >
-                        Print Shipping Label
+                        Print Shipping
+                        Label
                       </button>
 
                       <button
                         type="button"
                         onClick={() =>
-                          saveOrderAsPng(order)
+                          saveOrderAsPng(
+                            order
+                          )
                         }
                         className="flex w-full items-center justify-center rounded-2xl border border-blue-500/30 bg-blue-500/10 px-5 py-4 text-center font-black text-blue-300 transition hover:bg-blue-500/20"
                       >
@@ -1749,7 +1992,10 @@ export default function AdminPage() {
 
       <section className="printArea">
         {printPages.map(
-          (pageOrders, pageIndex) => (
+          (
+            pageOrders,
+            pageIndex
+          ) => (
             <div
               className="a4Sheet"
               key={`page-${pageIndex}`}
@@ -1757,12 +2003,14 @@ export default function AdminPage() {
                 gridTemplateRows: `repeat(${labelsPerPage}, minmax(0, 1fr))`,
               }}
             >
-              {pageOrders.map((order) => (
-                <ShippingLabel
-                  key={order.id}
-                  order={order}
-                />
-              ))}
+              {pageOrders.map(
+                (order) => (
+                  <ShippingLabel
+                    key={order.id}
+                    order={order}
+                  />
+                )
+              )}
             </div>
           )
         )}
@@ -1824,6 +2072,15 @@ function ShippingLabel({
 }: {
   order: Order;
 }) {
+  const orvixCollection =
+    getOrvixCollection(order);
+
+  const courierCollection =
+    getCourierCollection(order);
+
+  const calculatedTotal =
+    getCalculatedOrderTotal(order);
+
   return (
     <article
       className="shippingLabel"
@@ -1873,26 +2130,35 @@ function ShippingLabel({
           title="المنتج"
           value={`${
             order.product_name ||
-            "Google Fitbit Air"
+            "ORVIX Product"
           } - ${order.colour}`}
         />
 
         <LabelInformation
           title="الكمية"
-          value={String(order.quantity)}
+          value={String(
+            order.quantity || 1
+          )}
         />
 
         <LabelInformation
-          title="طريقة الدفع"
+          title="دفع المنتجات"
           value={getPaymentMethodName(
             order.payment_method
           )}
         />
 
         <LabelInformation
+          title="قيمة منتجات ORVIX"
+          value={`${formatMoney(
+            orvixCollection
+          )} جنيه`}
+        />
+
+        <LabelInformation
           title="تحصيل المندوب"
           value={`${formatMoney(
-            order.delivery_fee
+            courierCollection
           )} جنيه - مصاريف الشحن فقط`}
         />
 
@@ -1905,17 +2171,18 @@ function ShippingLabel({
       <footer className="shippingFooter">
         <div className="paymentDetails">
           <span>
-            إجمالي الطلب:{" "}
+            إجمالي الأوردر:{" "}
             {formatMoney(
-              order.total_price
+              calculatedTotal
             )}{" "}
             جنيه
           </span>
 
-          <span>
-            تحويل InstaPay لـORVIX:{" "}
+          <span className="orvixAmount">
+            قيمة المنتجات عبر InstaPay
+            إلى ORVIX:{" "}
             {formatMoney(
-              order.products_total
+              orvixCollection
             )}{" "}
             جنيه
           </span>
@@ -1923,13 +2190,14 @@ function ShippingLabel({
           <strong>
             تحصيل المندوب:{" "}
             {formatMoney(
-              order.delivery_fee
+              courierCollection
             )}{" "}
             جنيه
           </strong>
 
           <span>
-            مصاريف الشحن فقط
+            المندوب يحصل مصاريف الشحن
+            فقط ولا يحصل قيمة المنتجات
           </span>
         </div>
       </footer>
@@ -1945,7 +2213,8 @@ function ShippingLabel({
           background: white;
           color: #111111;
           overflow: hidden;
-          font-family: Arial, sans-serif;
+          font-family:
+            Arial, sans-serif;
         }
 
         .shippingHeader {
@@ -1984,9 +2253,9 @@ function ShippingLabel({
             2,
             minmax(0, 1fr)
           );
-          gap: 1.6mm 5mm;
+          gap: 1.5mm 5mm;
           flex: 1;
-          padding: 2.5mm 0;
+          padding: 2.3mm 0;
           overflow: hidden;
         }
 
@@ -2007,13 +2276,17 @@ function ShippingLabel({
           justify-content: center;
           gap: 0.6mm;
           width: 100%;
-          font-size: 3.5mm;
+          font-size: 3.3mm;
           font-weight: bold;
           line-height: 1.15;
         }
 
         .paymentDetails strong {
           font-size: 4.8mm;
+        }
+
+        .orvixAmount {
+          font-size: 3.8mm;
         }
       `}</style>
     </article>
@@ -2049,8 +2322,8 @@ function LabelInformation({
           display: flex;
           gap: 1.5mm;
           min-width: 0;
-          font-size: 3.5mm;
-          line-height: 1.3;
+          font-size: 3.35mm;
+          line-height: 1.25;
         }
 
         strong {
