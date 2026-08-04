@@ -54,6 +54,11 @@ type WaitlistStatistics = {
   cancelled: number;
 };
 
+/*
+  المكسب الثابت من كل أوردر.
+*/
+const PROFIT_PER_ORDER = 1000;
+
 const orderStatuses = [
   {
     value: "new",
@@ -1198,6 +1203,24 @@ export default function AdminPage() {
     [orders]
   );
 
+  /*
+    كل أوردر غير ملغي يضيف
+    1,000 جنيه إلى المكسب.
+  */
+  const totalProfit = useMemo(() => {
+    const validOrders =
+      orders.filter(
+        (order) =>
+          order.status !==
+          "cancelled"
+      );
+
+    return (
+      validOrders.length *
+      PROFIT_PER_ORDER
+    );
+  }, [orders]);
+
   const todayOrders = useMemo(() => {
     const today =
       new Date().toDateString();
@@ -1497,6 +1520,24 @@ export default function AdminPage() {
               <p className="mt-2 text-xs text-violet-200/60">
                 Products only — delivery
                 fees excluded
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-6">
+              <p className="text-emerald-200">
+                Total Profit
+              </p>
+
+              <p className="mt-3 text-3xl font-black text-emerald-300">
+                {formatMoney(
+                  totalProfit
+                )}{" "}
+                EGP
+              </p>
+
+              <p className="mt-2 text-xs text-emerald-200/60">
+                1,000 EGP per order —
+                cancelled orders excluded
               </p>
             </div>
 
@@ -1906,6 +1947,29 @@ export default function AdminPage() {
                             calculatedTotal
                           )}{" "}
                           EGP
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                        <p className="text-emerald-200/70">
+                          Order Profit
+                        </p>
+
+                        <p className="mt-1 font-black text-emerald-300">
+                          {order.status ===
+                          "cancelled"
+                            ? "0"
+                            : formatMoney(
+                                PROFIT_PER_ORDER
+                              )}{" "}
+                          EGP
+                        </p>
+
+                        <p className="mt-1 text-xs text-emerald-200/50">
+                          {order.status ===
+                          "cancelled"
+                            ? "Cancelled order"
+                            : "Your profit"}
                         </p>
                       </div>
                     </div>
