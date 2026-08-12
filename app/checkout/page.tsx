@@ -8,6 +8,9 @@ import {
   useState,
 } from "react";
 import Navbar from "@/components/Navbar";
+import {
+  getDeliveryAreaForBostaCity,
+} from "@/lib/shipping-pricing";
 
 const PRODUCT_NAME = "Google Fitbit Air";
 const PRODUCT_SLUG = "google-fitbit-air";
@@ -80,6 +83,29 @@ type DiscountMessageType =
   | "error"
   | "neutral";
 
+type BostaCity = {
+  id: string;
+  name: string;
+  nameAr: string | null;
+  sector: number | null;
+};
+
+type BostaDistrict = {
+  id: string;
+  name: string;
+  nameAr: string | null;
+  zoneId: string | null;
+  zoneName: string | null;
+  dropOffAvailability: boolean;
+};
+
+type BostaLocationsResult = {
+  success?: boolean;
+  message?: string;
+  cities?: BostaCity[];
+  districts?: BostaDistrict[];
+};
+
 const colours: Colour[] = [
   {
     name: "Black",
@@ -95,35 +121,6 @@ const colours: Colour[] = [
     name: "Berry",
     image: "/berry.jpeg",
     buttonStyle: "bg-pink-600",
-  },
-];
-
-const deliveryAreas = [
-  {
-    code: "CAIRO",
-    name: "Cairo",
-    fee: 70,
-  },
-  {
-    code: "ALEXANDRIA",
-    name: "Alexandria",
-    fee: 75,
-  },
-  {
-    code: "DELTA_CANAL",
-    name: "Delta and Canal Cities",
-    fee: 85,
-  },
-  {
-    code: "UPPER_EGYPT_RED_SEA",
-    name: "Upper Egypt and Red Sea",
-    fee: 100,
-  },
-  {
-    code: "REMOTE_AREAS",
-    name:
-      "New Valley, South Sinai, Sharm El Sheikh and Marsa Matrouh",
-    fee: 140,
   },
 ];
 
@@ -284,7 +281,28 @@ export default function CheckoutPage() {
   const [selectedColour, setSelectedColour] =
     useState<Colour>(colours[0]);
 
-  const [selectedAreaCode, setSelectedAreaCode] =
+  const [selectedCityId, setSelectedCityId] =
+    useState("");
+
+  const [
+    selectedDistrictId,
+    setSelectedDistrictId,
+  ] = useState("");
+
+  const [cities, setCities] = useState<
+    BostaCity[]
+  >([]);
+
+  const [districts, setDistricts] =
+    useState<BostaDistrict[]>([]);
+
+  const [locationsLoading, setLocationsLoading] =
+    useState(true);
+
+  const [districtsLoading, setDistrictsLoading] =
+    useState(false);
+
+  const [locationsError, setLocationsError] =
     useState("");
 
   const [quantity, setQuantity] = useState(1);
@@ -328,9 +346,20 @@ export default function CheckoutPage() {
   const [orderError, setOrderError] =
     useState("");
 
-  const selectedArea = deliveryAreas.find(
-    (area) => area.code === selectedAreaCode
+  const selectedCity = cities.find(
+    (city) => city.id === selectedCityId
   );
+
+  const selectedDistrict = districts.find(
+    (district) =>
+      district.id === selectedDistrictId
+  );
+
+  const selectedArea = selectedCity
+    ? getDeliveryAreaForBostaCity(
+        selectedCity
+      )
+    : null;
 
   const deliveryFee = selectedArea?.fee ?? 0;
 
@@ -389,64 +418,198 @@ export default function CheckoutPage() {
   );
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(
-      window.location.search
-    );
+    const timeoutId = window.setTimeout(
+      () => {
+        const searchParams =
+          new URLSearchParams(
+            window.location.search
+          );
 
-    const colourFromUrl = findColour(
-      searchParams.get("colour")
-    );
-
-    const quantityFromUrl = parseQuantity(
-      searchParams.get("quantity")
-    );
-
-    if (colourFromUrl) {
-      setSelectedColour(colourFromUrl);
-    }
-
-    if (quantityFromUrl) {
-      setQuantity(quantityFromUrl);
-    }
-
-    if (
-      !colourFromUrl ||
-      !quantityFromUrl
-    ) {
-      const cartItem = readFirstCartItem();
-
-      if (!cartItem) {
-        return;
-      }
-
-      if (!colourFromUrl) {
-        const cartColour = findColour(
-          cartItem.colour
+        const colourFromUrl = findColour(
+          searchParams.get("colour")
         );
 
-        if (cartColour) {
-          setSelectedColour(cartColour);
-        }
-      }
+        const quantityFromUrl =
+          parseQuantity(
+            searchParams.get("quantity")
+          );
 
-      if (!quantityFromUrl) {
-        const cartQuantity = parseQuantity(
-          String(cartItem.quantity)
-        );
-
-        if (cartQuantity) {
-          setQuantity(cartQuantity);
+        if (colourFromUrl) {
+          setSelectedColour(
+            colourFromUrl
+          );
         }
-      }
-    }
+
+        if (quantityFromUrl) {
+          setQuantity(quantityFromUrl);
+        }
+
+        if (
+          !colourFromUrl ||
+          !quantityFromUrl
+        ) {
+          const cartItem =
+            readFirstCartItem();
+
+          if (!cartItem) {
+            return;
+          }
+
+          if (!colourFromUrl) {
+            const cartColour = findColour(
+              cartItem.colour
+            );
+
+            if (cartColour) {
+              setSelectedColour(
+                cartColour
+              );
+            }
+          }
+
+          if (!quantityFromUrl) {
+            const cartQuantity =
+              parseQuantity(
+                String(
+                  cartItem.quantity
+                )
+              );
+
+            if (cartQuantity) {
+              setQuantity(cartQuantity);
+            }
+          }
+        }
+      },
+      0
+    );
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, []);
 
   useEffect(() => {
-    setAppliedDiscount(null);
-    setDiscountMessage("");
-    setDiscountMessageType("neutral");
-    setDiscountCode("");
-  }, [selectedAreaCode]);
+    let cancelled = false;
+
+    async function loadCities() {
+      setLocationsLoading(true);
+      setLocationsError("");
+
+      try {
+        const response = await fetch(
+          "/api/bosta/locations",
+          {
+            cache: "no-store",
+          }
+        );
+
+        const result =
+          (await response.json()) as BostaLocationsResult;
+
+        if (
+          !response.ok ||
+          !result.success
+        ) {
+          throw new Error(
+            result.message ||
+              "Could not load delivery cities."
+          );
+        }
+
+        if (!cancelled) {
+          setCities(
+            Array.isArray(result.cities)
+              ? result.cities
+              : []
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLocationsError(
+            error instanceof Error
+              ? error.message
+              : "Could not load delivery cities."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLocationsLoading(false);
+        }
+      }
+    }
+
+    void loadCities();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!selectedCityId) {
+      return;
+    }
+
+    async function loadDistricts() {
+      setDistrictsLoading(true);
+      setLocationsError("");
+
+      try {
+        const response = await fetch(
+          `/api/bosta/locations?cityId=${encodeURIComponent(
+            selectedCityId
+          )}`,
+          {
+            cache: "no-store",
+          }
+        );
+
+        const result =
+          (await response.json()) as BostaLocationsResult;
+
+        if (
+          !response.ok ||
+          !result.success
+        ) {
+          throw new Error(
+            result.message ||
+              "Could not load delivery districts."
+          );
+        }
+
+        if (!cancelled) {
+          setDistricts(
+            Array.isArray(
+              result.districts
+            )
+              ? result.districts
+              : []
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLocationsError(
+            error instanceof Error
+              ? error.message
+              : "Could not load delivery districts."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setDistrictsLoading(false);
+        }
+      }
+    }
+
+    void loadDistricts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCityId]);
 
   async function applyDiscountCode() {
     const cleanCode = discountCode
@@ -643,9 +806,20 @@ export default function CheckoutPage() {
 
     setOrderError("");
 
-    if (!selectedArea) {
+    if (
+      !selectedCity ||
+      !selectedArea
+    ) {
       setOrderError(
-        "Please select your delivery area."
+        "Please select your delivery city."
+      );
+
+      return;
+    }
+
+    if (!selectedDistrict) {
+      setOrderError(
+        "Please select your delivery district."
       );
 
       return;
@@ -740,7 +914,28 @@ export default function CheckoutPage() {
               normalisedEmail || null,
 
             governorate:
-              selectedArea.name,
+              selectedCity.name,
+
+            bostaCityId:
+              selectedCity.id,
+
+            bostaCityName:
+              selectedCity.name,
+
+            bostaCitySector:
+              selectedCity.sector,
+
+            bostaDistrictId:
+              selectedDistrict.id,
+
+            bostaDistrictName:
+              selectedDistrict.name,
+
+            bostaZoneId:
+              selectedDistrict.zoneId,
+
+            bostaZoneName:
+              selectedDistrict.zoneName,
 
             address: address.trim(),
             notes: notes.trim(),
@@ -1129,37 +1324,111 @@ export default function CheckoutPage() {
                 <div className="mt-6 grid gap-5">
                   <label>
                     <span className="mb-2 block text-sm font-bold text-gray-300">
-                      Governorate / delivery area
+                      Delivery city
                     </span>
 
                     <select
-                      value={selectedAreaCode}
-                      onChange={(event) =>
-                        setSelectedAreaCode(
+                      value={selectedCityId}
+                      onChange={(event) => {
+                        setSelectedCityId(
                           event.target.value
-                        )
+                        );
+                        setSelectedDistrictId("");
+                        setDistricts([]);
+                        setLocationsError("");
+                        setAppliedDiscount(null);
+                        setDiscountMessage("");
+                        setDiscountMessageType(
+                          "neutral"
+                        );
+                        setDiscountCode("");
+                      }}
+                      disabled={
+                        isSending ||
+                        locationsLoading
                       }
-                      disabled={isSending}
                       required
                       className="w-full rounded-2xl border border-white/15 bg-black px-5 py-4 text-white outline-none focus:border-white disabled:opacity-50"
                     >
                       <option value="">
-                        Select your delivery area
+                        {locationsLoading
+                          ? "Loading Bosta cities..."
+                          : "Select your city"}
                       </option>
 
-                      {deliveryAreas.map(
-                        (area) => (
+                      {cities.map(
+                        (city) => (
                           <option
-                            key={area.code}
-                            value={area.code}
+                            key={city.id}
+                            value={city.id}
                           >
-                            {area.name} —{" "}
-                            {area.fee} EGP
+                            {city.name}
+                            {city.nameAr
+                              ? ` — ${city.nameAr}`
+                              : ""}
+                          </option>
+                        )
+                      )}
+                    </select>
+
+                    {selectedArea && (
+                      <p className="mt-2 text-sm text-gray-500">
+                        Delivery fee: {selectedArea.fee}{" "}
+                        EGP
+                      </p>
+                    )}
+                  </label>
+
+                  <label>
+                    <span className="mb-2 block text-sm font-bold text-gray-300">
+                      District / area
+                    </span>
+
+                    <select
+                      value={selectedDistrictId}
+                      onChange={(event) =>
+                        setSelectedDistrictId(
+                          event.target.value
+                        )
+                      }
+                      disabled={
+                        isSending ||
+                        !selectedCity ||
+                        districtsLoading
+                      }
+                      required
+                      className="w-full rounded-2xl border border-white/15 bg-black px-5 py-4 text-white outline-none focus:border-white disabled:opacity-50"
+                    >
+                      <option value="">
+                        {districtsLoading
+                          ? "Loading districts..."
+                          : selectedCity
+                            ? "Select your district"
+                            : "Select a city first"}
+                      </option>
+
+                      {districts.map(
+                        (district) => (
+                          <option
+                            key={district.id}
+                            value={district.id}
+                          >
+                            {district.name}
+                            {district.nameAr
+                              ? ` — ${district.nameAr}`
+                              : ""}
                           </option>
                         )
                       )}
                     </select>
                   </label>
+
+                  {locationsError && (
+                    <p className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+                      {locationsError} Refresh the
+                      page to try again.
+                    </p>
+                  )}
 
                   <label>
                     <span className="mb-2 block text-sm font-bold text-gray-300">
@@ -1274,7 +1543,7 @@ export default function CheckoutPage() {
 
                   <strong>
                     {!selectedArea
-                      ? "Select area"
+                      ? "Select city"
                       : finalDeliveryFee === 0
                         ? "FREE"
                         : `${finalDeliveryFee} EGP`}
@@ -1363,7 +1632,7 @@ export default function CheckoutPage() {
 
                 {!selectedArea && (
                   <p className="mt-3 text-sm text-gray-500">
-                    Select your delivery area before
+                    Select your delivery city before
                     applying a code.
                   </p>
                 )}
@@ -1463,7 +1732,9 @@ export default function CheckoutPage() {
                 type="submit"
                 disabled={
                   isSending ||
-                  checkingDiscount
+                  checkingDiscount ||
+                  !selectedCity ||
+                  !selectedDistrict
                 }
                 className="mt-8 flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-bold text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
               >

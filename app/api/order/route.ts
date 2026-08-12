@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import {
+  getBostaCities,
+  getBostaDistricts,
+} from "@/lib/bosta";
+import {
+  getDeliveryAreaForBostaCity,
+} from "@/lib/shipping-pricing";
 
 const resendApiKey =
   process.env.RESEND_API_KEY;
@@ -22,30 +29,6 @@ const PRODUCT_SLUG =
 
 const PRODUCT_PRICE = 7900;
 
-const deliveryAreas = [
-  {
-    name: "Cairo",
-    fee: 70,
-  },
-  {
-    name: "Alexandria",
-    fee: 75,
-  },
-  {
-    name: "Delta and Canal Cities",
-    fee: 85,
-  },
-  {
-    name: "Upper Egypt and Red Sea",
-    fee: 100,
-  },
-  {
-    name:
-      "New Valley, South Sinai, Sharm El Sheikh and Marsa Matrouh",
-    fee: 140,
-  },
-];
-
 type DiscountType =
   | "free_delivery"
   | "fixed_amount"
@@ -58,6 +41,17 @@ type OrderData = {
   customerEmail?: string | null;
 
   governorate?: string;
+
+  bostaCityId?: string;
+  bostaCityName?: string;
+  bostaCitySector?: number | null;
+
+  bostaDistrictId?: string;
+  bostaDistrictName?: string;
+
+  bostaZoneId?: string | null;
+  bostaZoneName?: string | null;
+
   address?: string;
   notes?: string;
 
@@ -437,8 +431,12 @@ export async function POST(
       .trim()
       .toLowerCase();
 
-    const governorate = String(
-      order.governorate ?? ""
+    const bostaCityId = String(
+      order.bostaCityId ?? ""
+    ).trim();
+
+    const bostaDistrictId = String(
+      order.bostaDistrictId ?? ""
     ).trim();
 
     const address = String(
@@ -460,7 +458,8 @@ export async function POST(
     if (
       !fullName ||
       !phone ||
-      !governorate ||
+      !bostaCityId ||
+      !bostaDistrictId ||
       !address ||
       !colour ||
       !quantity
@@ -510,24 +509,60 @@ export async function POST(
       );
     }
 
-    const selectedDeliveryArea =
-      deliveryAreas.find(
-        (area) =>
-          area.name === governorate
+    const bostaCities =
+      await getBostaCities();
+
+    const selectedBostaCity =
+      bostaCities.find(
+        (city) =>
+          city.id === bostaCityId
       );
 
-    if (!selectedDeliveryArea) {
+    if (!selectedBostaCity) {
       return NextResponse.json(
         {
           success: false,
           message:
-            "The selected delivery area is invalid.",
+            "The selected Bosta city is invalid. Please select it again.",
         },
         {
           status: 400,
         }
       );
     }
+
+    const bostaDistricts =
+      await getBostaDistricts(
+        selectedBostaCity.id
+      );
+
+    const selectedBostaDistrict =
+      bostaDistricts.find(
+        (district) =>
+          district.id ===
+          bostaDistrictId
+      );
+
+    if (!selectedBostaDistrict) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "The selected Bosta district is invalid. Please select it again.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const governorate =
+      selectedBostaCity.name;
+
+    const selectedDeliveryArea =
+      getDeliveryAreaForBostaCity(
+        selectedBostaCity
+      );
 
     /*
       الأسعار الأساسية من السيرفر،
@@ -815,6 +850,28 @@ export async function POST(
               customerEmail || null,
 
             governorate,
+
+            bosta_city_id:
+              selectedBostaCity.id,
+
+            bosta_city_name:
+              selectedBostaCity.name,
+
+            bosta_city_sector:
+              selectedBostaCity.sector,
+
+            bosta_zone_id:
+              selectedBostaDistrict.zoneId,
+
+            bosta_zone_name:
+              selectedBostaDistrict.zoneName,
+
+            bosta_district_id:
+              selectedBostaDistrict.id,
+
+            bosta_district_name:
+              selectedBostaDistrict.name,
+
             address,
             notes,
             colour,
