@@ -401,9 +401,13 @@ export default function BostaShippingPanel({
           getDefaultPickupDate()
         );
 
-        if ("Notification" in window) {
+        if (
+          "Notification" in window &&
+          typeof window.Notification ===
+            "function"
+        ) {
           setNotificationPermission(
-            Notification.permission
+            window.Notification.permission
           );
         }
       },
@@ -433,15 +437,21 @@ export default function BostaShippingPanel({
     );
 
     if (readyBatchCount > previousCount) {
-      new Notification(
-        "ORVIX: Bosta pickup ready",
-        {
-          body:
-            readyBatchCount === 1
-              ? "5 confirmed orders are ready to send to Bosta."
-              : `${readyBatchCount} groups of 5 orders are ready to send to Bosta.`,
-        }
-      );
+      try {
+        new window.Notification(
+          "ORVIX: Bosta pickup ready",
+          {
+            body:
+              readyBatchCount === 1
+                ? "5 confirmed orders are ready to send to Bosta."
+                : `${readyBatchCount} groups of 5 orders are ready to send to Bosta.`,
+          }
+        );
+      } catch {
+        // Some mobile browsers expose the
+        // Notifications API but do not allow
+        // constructing notifications directly.
+      }
     }
 
     window.localStorage.setItem(
@@ -454,7 +464,11 @@ export default function BostaShippingPanel({
   ]);
 
   async function enableNotifications() {
-    if (!("Notification" in window)) {
+    if (
+      !("Notification" in window) ||
+      typeof window.Notification !==
+        "function"
+    ) {
       setNotificationPermission(
         "unsupported"
       );
@@ -462,7 +476,7 @@ export default function BostaShippingPanel({
     }
 
     const permission =
-      await Notification.requestPermission();
+      await window.Notification.requestPermission();
 
     setNotificationPermission(permission);
   }
