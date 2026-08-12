@@ -1,6 +1,7 @@
 export type DeliveryArea = {
   code: string;
   name: string;
+  bostaFeeBeforeVat: number;
   fee: number;
 };
 
@@ -9,33 +10,78 @@ export type BostaCityForPricing = {
   sector?: number | null;
 };
 
+const BOSTA_EGYPT_VAT_RATE = 0.14;
+
+function bostaFeeWithVat(
+  feeBeforeVat: number
+) {
+  return Math.ceil(
+    feeBeforeVat *
+      (1 + BOSTA_EGYPT_VAT_RATE)
+  );
+}
+
+/*
+  Bosta Egypt's official default plan for a
+  normal SEND shipment has seven destination
+  sectors. The published rates exclude 14% VAT,
+  so ORVIX charges the VAT-inclusive amount,
+  rounded up to the next whole EGP.
+
+  Source: https://tracking.bosta.co/pricings/default-plan
+  Plan last updated by Bosta: 2026-04-02.
+*/
+function deliveryArea(
+  code: string,
+  name: string,
+  bostaFeeBeforeVat: number
+): DeliveryArea {
+  return {
+    code,
+    name,
+    bostaFeeBeforeVat,
+    fee: bostaFeeWithVat(
+      bostaFeeBeforeVat
+    ),
+  };
+}
+
 export const deliveryAreas: DeliveryArea[] = [
-  {
-    code: "CAIRO",
-    name: "Cairo",
-    fee: 70,
-  },
-  {
-    code: "ALEXANDRIA",
-    name: "Alexandria",
-    fee: 75,
-  },
-  {
-    code: "DELTA_CANAL",
-    name: "Delta and Canal Cities",
-    fee: 85,
-  },
-  {
-    code: "UPPER_EGYPT_RED_SEA",
-    name: "Upper Egypt and Red Sea",
-    fee: 100,
-  },
-  {
-    code: "REMOTE_AREAS",
-    name:
-      "New Valley, South Sinai, Sharm El Sheikh and Marsa Matrouh",
-    fee: 140,
-  },
+  deliveryArea(
+    "CAIRO_GIZA",
+    "Cairo and Giza",
+    97
+  ),
+  deliveryArea(
+    "ALEXANDRIA_BEHEIRA",
+    "Alexandria and Beheira",
+    102
+  ),
+  deliveryArea(
+    "DELTA_CANAL",
+    "Delta and Canal",
+    110
+  ),
+  deliveryArea(
+    "NEAR_UPPER_EGYPT",
+    "Near Upper Egypt",
+    124
+  ),
+  deliveryArea(
+    "FAR_UPPER_RED_SEA_MATROUH",
+    "Far Upper Egypt, Red Sea and Matrouh",
+    140
+  ),
+  deliveryArea(
+    "NORTH_COAST",
+    "North Coast",
+    144
+  ),
+  deliveryArea(
+    "SINAI_NEW_VALLEY",
+    "Sinai and New Valley",
+    160
+  ),
 ];
 
 const areaByCode = new Map(
@@ -54,54 +100,41 @@ function area(code: string) {
   );
 }
 
-/*
-  Bosta groups Egyptian cities into sectors.
-  A name check keeps the old ORVIX remote-area
-  pricing accurate for the cities that share a
-  Bosta sector with other governorates.
-*/
 export function getDeliveryAreaForBostaCity(
   city: BostaCityForPricing
 ) {
-  const cityName = String(
-    city.name || ""
-  ).toLowerCase();
-
-  const isRemote = [
-    "new valley",
-    "south sinai",
-    "sharm",
-    "matrouh",
-    "marsa matruh",
-    "marsa matrouh",
-  ].some((name) =>
-    cityName.includes(name)
-  );
-
-  if (isRemote) {
-    return area("REMOTE_AREAS");
-  }
-
   switch (Number(city.sector)) {
     case 1:
-      return area("CAIRO");
+      return area("CAIRO_GIZA");
 
     case 2:
-      return area("ALEXANDRIA");
+      return area(
+        "ALEXANDRIA_BEHEIRA"
+      );
 
     case 3:
       return area("DELTA_CANAL");
 
     case 4:
+      return area("NEAR_UPPER_EGYPT");
+
     case 5:
+      return area(
+        "FAR_UPPER_RED_SEA_MATROUH"
+      );
+
+    // Older Bosta city data used sector 8
+    // for Red Sea destinations.
     case 8:
       return area(
-        "UPPER_EGYPT_RED_SEA"
+        "FAR_UPPER_RED_SEA_MATROUH"
       );
 
     case 6:
+      return area("NORTH_COAST");
+
     case 7:
-      return area("REMOTE_AREAS");
+      return area("SINAI_NEW_VALLEY");
 
     default:
       /*
@@ -109,6 +142,6 @@ export function getDeliveryAreaForBostaCity(
         delivery fee so checkout never
         undercharges shipping.
       */
-      return area("REMOTE_AREAS");
+      return area("SINAI_NEW_VALLEY");
   }
 }
