@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
   FormEvent,
@@ -7,7 +8,18 @@ import {
   useMemo,
   useState,
 } from "react";
-import BostaShippingPanel from "./BostaShippingPanel";
+
+const BostaShippingPanel = dynamic(
+  () => import("./BostaShippingPanel"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="mt-8 rounded-3xl border border-red-500/20 bg-red-500/10 p-6 text-sm font-semibold text-red-200">
+        Loading Bosta shipping tools...
+      </div>
+    ),
+  }
+);
 
 type Order = {
   id: string;
@@ -455,6 +467,11 @@ export default function AdminPage() {
     printOrders,
     setPrintOrders,
   ] = useState<Order[]>([]);
+
+  const [
+    showBostaPanel,
+    setShowBostaPanel,
+  ] = useState(false);
 
   async function loadDashboard(
     silent = false
@@ -1659,12 +1676,50 @@ export default function AdminPage() {
             </Link>
           </section>
 
-          <BostaShippingPanel
-            orders={orders}
-            onRefresh={() =>
-              loadDashboard(true)
-            }
-          />
+          <section className="mt-8 rounded-3xl border border-red-500/20 bg-red-500/10 p-6 sm:p-8">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-black uppercase tracking-[0.25em] text-red-300">
+                  Bosta Shipping
+                </p>
+
+                <h2 className="mt-2 text-2xl font-black">
+                  Five-order pickup tools
+                </h2>
+
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-400">
+                  Open these tools only when
+                  you need to prepare a Bosta
+                  pickup. This keeps the main
+                  dashboard fast on mobile.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setShowBostaPanel(
+                    (currentValue) =>
+                      !currentValue
+                  )
+                }
+                className="shrink-0 rounded-2xl bg-red-500 px-5 py-4 font-black text-white transition hover:bg-red-400"
+              >
+                {showBostaPanel
+                  ? "Close Bosta Tools"
+                  : "Open Bosta Tools"}
+              </button>
+            </div>
+          </section>
+
+          {showBostaPanel && (
+            <BostaShippingPanel
+              orders={orders}
+              onRefresh={() =>
+                loadDashboard(true)
+              }
+            />
+          )}
 
           <section className="mt-8 rounded-3xl border border-blue-500/20 bg-blue-500/10 p-5">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
