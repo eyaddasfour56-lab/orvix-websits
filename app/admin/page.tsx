@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import BostaShippingPanel from "./BostaShippingPanel";
 
 type Order = {
   id: string;
@@ -34,6 +35,18 @@ type Order = {
   total_price: number;
 
   payment_method?: string | null;
+
+  bosta_city_name?: string | null;
+  bosta_district_id?: string | null;
+  bosta_district_name?: string | null;
+  bosta_tracking_number?: string | null;
+  bosta_state_code?: number | null;
+  bosta_state_name?: string | null;
+  bosta_batch_id?: string | null;
+  bosta_pickup_id?: string | null;
+  bosta_pickup_date?: string | null;
+  bosta_pickup_location_id?: string | null;
+  bosta_last_error?: string | null;
 
   status: string;
   created_at: string;
@@ -443,10 +456,14 @@ export default function AdminPage() {
     setPrintOrders,
   ] = useState<Order[]>([]);
 
-  async function loadDashboard() {
-    setLoading(true);
-    setMessage("");
-    setMessageType("");
+  async function loadDashboard(
+    silent = false
+  ) {
+    if (!silent) {
+      setLoading(true);
+      setMessage("");
+      setMessageType("");
+    }
 
     try {
       const ordersResponse =
@@ -580,36 +597,57 @@ export default function AdminPage() {
         }
       }
     } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Could not load dashboard."
-      );
+      if (!silent) {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Could not load dashboard."
+        );
 
-      setMessageType("error");
+        setMessageType("error");
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }
 
   useEffect(() => {
-    loadDashboard();
+    const initialLoadTimer =
+      window.setTimeout(() => {
+        void loadDashboard();
 
-    const savedPageSize =
-      window.localStorage.getItem(
-        "orvix-dashboard-labels-per-page"
-      );
+        const savedPageSize =
+          window.localStorage.getItem(
+            "orvix-dashboard-labels-per-page"
+          );
 
-    if (
-      savedPageSize === "2" ||
-      savedPageSize === "3"
-    ) {
-      setLabelsPerPage(
-        Number(
-          savedPageSize
-        ) as 2 | 3
+        if (
+          savedPageSize === "2" ||
+          savedPageSize === "3"
+        ) {
+          setLabelsPerPage(
+            Number(
+              savedPageSize
+            ) as 2 | 3
+          );
+        }
+      }, 0);
+
+    const refreshInterval =
+      window.setInterval(() => {
+        void loadDashboard(true);
+      }, 60_000);
+
+    return () => {
+      window.clearTimeout(
+        initialLoadTimer
       );
-    }
+      window.clearInterval(
+        refreshInterval
+      );
+    };
   }, []);
 
   useEffect(() => {
@@ -1408,7 +1446,9 @@ export default function AdminPage() {
 
               <button
                 type="button"
-                onClick={loadDashboard}
+                onClick={() =>
+                  void loadDashboard()
+                }
                 disabled={loading}
                 className="rounded-2xl border border-white/15 px-5 py-4 font-semibold transition hover:bg-white/10 disabled:opacity-50"
               >
@@ -1618,6 +1658,13 @@ export default function AdminPage() {
               </p>
             </Link>
           </section>
+
+          <BostaShippingPanel
+            orders={orders}
+            onRefresh={() =>
+              loadDashboard(true)
+            }
+          />
 
           <section className="mt-8 rounded-3xl border border-blue-500/20 bg-blue-500/10 p-5">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
