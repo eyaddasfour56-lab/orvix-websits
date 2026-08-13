@@ -11,10 +11,8 @@ type TrackOrderRequest = {
 
 type OrderRow = {
   order_number: string;
-  customer_name: string;
   phone: string;
   governorate: string;
-  address: string;
   colour: string;
   quantity: number;
   products_total: number;
@@ -23,7 +21,27 @@ type OrderRow = {
   total_price: number;
   status: string;
   created_at: string;
+  shipping_status: string | null;
+  bosta_tracking_number: string | null;
+  bosta_state_name: string | null;
+  bosta_submitted_at: string | null;
+  bosta_status_updated_at: string | null;
 };
+
+const privateResponseHeaders = {
+  "Cache-Control":
+    "private, no-store, max-age=0",
+};
+
+function trackOrderResponse(
+  body: Record<string, unknown>,
+  status = 200
+) {
+  return NextResponse.json(body, {
+    status,
+    headers: privateResponseHeaders,
+  });
+}
 
 function normalizePhone(phone: string) {
   let digits = String(phone || "").replace(
@@ -49,13 +67,14 @@ function normalizePhone(phone: string) {
 export async function POST(request: Request) {
   try {
     if (!supabaseUrl || !supabaseSecretKey) {
-      return NextResponse.json(
+      return trackOrderResponse(
         {
           success: false,
+          code: "CONFIGURATION_ERROR",
           message:
             "Server configuration is incomplete.",
         },
-        { status: 500 }
+        500
       );
     }
 
@@ -73,20 +92,37 @@ export async function POST(request: Request) {
     );
 
     if (!orderNumber || !phone) {
-      return NextResponse.json(
+      return trackOrderResponse(
         {
           success: false,
+          code: "MISSING_DETAILS",
           message:
             "Please enter your order number and phone number.",
         },
-        { status: 400 }
+        400
+      );
+    }
+
+    if (
+      orderNumber.length > 80 ||
+      phone.length < 10 ||
+      phone.length > 15
+    ) {
+      return trackOrderResponse(
+        {
+          success: false,
+          code: "INVALID_DETAILS",
+          message:
+            "Please check your order number and phone number.",
+        },
+        400
       );
     }
 
     const response = await fetch(
       `${supabaseUrl}/rest/v1/orders?order_number=eq.${encodeURIComponent(
         orderNumber
-      )}&select=order_number,customer_name,phone,governorate,address,colour,quantity,products_total,delivery_fee,discount_amount,total_price,status,created_at&limit=1`,
+      )}&select=order_number,phone,governorate,colour,quantity,products_total,delivery_fee,discount_amount,total_price,status,created_at,shipping_status,bosta_tracking_number,bosta_state_name,bosta_submitted_at,bosta_status_updated_at&limit=1`,
       {
         method: "GET",
         headers: {
@@ -103,13 +139,14 @@ export async function POST(request: Request) {
         await response.text()
       );
 
-      return NextResponse.json(
+      return trackOrderResponse(
         {
           success: false,
+          code: "LOOKUP_FAILED",
           message:
             "Could not check your order right now.",
         },
-        { status: 500 }
+        500
       );
     }
 
@@ -122,21 +159,21 @@ export async function POST(request: Request) {
       !order ||
       normalizePhone(order.phone) !== phone
     ) {
-      return NextResponse.json(
+      return trackOrderResponse(
         {
           success: false,
+          code: "ORDER_NOT_FOUND",
           message:
             "No order was found with these details.",
         },
-        { status: 404 }
+        404
       );
     }
 
-    return NextResponse.json({
+    return trackOrderResponse({
       success: true,
       order: {
         orderNumber: order.order_number,
-        customerName: order.customer_name,
         governorate: order.governorate,
         colour: order.colour,
         quantity: order.quantity,
@@ -154,18 +191,30 @@ export async function POST(request: Request) {
         ),
         status: order.status,
         createdAt: order.created_at,
+        shippingStatus:
+          order.shipping_status || null,
+        trackingNumber:
+          order.bosta_tracking_number ||
+          null,
+        carrierStatus:
+          order.bosta_state_name || null,
+        lastUpdatedAt:
+          order.bosta_status_updated_at ||
+          order.bosta_submitted_at ||
+          order.created_at,
       },
     });
   } catch (error) {
     console.error("Track order API error:", error);
 
-    return NextResponse.json(
+    return trackOrderResponse(
       {
         success: false,
+        code: "UNKNOWN_ERROR",
         message:
           "Could not check your order right now.",
       },
-      { status: 500 }
+      500
     );
   }
 }
