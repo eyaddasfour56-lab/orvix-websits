@@ -4,36 +4,11 @@ import { useLanguage } from "./LanguageProvider";
 
 export default function LanguageSwitcher({
   className = "",
-  compact = false,
 }: {
   className?: string;
-  compact?: boolean;
 }) {
   const { language, setLanguage } =
     useLanguage();
-
-  if (compact) {
-    const nextLanguage =
-      language === "ar" ? "en" : "ar";
-
-    return (
-      <button
-        type="button"
-        lang={nextLanguage}
-        onClick={() =>
-          setLanguage(nextLanguage)
-        }
-        aria-label={
-          language === "ar"
-            ? "Switch website to English"
-            : "حوّل الموقع إلى العربية"
-        }
-        className={`flex h-12 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/5 px-3 text-xs font-black transition hover:bg-white/10 ${className}`}
-      >
-        {language === "ar" ? "EN" : "عربي"}
-      </button>
-    );
-  }
 
   return (
     <div

@@ -33,7 +33,11 @@ The secret after `Bearer` must exactly match the `BOSTA_WEBHOOK_SECRET` value in
 
 ## 4. Confirm the pickup location
 
-The Bosta account must have at least one pickup location. The default location is selected automatically in the ORVIX dashboard, and it can be changed before sending a batch.
+The Bosta account must contain this pickup location:
+
+`مدينة نصر، صلاح سالم، عمارات العبور، عمارة ٢٥ج، الدور الثالث، شقة ٥`
+
+Bosta classifies the district as **Obour Buildings (Masr El Gedida)**. The ORVIX dashboard automatically prefers a saved Bosta location matching this complete address, displays the returned Bosta address for verification, and still allows the admin to choose another saved location when needed.
 
 ## How the workflow works
 

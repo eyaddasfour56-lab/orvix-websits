@@ -716,6 +716,10 @@ export async function POST(
       ) ||
       pickupLocations.find(
         (location) =>
+          location.matchesOrvixAddress
+      ) ||
+      pickupLocations.find(
+        (location) =>
           location.isDefault
       );
 

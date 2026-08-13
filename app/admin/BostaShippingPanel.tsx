@@ -6,6 +6,11 @@ import {
   useState,
 } from "react";
 
+import {
+  ORVIX_PICKUP_ADDRESS_AR,
+  ORVIX_PICKUP_ADDRESS_EN,
+} from "@/lib/orvix-pickup-location";
+
 export type BostaPanelOrder = {
   id: string | number;
   order_number: string;
@@ -34,6 +39,7 @@ type PickupLocation = {
   id: string;
   name: string;
   isDefault: boolean;
+  matchesOrvixAddress: boolean;
   addressLabel: string;
 };
 
@@ -375,6 +381,10 @@ export default function BostaShippingPanel({
           return (
             result.setup?.pickupLocations.find(
               (location) =>
+                location.matchesOrvixAddress
+            )?.id ||
+            result.setup?.pickupLocations.find(
+              (location) =>
                 location.isDefault
             )?.id ||
             result.setup?.pickupLocations[0]
@@ -644,6 +654,12 @@ export default function BostaShippingPanel({
       setup?.pickupLocations.length
   );
 
+  const selectedPickupLocation =
+    setup?.pickupLocations.find(
+      (location) =>
+        location.id === pickupLocationId
+    );
+
   return (
     <section className="mt-8 overflow-hidden rounded-3xl border border-red-500/25 bg-gradient-to-br from-red-500/10 via-white/[0.04] to-transparent">
       <div className="border-b border-white/10 p-6 sm:p-8">
@@ -802,14 +818,48 @@ export default function BostaShippingPanel({
                       value={location.id}
                     >
                       {location.name}
+                      {location.matchesOrvixAddress
+                        ? " (ORVIX address)"
+                        : ""}
                       {location.isDefault
                         ? " (Default)"
+                        : ""}
+                      {location.addressLabel
+                        ? ` — ${location.addressLabel}`
                         : ""}
                     </option>
                   )
                 )}
               </select>
             </label>
+
+            <div className="rounded-2xl border border-white/15 bg-white/[0.04] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-red-300">
+                ORVIX pickup address
+              </p>
+
+              <p
+                lang="ar"
+                dir="rtl"
+                className="mt-3 text-sm font-bold leading-7 text-white"
+              >
+                {ORVIX_PICKUP_ADDRESS_AR}
+              </p>
+
+              <p className="mt-2 text-xs leading-5 text-gray-400">
+                {ORVIX_PICKUP_ADDRESS_EN}
+              </p>
+
+              {selectedPickupLocation &&
+                !selectedPickupLocation.matchesOrvixAddress && (
+                  <p className="mt-3 text-xs font-bold leading-5 text-amber-300">
+                    The selected Bosta location does
+                    not contain this full address.
+                    Update or add it in Bosta before
+                    requesting the pickup.
+                  </p>
+                )}
+            </div>
           </div>
 
           <button

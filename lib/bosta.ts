@@ -1,5 +1,7 @@
 import "server-only";
 
+import { isOrvixPickupAddress } from "./orvix-pickup-location";
+
 export { getBostaStateName } from "./bosta-status";
 
 const BOSTA_API_BASE =
@@ -32,6 +34,7 @@ export type BostaPickupLocation = {
   id: string;
   name: string;
   isDefault: boolean;
+  matchesOrvixAddress: boolean;
   contactPerson: {
     name: string;
     phone: string;
@@ -275,6 +278,10 @@ export async function getBostaPickupLocations() {
     };
     address?: {
       firstLine?: string;
+      buildingNumber?: string | number;
+      floor?: string | number;
+      apartment?: string | number;
+      secondLine?: string;
       city?: {
         name?: string;
       };
@@ -305,19 +312,38 @@ export async function getBostaPickupLocations() {
 
         const addressLabel = [
           location.address?.firstLine,
+          location.address?.buildingNumber !==
+            undefined
+            ? `Building ${location.address.buildingNumber}`
+            : null,
+          location.address?.floor !== undefined
+            ? `Floor ${location.address.floor}`
+            : null,
+          location.address?.apartment !==
+            undefined
+            ? `Apartment ${location.address.apartment}`
+            : null,
+          location.address?.secondLine,
           district,
           location.address?.city?.name,
         ]
           .filter(Boolean)
           .join(", ");
 
+        const locationSummary = {
+          name: String(location.locationName),
+          addressLabel,
+        };
+
         return {
           id: String(location._id),
-          name: String(
-            location.locationName
-          ),
+          name: locationSummary.name,
           isDefault:
             location.isDefault === true,
+          matchesOrvixAddress:
+            isOrvixPickupAddress(
+              locationSummary
+            ),
           contactPerson: {
             name: String(
               location.contactPerson
@@ -332,7 +358,8 @@ export async function getBostaPickupLocations() {
                 ?.email || ""
             ),
           },
-          addressLabel,
+          addressLabel:
+            locationSummary.addressLabel,
         };
       }
     );

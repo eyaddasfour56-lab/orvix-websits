@@ -554,11 +554,7 @@ export default function Navbar() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <LanguageSwitcher className="hidden sm:inline-flex" />
-            <LanguageSwitcher
-              compact
-              className="sm:hidden"
-            />
+            <LanguageSwitcher />
 
             {/* Wishlist Button */}
             <button
