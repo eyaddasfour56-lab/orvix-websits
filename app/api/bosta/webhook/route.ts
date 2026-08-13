@@ -1,7 +1,11 @@
 import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 
-import { getBostaStateName } from "@/lib/bosta";
+import {
+  getBostaStateName,
+  getOrderStatusForBostaState,
+  getShippingStatusForBostaState,
+} from "@/lib/bosta-status";
 import {
   postgrestValue,
   supabaseAdminJson,
@@ -38,78 +42,6 @@ function secureEqual(
       secondBuffer
     )
   );
-}
-
-function getShippingStatus(
-  stateCode: number
-) {
-  if ([10, 11, 20].includes(stateCode)) {
-    return "pickup_requested";
-  }
-
-  if (
-    [21, 23, 24, 30, 40].includes(
-      stateCode
-    )
-  ) {
-    return "shipped";
-  }
-
-  if (stateCode === 41) {
-    return "out_for_delivery";
-  }
-
-  if (stateCode === 45) {
-    return "delivered";
-  }
-
-  if ([46, 60].includes(stateCode)) {
-    return "returned";
-  }
-
-  if (stateCode === 49) {
-    return "cancelled";
-  }
-
-  if (stateCode === 47) {
-    return "exception";
-  }
-
-  if (
-    [48, 100, 101, 102, 103, 105].includes(
-      stateCode
-    )
-  ) {
-    return "shipping_issue";
-  }
-
-  return null;
-}
-
-function getOrderStatus(
-  stateCode: number
-) {
-  if (
-    [21, 23, 24, 30, 40].includes(
-      stateCode
-    )
-  ) {
-    return "shipped";
-  }
-
-  if (stateCode === 41) {
-    return "out_for_delivery";
-  }
-
-  if (stateCode === 45) {
-    return "delivered";
-  }
-
-  if (stateCode === 49) {
-    return "cancelled";
-  }
-
-  return null;
 }
 
 export async function POST(
@@ -234,19 +166,36 @@ export async function POST(
     }
 
     const shippingStatus =
-      getShippingStatus(stateCode);
+      getShippingStatusForBostaState(
+        stateCode
+      );
 
     const orderStatus =
-      getOrderStatus(stateCode);
+      getOrderStatusForBostaState(
+        stateCode
+      );
 
     const timestamp = Number(
       body.timeStamp
     );
 
+    const timestampInMilliseconds =
+      timestamp > 0 &&
+      timestamp < 1_000_000_000_000
+        ? timestamp * 1000
+        : timestamp;
+
+    const parsedTimestamp = new Date(
+      timestampInMilliseconds
+    );
+
     const statusUpdatedAt =
       Number.isFinite(timestamp) &&
-      timestamp > 0
-        ? new Date(timestamp).toISOString()
+      timestamp > 0 &&
+      !Number.isNaN(
+        parsedTimestamp.getTime()
+      )
+        ? parsedTimestamp.toISOString()
         : new Date().toISOString();
 
     const stateName =

@@ -54,6 +54,7 @@ type Order = {
   bosta_tracking_number?: string | null;
   bosta_state_code?: number | null;
   bosta_state_name?: string | null;
+  bosta_status_updated_at?: string | null;
   bosta_batch_id?: string | null;
   bosta_pickup_id?: string | null;
   bosta_pickup_date?: string | null;
@@ -333,6 +334,10 @@ function getStatusClasses(
 function getShippingStatusLabel(
   status?: string | null
 ) {
+  if (status === "pickup_requested") {
+    return "Bosta Pickup Requested";
+  }
+
   if (status === "ready_to_print") {
     return "Ready to Print";
   }
@@ -353,9 +358,263 @@ function getShippingStatusLabel(
     return "Returned";
   }
 
+  if (status === "out_for_delivery") {
+    return "Out for Delivery";
+  }
+
+  if (status === "cancelled") {
+    return "Cancelled by Bosta";
+  }
+
+  if (status === "exception") {
+    return "Bosta Exception";
+  }
+
+  if (status === "shipping_issue") {
+    return "Needs Shipping Action";
+  }
+
   return status
     ? status.replaceAll("_", " ")
     : "Ready to Print";
+}
+
+type BostaStatusView = {
+  titleAr: string;
+  titleEn: string;
+  descriptionAr: string;
+  progressStep: number;
+  toneClasses: string;
+  badgeClasses: string;
+};
+
+const bostaJourneySteps = [
+  {
+    ar: "عند ORVIX",
+    en: "Ready",
+  },
+  {
+    ar: "استلمتها Bosta",
+    en: "Picked up",
+  },
+  {
+    ar: "المخزن / النقل",
+    en: "In transit",
+  },
+  {
+    ar: "خرجت للتوصيل",
+    en: "Out for delivery",
+  },
+  {
+    ar: "تم التسليم",
+    en: "Delivered",
+  },
+];
+
+function getBostaStatusView(
+  order: Order
+): BostaStatusView {
+  const stateCode = Number(
+    order.bosta_state_code
+  );
+
+  const hasStateCode =
+    order.bosta_state_code !== null &&
+    order.bosta_state_code !== undefined &&
+    Number.isInteger(stateCode);
+
+  if (!order.bosta_tracking_number) {
+    return {
+      titleAr: "لسه عند ORVIX",
+      titleEn: "Not handed to Bosta yet",
+      descriptionAr:
+        "لم يتم إنشاء شحنة Bosta لهذا الأوردر حتى الآن.",
+      progressStep: 0,
+      toneClasses:
+        "border-white/15 bg-white/[0.04]",
+      badgeClasses:
+        "border-white/15 bg-white/10 text-gray-200",
+    };
+  }
+
+  if (
+    !hasStateCode ||
+    [10, 11, 20].includes(stateCode)
+  ) {
+    return {
+      titleAr: "مستنية استلام Bosta",
+      titleEn:
+        "Shipment created — waiting for pickup",
+      descriptionAr:
+        "البوليصة اتعملت، لكن Bosta لم تستلم الشحنة من ORVIX بعد.",
+      progressStep: 0,
+      toneClasses:
+        "border-yellow-500/25 bg-yellow-500/10",
+      badgeClasses:
+        "border-yellow-500/25 bg-yellow-500/15 text-yellow-200",
+    };
+  }
+
+  if ([21, 22, 23, 40].includes(stateCode)) {
+    return {
+      titleAr: "Bosta استلمت الشحنة",
+      titleEn: "Picked up by Bosta",
+      descriptionAr:
+        "الشحنة خرجت من ORVIX وبقت في مسؤولية Bosta.",
+      progressStep: 1,
+      toneClasses:
+        "border-blue-500/25 bg-blue-500/10",
+      badgeClasses:
+        "border-blue-500/25 bg-blue-500/15 text-blue-200",
+    };
+  }
+
+  if ([24, 25].includes(stateCode)) {
+    return {
+      titleAr: "في مخزن Bosta",
+      titleEn: "Received at Bosta warehouse",
+      descriptionAr:
+        "Bosta استلمت الشحنة وسجلتها داخل المخزن للتجهيز والنقل.",
+      progressStep: 2,
+      toneClasses:
+        "border-cyan-500/25 bg-cyan-500/10",
+      badgeClasses:
+        "border-cyan-500/25 bg-cyan-500/15 text-cyan-200",
+    };
+  }
+
+  if (stateCode === 30) {
+    return {
+      titleAr: "في الطريق بين مخازن Bosta",
+      titleEn: "In transit between Bosta hubs",
+      descriptionAr:
+        "الشحنة بتتنقل للمخزن الأقرب لعنوان العميل.",
+      progressStep: 2,
+      toneClasses:
+        "border-cyan-500/25 bg-cyan-500/10",
+      badgeClasses:
+        "border-cyan-500/25 bg-cyan-500/15 text-cyan-200",
+    };
+  }
+
+  if (stateCode === 41) {
+    return {
+      titleAr: "خرجت للتوصيل",
+      titleEn: "Out for delivery",
+      descriptionAr:
+        "الشحنة مع مندوب Bosta وفي طريقها للعميل.",
+      progressStep: 3,
+      toneClasses:
+        "border-orange-500/25 bg-orange-500/10",
+      badgeClasses:
+        "border-orange-500/25 bg-orange-500/15 text-orange-200",
+    };
+  }
+
+  if (stateCode === 45) {
+    return {
+      titleAr: "تم التسليم للعميل",
+      titleEn: "Delivered",
+      descriptionAr:
+        "Bosta أكدت إن العميل استلم الشحنة.",
+      progressStep: 4,
+      toneClasses:
+        "border-green-500/25 bg-green-500/10",
+      badgeClasses:
+        "border-green-500/25 bg-green-500/15 text-green-200",
+    };
+  }
+
+  if ([46, 60].includes(stateCode)) {
+    return {
+      titleAr: "الشحنة راجعة لـORVIX",
+      titleEn: "Returned by Bosta",
+      descriptionAr:
+        "الشحنة دخلت مسار المرتجع. راجع Bosta لمعرفة مكانها الحالي.",
+      progressStep: 2,
+      toneClasses:
+        "border-fuchsia-500/25 bg-fuchsia-500/10",
+      badgeClasses:
+        "border-fuchsia-500/25 bg-fuchsia-500/15 text-fuchsia-200",
+    };
+  }
+
+  if ([48, 49].includes(stateCode)) {
+    return {
+      titleAr: "شحنة Bosta اتلغت",
+      titleEn: "Bosta shipment cancelled",
+      descriptionAr:
+        "الشحنة اتلغت على نظام Bosta ومحتاجة مراجعة قبل أي إجراء جديد.",
+      progressStep: 0,
+      toneClasses:
+        "border-red-500/25 bg-red-500/10",
+      badgeClasses:
+        "border-red-500/25 bg-red-500/15 text-red-200",
+    };
+  }
+
+  if (
+    [47, 100, 101, 102, 103, 105].includes(
+      stateCode
+    )
+  ) {
+    return {
+      titleAr: "الشحنة محتاجة متابعة",
+      titleEn: "Bosta needs your attention",
+      descriptionAr:
+        "في تحديث أو مشكلة محتاجة تراجع تفاصيلها مع دعم Bosta.",
+      progressStep: 2,
+      toneClasses:
+        "border-red-500/25 bg-red-500/10",
+      badgeClasses:
+        "border-red-500/25 bg-red-500/15 text-red-200",
+    };
+  }
+
+  return {
+    titleAr: "جاري الشحن مع Bosta",
+    titleEn:
+      order.bosta_state_name ||
+      "Bosta shipment in progress",
+    descriptionAr:
+      "راجع اسم حالة Bosta وآخر تحديث الظاهر تحت.",
+    progressStep: 2,
+    toneClasses:
+      "border-blue-500/25 bg-blue-500/10",
+    badgeClasses:
+      "border-blue-500/25 bg-blue-500/15 text-blue-200",
+  };
+}
+
+function formatBostaStatusDate(
+  value?: string | null
+) {
+  if (!value) {
+    return "Waiting for first update";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(
+    "en-GB",
+    {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "Africa/Cairo",
+    }
+  ).format(date);
+}
+
+function getBostaTrackingLink(
+  trackingNumber: string
+) {
+  return `https://bosta.co/ar-eg/tracking-shipments?shipment-number=${encodeURIComponent(
+    trackingNumber
+  )}`;
 }
 
 function getPaymentMethodName(
@@ -430,6 +689,11 @@ export default function AdminPage() {
   const [
     updatingOrderId,
     setUpdatingOrderId,
+  ] = useState<string | null>(null);
+
+  const [
+    refreshingBostaOrderId,
+    setRefreshingBostaOrderId,
   ] = useState<string | null>(null);
 
   const [totalViews, setTotalViews] =
@@ -813,6 +1077,81 @@ export default function AdminPage() {
       setMessageType("error");
     } finally {
       setUpdatingOrderId(null);
+    }
+  }
+
+  async function refreshBostaOrderStatus(
+    order: Order
+  ) {
+    if (!order.bosta_tracking_number) {
+      setMessage(
+        "Create the Bosta shipment first. This order is still with ORVIX."
+      );
+      setMessageType("error");
+      return;
+    }
+
+    setRefreshingBostaOrderId(order.id);
+    setMessage("");
+    setMessageType("");
+
+    try {
+      const response = await fetch(
+        "/api/admin/bosta/status",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            orderId: order.id,
+          }),
+        }
+      );
+
+      const result =
+        await response.json();
+
+      if (
+        !response.ok ||
+        !result.success ||
+        !result.order
+      ) {
+        throw new Error(
+          result.message ||
+            "Could not refresh the Bosta status."
+        );
+      }
+
+      const refreshedOrder =
+        result.order as Order;
+
+      setOrders((currentOrders) =>
+        currentOrders.map(
+          (currentOrder) =>
+            currentOrder.id === order.id
+              ? {
+                  ...currentOrder,
+                  ...refreshedOrder,
+                }
+              : currentOrder
+        )
+      );
+
+      setMessage(
+        `Bosta status refreshed for order ${order.order_number}.`
+      );
+      setMessageType("success");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not refresh the Bosta status."
+      );
+      setMessageType("error");
+    } finally {
+      setRefreshingBostaOrderId(null);
     }
   }
 
@@ -1848,6 +2187,13 @@ export default function AdminPage() {
                     order
                   );
 
+                const bostaStatus =
+                  getBostaStatusView(order);
+
+                const isRefreshingBosta =
+                  refreshingBostaOrderId ===
+                  order.id;
+
                 return (
                   <article
                     key={order.id}
@@ -2075,6 +2421,175 @@ export default function AdminPage() {
                         </p>
                       </div>
                     </div>
+
+                    <section
+                      className={`mt-5 rounded-3xl border p-5 sm:p-6 ${bostaStatus.toneClasses}`}
+                    >
+                      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-xs font-black uppercase tracking-[0.22em] text-gray-400">
+                              Bosta Shipping Status
+                            </p>
+
+                            <span
+                              className={`rounded-full border px-3 py-1 text-[11px] font-black ${bostaStatus.badgeClasses}`}
+                            >
+                              AUTO UPDATE · 60 SEC
+                            </span>
+                          </div>
+
+                          <h4
+                            dir="rtl"
+                            className="mt-4 text-right text-2xl font-black sm:text-3xl"
+                          >
+                            {bostaStatus.titleAr}
+                          </h4>
+
+                          <p className="mt-1 font-bold text-gray-200">
+                            {bostaStatus.titleEn}
+                          </p>
+
+                          <p
+                            dir="rtl"
+                            className="mt-3 max-w-2xl text-right text-sm leading-7 text-gray-400"
+                          >
+                            {
+                              bostaStatus.descriptionAr
+                            }
+                          </p>
+                        </div>
+
+                        <div className="flex w-full shrink-0 flex-col gap-3 lg:w-56">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void refreshBostaOrderStatus(
+                                order
+                              )
+                            }
+                            disabled={
+                              isRefreshingBosta ||
+                              !order.bosta_tracking_number
+                            }
+                            className="rounded-2xl bg-white px-4 py-3 text-sm font-black text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            {isRefreshingBosta
+                              ? "Checking Bosta..."
+                              : "Refresh from Bosta"}
+                          </button>
+
+                          {order.bosta_tracking_number && (
+                            <a
+                              href={getBostaTrackingLink(
+                                order.bosta_tracking_number
+                              )}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="rounded-2xl border border-white/15 px-4 py-3 text-center text-sm font-black text-white transition hover:bg-white/10"
+                            >
+                              Track on Bosta ↗
+                            </a>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-5 grid gap-3 text-sm sm:grid-cols-3">
+                        <div className="rounded-2xl bg-black/35 p-4">
+                          <p className="text-xs uppercase tracking-wider text-gray-500">
+                            Bosta tracking number
+                          </p>
+                          <p className="mt-2 break-all font-black">
+                            {order.bosta_tracking_number ||
+                              "Not created yet"}
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl bg-black/35 p-4">
+                          <p className="text-xs uppercase tracking-wider text-gray-500">
+                            Bosta reported
+                          </p>
+                          <p className="mt-2 font-black">
+                            {order.bosta_state_name ||
+                              "Waiting for Bosta"}
+                            {order.bosta_state_code !==
+                              null &&
+                            order.bosta_state_code !==
+                              undefined &&
+                            Number.isInteger(
+                              Number(
+                                order.bosta_state_code
+                              )
+                            )
+                              ? ` (${order.bosta_state_code})`
+                              : ""}
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl bg-black/35 p-4">
+                          <p className="text-xs uppercase tracking-wider text-gray-500">
+                            Last Bosta update
+                          </p>
+                          <p className="mt-2 font-black">
+                            {formatBostaStatusDate(
+                              order.bosta_status_updated_at
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 overflow-x-auto pb-1">
+                        <div className="grid min-w-[650px] grid-cols-5 gap-2">
+                          {bostaJourneySteps.map(
+                            (step, index) => {
+                              const reached =
+                                index <=
+                                bostaStatus.progressStep;
+
+                              return (
+                                <div
+                                  key={step.en}
+                                  className={`rounded-2xl border p-3 text-center transition ${
+                                    reached
+                                      ? "border-blue-400/30 bg-blue-400/15 text-white"
+                                      : "border-white/10 bg-black/20 text-gray-600"
+                                  }`}
+                                >
+                                  <div
+                                    className={`mx-auto flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${
+                                      reached
+                                        ? "bg-blue-400 text-black"
+                                        : "bg-white/10 text-gray-600"
+                                    }`}
+                                  >
+                                    {reached
+                                      ? "✓"
+                                      : index + 1}
+                                  </div>
+
+                                  <p
+                                    dir="rtl"
+                                    className="mt-2 text-xs font-black"
+                                  >
+                                    {step.ar}
+                                  </p>
+                                  <p className="mt-1 text-[10px] uppercase tracking-wider opacity-60">
+                                    {step.en}
+                                  </p>
+                                </div>
+                              );
+                            }
+                          )}
+                        </div>
+                      </div>
+
+                      {order.bosta_last_error && (
+                        <p className="mt-4 rounded-2xl border border-red-500/25 bg-red-500/10 p-4 text-sm font-semibold leading-6 text-red-200">
+                          Bosta action needed: {" "}
+                          {order.bosta_last_error}
+                        </p>
+                      )}
+                    </section>
 
                     <div className="mt-5 rounded-2xl bg-black/40 p-4">
                       <p className="text-xs uppercase tracking-wider text-gray-500">

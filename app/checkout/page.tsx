@@ -1096,8 +1096,11 @@ export default function CheckoutPage() {
 
             <p className="mt-5 max-w-2xl leading-7 text-gray-400">
               Review your product, enter your
-              delivery information and pay using
+              delivery information, then pay the
+              products total to ORVIX through
               InstaPay when your order arrives.
+              The courier collects only the
+              delivery fee.
             </p>
           </div>
 
@@ -1685,36 +1688,87 @@ export default function CheckoutPage() {
                 </strong>
               </div>
 
-              <div className="mt-7 rounded-3xl border border-white/10 bg-black p-5">
+              <div className="mt-7 rounded-3xl border border-violet-500/25 bg-violet-500/10 p-5">
                 <div className="flex items-start gap-4">
                   <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black p-1">
-                    <img
+                    <Image
                       src={INSTAPAY_LOGO}
                       alt="InstaPay"
+                      width={80}
+                      height={80}
+                      unoptimized
                       className="h-full w-full object-contain"
                     />
                   </div>
 
                   <div className="min-w-0">
-                    <p className="font-black text-white">
-                      InstaPay on Delivery
+                    <p className="text-xs font-black uppercase tracking-[0.22em] text-violet-300">
+                      How payment works
                     </p>
 
-                    <p className="mt-2 text-sm leading-6 text-gray-400">
-                      Pay through InstaPay only when
-                      your order arrives. No advance
-                      payment is required.
+                    <p className="mt-2 text-lg font-black text-white">
+                      Two separate payments on
+                      delivery
                     </p>
                   </div>
                 </div>
 
+                <div className="mt-5 space-y-3">
+                  <div className="rounded-2xl border border-violet-400/20 bg-black/40 p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-black text-violet-200">
+                          1. InstaPay to ORVIX
+                        </p>
+
+                        <p className="mt-1 text-xs leading-5 text-gray-400">
+                          Products total only — when
+                          your order arrives.
+                        </p>
+                      </div>
+
+                      <strong className="shrink-0 text-lg text-violet-300">
+                        {finalProductsTotal.toLocaleString(
+                          "en-GB"
+                        )}{" "}
+                        EGP
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-blue-400/20 bg-blue-500/10 p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-black text-blue-200">
+                          2. Cash to Bosta courier
+                        </p>
+
+                        <p className="mt-1 text-xs leading-5 text-gray-400">
+                          Delivery fee only. The
+                          courier does not collect
+                          the product price.
+                        </p>
+                      </div>
+
+                      <strong className="shrink-0 text-lg text-blue-300">
+                        {selectedArea
+                          ? `${finalDeliveryFee.toLocaleString(
+                              "en-GB"
+                            )} EGP`
+                          : "Select city"}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="mt-4 border-t border-white/10 pt-4">
-                  <p className="text-xs leading-5 text-gray-500">
-                    Official payment details will
-                    be provided when your order is
-                    confirmed or delivered. Never
-                    transfer money to an unverified
-                    account.
+                  <p className="text-xs font-semibold leading-5 text-gray-400">
+                    No advance payment is required.
+                    ORVIX&apos;s verified InstaPay
+                    details will be provided when
+                    your order is confirmed. Never
+                    send the products total to the
+                    courier.
                   </p>
                 </div>
               </div>
