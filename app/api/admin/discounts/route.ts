@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { MAINTENANCE_SETTING_CODE } from "@/lib/maintenance-mode";
+
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
 
@@ -82,7 +84,9 @@ export async function GET() {
     }
 
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/delivery_discount_codes?select=*&order=created_at.desc`,
+      `${supabaseUrl}/rest/v1/delivery_discount_codes?select=*&code=neq.${encodeURIComponent(
+        MAINTENANCE_SETTING_CODE
+      )}&order=created_at.desc`,
       {
         headers: getHeaders(),
         cache: "no-store",
@@ -142,6 +146,20 @@ export async function POST(request: Request) {
     }
 
     const code = normalizeCode(payload.code);
+
+    if (
+      code ===
+      MAINTENANCE_SETTING_CODE
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "This code is reserved by ORVIX.",
+        },
+        { status: 400 }
+      );
+    }
 
     const response = await fetch(
       `${supabaseUrl}/rest/v1/delivery_discount_codes`,
