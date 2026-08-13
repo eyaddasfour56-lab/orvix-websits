@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { MAINTENANCE_SETTING_CODE } from "@/lib/maintenance-mode";
+
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
 
@@ -25,6 +27,20 @@ export async function POST(request: Request) {
           message: "Please enter a discount code.",
         },
         { status: 400 }
+      );
+    }
+
+    if (
+      code ===
+      MAINTENANCE_SETTING_CODE
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Invalid discount code.",
+        },
+        { status: 404 }
       );
     }
 

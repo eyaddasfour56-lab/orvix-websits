@@ -737,6 +737,16 @@ export default function AdminPage() {
     setShowBostaPanel,
   ] = useState(false);
 
+  const [
+    maintenanceEnabled,
+    setMaintenanceEnabled,
+  ] = useState<boolean | null>(null);
+
+  const [
+    maintenanceUpdating,
+    setMaintenanceUpdating,
+  ] = useState(false);
+
   async function loadDashboard(
     silent = false
   ) {
@@ -761,6 +771,7 @@ export default function AdminPage() {
         setAuthenticated(false);
         setOrders([]);
         setSelectedOrderIds([]);
+        setMaintenanceEnabled(null);
 
         setWaitlistStatistics({
           total: 0,
@@ -877,6 +888,40 @@ export default function AdminPage() {
           });
         }
       }
+
+      const maintenanceResponse =
+        await fetch(
+          "/api/admin/maintenance",
+          {
+            cache: "no-store",
+          }
+        );
+
+      if (
+        maintenanceResponse.status ===
+        401
+      ) {
+        setAuthenticated(false);
+        setMaintenanceEnabled(null);
+        return;
+      }
+
+      if (maintenanceResponse.ok) {
+        const maintenanceResult =
+          await maintenanceResponse.json();
+
+        if (
+          maintenanceResult.success
+        ) {
+          setMaintenanceEnabled(
+            Boolean(
+              maintenanceResult.maintenanceEnabled
+            )
+          );
+        }
+      } else if (!silent) {
+        setMaintenanceEnabled(null);
+      }
     } catch (error) {
       if (!silent) {
         setMessage(
@@ -991,6 +1036,88 @@ export default function AdminPage() {
       setMessageType("error");
     } finally {
       setLoginLoading(false);
+    }
+  }
+
+  async function toggleMaintenanceMode() {
+    if (
+      maintenanceEnabled === null ||
+      maintenanceUpdating
+    ) {
+      return;
+    }
+
+    const nextEnabled =
+      !maintenanceEnabled;
+
+    if (
+      nextEnabled &&
+      !window.confirm(
+        "Close the store for all visitors? You will still be able to use the Admin Dashboard."
+      )
+    ) {
+      return;
+    }
+
+    setMaintenanceUpdating(true);
+    setMessage("");
+    setMessageType("");
+
+    try {
+      const response = await fetch(
+        "/api/admin/maintenance",
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            enabled: nextEnabled,
+          }),
+        }
+      );
+
+      if (response.status === 401) {
+        setAuthenticated(false);
+        setMaintenanceEnabled(null);
+        return;
+      }
+
+      const result =
+        await response.json();
+
+      if (
+        !response.ok ||
+        !result.success
+      ) {
+        throw new Error(
+          result.message ||
+            "Could not change website status."
+        );
+      }
+
+      setMaintenanceEnabled(
+        Boolean(
+          result.maintenanceEnabled
+        )
+      );
+      setMessage(
+        result.message ||
+          (nextEnabled
+            ? "Website closed successfully."
+            : "Website opened successfully.")
+      );
+      setMessageType("success");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not change website status."
+      );
+      setMessageType("error");
+    } finally {
+      setMaintenanceUpdating(false);
     }
   }
 
@@ -1825,6 +1952,97 @@ export default function AdminPage() {
                   : "Reset All Orders"}
               </button>
             </div>
+
+            <section
+              className={`mt-6 overflow-hidden rounded-3xl border p-5 sm:p-6 ${
+                maintenanceEnabled ===
+                true
+                  ? "border-red-500/35 bg-red-500/10"
+                  : maintenanceEnabled ===
+                      false
+                    ? "border-emerald-500/35 bg-emerald-500/10"
+                    : "border-yellow-500/30 bg-yellow-500/10"
+              }`}
+            >
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`h-3 w-3 rounded-full ${
+                        maintenanceEnabled ===
+                        true
+                          ? "animate-pulse bg-red-400"
+                          : maintenanceEnabled ===
+                              false
+                            ? "bg-emerald-400"
+                            : "bg-yellow-400"
+                      }`}
+                    />
+
+                    <p
+                      className={`text-sm font-black uppercase tracking-[0.2em] ${
+                        maintenanceEnabled ===
+                        true
+                          ? "text-red-300"
+                          : maintenanceEnabled ===
+                              false
+                            ? "text-emerald-300"
+                            : "text-yellow-300"
+                      }`}
+                    >
+                      {maintenanceEnabled ===
+                      true
+                        ? "Website closed"
+                        : maintenanceEnabled ===
+                            false
+                          ? "Website live"
+                          : "Website status unavailable"}
+                    </p>
+                  </div>
+
+                  <h2 className="mt-3 text-2xl font-black">
+                    Maintenance Mode
+                  </h2>
+
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-400">
+                    {maintenanceEnabled ===
+                    true
+                      ? "Visitors see the Under Construction page. Your Admin Dashboard and Bosta updates stay available."
+                      : maintenanceEnabled ===
+                          false
+                        ? "The ORVIX store is open and customers can browse products and place orders."
+                        : "Refresh the dashboard to load the current website status."}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    void toggleMaintenanceMode()
+                  }
+                  disabled={
+                    maintenanceEnabled ===
+                      null ||
+                    maintenanceUpdating
+                  }
+                  className={`min-w-48 rounded-2xl px-6 py-4 font-black transition disabled:cursor-not-allowed disabled:opacity-45 ${
+                    maintenanceEnabled ===
+                    true
+                      ? "bg-emerald-500 text-black hover:bg-emerald-400"
+                      : maintenanceEnabled ===
+                          false
+                        ? "bg-red-600 text-white hover:bg-red-500"
+                        : "bg-gray-700 text-gray-300"
+                  }`}
+                >
+                  {maintenanceUpdating
+                    ? "Updating..."
+                    : maintenanceEnabled
+                      ? "Open Website"
+                      : "Close Website"}
+                </button>
+              </div>
+            </section>
           </header>
 
           {message && (
