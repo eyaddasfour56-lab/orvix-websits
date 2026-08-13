@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import Navbar from "@/components/Navbar";
+import { useLanguage } from "@/components/LanguageProvider";
 
 const PRODUCT_NAME = "Garmin CIRQA";
 const PRODUCT_SLUG = "garmin-cirqa";
@@ -36,7 +37,7 @@ const colours = [
 
 const sizes = ["S-M", "L-XL"];
 
-const featureGroups = [
+const featureGroupsEn = [
   {
     title: "Health",
     features: [
@@ -179,6 +180,260 @@ const featureGroups = [
   },
 ];
 
+const featureGroupsAr = [
+  {
+    title: "الصحة",
+    features: [
+      {
+        title: "معدل ضربات القلب طوال اليوم",
+        description:
+          "تتبّع مستمر لمعدل ضربات القلب مع تنبيهات الارتفاع والانخفاض.",
+      },
+      {
+        title: "Body Battery",
+        description:
+          "تابع مستويات طاقتك لمعرفة أنسب أوقات النشاط والراحة.",
+      },
+      {
+        title: "Pulse Ox",
+        description:
+          "راقب تشبع الأكسجين في الدم أثناء الاستيقاظ أو النوم.",
+      },
+      {
+        title: "تتبّع التوتر",
+        description:
+          "تعرّف على ما إذا كان يومك هادئًا أو متوازنًا أو مرهقًا.",
+      },
+      {
+        title: "الحالة الصحية",
+        description:
+          "اكتشف التغيرات في بياناتك الصحية ونطاق العافية المعتاد لديك.",
+      },
+      {
+        title: "حرارة الجلد",
+        description:
+          "تابع التغيرات الليلية في متوسط درجة حرارة الجلد.",
+      },
+    ],
+  },
+  {
+    title: "النوم",
+    features: [
+      {
+        title: "مراقبة متقدمة للنوم",
+        description:
+          "شاهد مراحل النوم ودرجته وتحليلًا مفصلًا له.",
+      },
+      {
+        title: "مدرب النوم",
+        description:
+          "احصل على إرشادات مخصصة لمدة النوم التي تحتاج إليها.",
+      },
+      {
+        title: "انتظام النوم",
+        description:
+          "افهم مدى انتظام نومك وإيقاعك اليومي.",
+      },
+      {
+        title: "تغيرات التنفس",
+        description:
+          "افهم التغيرات في نمط تنفسك أثناء النوم.",
+      },
+      {
+        title: "اكتشاف القيلولة",
+        description:
+          "يتتبّع القيلولة تلقائيًا ويوضح تأثيرها في التعافي.",
+      },
+      {
+        title: "منبه استيقاظ ذكي",
+        description:
+          "استيقظ باهتزاز لطيف في وقت مناسب.",
+      },
+    ],
+  },
+  {
+    title: "اللياقة",
+    features: [
+      {
+        title: "اكتشاف النشاط تلقائيًا",
+        description:
+          "يكتشف تلقائيًا أنشطة مثل المشي والجري.",
+      },
+      {
+        title: "أكثر من 80 نشاطًا",
+        description:
+          "تابع الجري واليوغا وركوب الدراجات وأنشطة كثيرة أخرى.",
+      },
+      {
+        title: "الاستعداد للتمرين",
+        description:
+          "احصل على درجة استعداد استنادًا إلى النوم والتعافي وبيانات صحية أخرى.",
+      },
+      {
+        title: "حالة التدريب",
+        description:
+          "تعرّف على ما إذا كان تدريبك منتجًا أو في ذروته أو مرهقًا.",
+      },
+      {
+        title: "الخطوات والنشاط",
+        description:
+          "تابع خطواتك اليومية ومستوى نشاطك.",
+      },
+      {
+        title: "دقائق النشاط المكثف",
+        description:
+          "تابع دقائق النشاط المتوسط والقوي.",
+      },
+    ],
+  },
+  {
+    title: "Garmin Connect",
+    features: [
+      {
+        title: "المزامنة بين الأجهزة",
+        description:
+          "حافظ على مزامنة بيانات الصحة واللياقة بين أجهزة Garmin.",
+      },
+      {
+        title: "تسجيل العادات اليومية",
+        description:
+          "سجل عاداتك وافهم تأثيرها في صحتك العامة.",
+      },
+      {
+        title: "التنفس الواعي",
+        description:
+          "ابدأ تمارين تنفس موجهة وتابع التنفس والتوتر.",
+      },
+      {
+        title: "التأمل",
+        description:
+          "استخدم جلسات تأمل موجهة عبر Garmin Connect+.",
+      },
+      {
+        title: "Garmin Coach",
+        description:
+          "اتبع خطط تدريب ولياقة مختارة عبر Garmin Connect.",
+      },
+      {
+        title: "بث معدل ضربات القلب",
+        description:
+          "شارك بيانات معدل ضربات القلب المباشرة مع أجهزة Garmin المتوافقة.",
+      },
+    ],
+  },
+];
+
+const copyByLanguage = {
+  en: {
+    colours: {
+      Black: "Black",
+      "French Gray": "French Gray",
+      Mauve: "Mauve",
+      "Captain Blue": "Captain Blue",
+    },
+    enterName: "Please enter your name.",
+    contactRequired:
+      "Please enter your email or phone number.",
+    validEmail:
+      "Please enter a valid email address.",
+    validPhone:
+      "Please enter a valid phone number.",
+    joinError:
+      "Could not join the notification list.",
+    joined:
+      "You are on the list. We will notify you when Garmin CIRQA becomes available.",
+    comingSoon: "Coming Soon",
+    band: "Screen-Free Smart Band",
+    description:
+      "A screen-free smart band designed to track your health, sleep, recovery and daily activity through Garmin Connect.",
+    chooseColour: "Choose your colour",
+    chooseSize: "Choose your size",
+    selectedOption: "Selected option",
+    launchNote:
+      "Price and official launch date will be announced soon.",
+    notifyAvailable: "Notify Me When Available",
+    notifyNote:
+      "Join the list and we will contact you by email or phone when Garmin CIRQA becomes available.",
+    launchNotification: "Launch Notification",
+    joinList: "Join the Garmin CIRQA List",
+    formDescription:
+      "Enter your email or phone number and we will contact you when the product launches.",
+    closeForm: "Close notification form",
+    yourSelection: "Your selection",
+    name: "Name",
+    namePlaceholder: "Enter your name",
+    email: "Email address",
+    or: "Or",
+    phone: "Phone number",
+    contactNote:
+      "Enter at least one contact method: email or phone number.",
+    joining: "Joining List...",
+    notifyLaunch: "Notify Me at Launch",
+    done: "Done",
+    featuresTitle: "Features at a glance",
+    featuresSubtitle:
+      "The most important health, sleep and fitness features, organised into simple cards.",
+    availabilityNote:
+      "Feature availability may depend on your country, compatible device, Garmin Connect version or a Garmin Connect+ subscription.",
+    rights: "All rights reserved.",
+    allProducts: "View all products",
+  },
+  ar: {
+    colours: {
+      Black: "أسود",
+      "French Gray": "رمادي فرنسي",
+      Mauve: "موف",
+      "Captain Blue": "أزرق كابتن",
+    },
+    enterName: "من فضلك أدخل اسمك.",
+    contactRequired:
+      "من فضلك أدخل بريدك الإلكتروني أو رقم هاتفك.",
+    validEmail:
+      "من فضلك أدخل بريدًا إلكترونيًا صحيحًا.",
+    validPhone:
+      "من فضلك أدخل رقم هاتف صحيحًا.",
+    joinError:
+      "تعذر الانضمام إلى قائمة التنبيهات.",
+    joined:
+      "تم انضمامك إلى القائمة. سننبهك عند توفر Garmin CIRQA.",
+    comingSoon: "قريبًا",
+    band: "سوار ذكي من دون شاشة",
+    description:
+      "سوار ذكي من دون شاشة لمتابعة الصحة والنوم والتعافي والنشاط اليومي عبر Garmin Connect.",
+    chooseColour: "اختر اللون",
+    chooseSize: "اختر المقاس",
+    selectedOption: "اختيارك",
+    launchNote:
+      "سيتم الإعلان عن السعر وموعد الإطلاق الرسمي قريبًا.",
+    notifyAvailable: "نبّهني عند التوفر",
+    notifyNote:
+      "انضم إلى القائمة وسنتواصل معك عبر البريد أو الهاتف عند توفر Garmin CIRQA.",
+    launchNotification: "تنبيه الإطلاق",
+    joinList: "انضم إلى قائمة Garmin CIRQA",
+    formDescription:
+      "أدخل بريدك الإلكتروني أو رقم هاتفك وسنتواصل معك عند إطلاق المنتج.",
+    closeForm: "إغلاق نموذج التنبيه",
+    yourSelection: "اختيارك",
+    name: "الاسم",
+    namePlaceholder: "أدخل اسمك",
+    email: "البريد الإلكتروني",
+    or: "أو",
+    phone: "رقم الهاتف",
+    contactNote:
+      "أدخل وسيلة تواصل واحدة على الأقل: البريد الإلكتروني أو رقم الهاتف.",
+    joining: "جارٍ الانضمام...",
+    notifyLaunch: "نبّهني عند الإطلاق",
+    done: "تم",
+    featuresTitle: "أهم المزايا",
+    featuresSubtitle:
+      "أهم مزايا الصحة والنوم واللياقة مرتبة في بطاقات واضحة.",
+    availabilityNote:
+      "قد يختلف توفر المزايا حسب بلدك والجهاز المتوافق وإصدار Garmin Connect أو اشتراك Garmin Connect+.",
+    rights: "جميع الحقوق محفوظة.",
+    allProducts: "عرض جميع المنتجات",
+  },
+} as const;
+
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
     value.trim()
@@ -192,6 +447,14 @@ function isValidPhone(value: string) {
 }
 
 export default function GarminCirqaPage() {
+  const { language, isArabic } =
+    useLanguage();
+  const copy = copyByLanguage[language];
+  const featureGroups =
+    language === "ar"
+      ? featureGroupsAr
+      : featureGroupsEn;
+
   const [
     selectedColour,
     setSelectedColour,
@@ -261,7 +524,7 @@ export default function GarminCirqaPage() {
 
     if (!customerName.trim()) {
       setMessage(
-        "Please enter your name."
+        copy.enterName
       );
 
       return;
@@ -269,7 +532,7 @@ export default function GarminCirqaPage() {
 
     if (!email.trim() && !phone.trim()) {
       setMessage(
-        "Please enter your email or phone number."
+        copy.contactRequired
       );
 
       return;
@@ -280,7 +543,7 @@ export default function GarminCirqaPage() {
       !isValidEmail(email)
     ) {
       setMessage(
-        "Please enter a valid email address."
+        copy.validEmail
       );
 
       return;
@@ -291,7 +554,7 @@ export default function GarminCirqaPage() {
       !isValidPhone(phone)
     ) {
       setMessage(
-        "Please enter a valid phone number."
+        copy.validPhone
       );
 
       return;
@@ -334,15 +597,16 @@ export default function GarminCirqaPage() {
       if (!response.ok || !result.success) {
         throw new Error(
           result.message ||
-            "Could not join the notification list."
+            copy.joinError
         );
       }
 
       setSuccess(true);
 
       setMessage(
-        result.message ||
-          "You are on the list. We will notify you when Garmin CIRQA becomes available."
+        language === "ar"
+          ? copy.joined
+          : result.message || copy.joined
       );
 
       setCustomerName("");
@@ -353,8 +617,10 @@ export default function GarminCirqaPage() {
 
       setMessage(
         error instanceof Error
-          ? error.message
-          : "Could not join the notification list."
+          ? language === "ar"
+            ? copy.joinError
+            : error.message
+          : copy.joinError
       );
     } finally {
       setSending(false);
@@ -362,7 +628,11 @@ export default function GarminCirqaPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#070707] text-white">
+    <main
+      lang={language}
+      dir={isArabic ? "rtl" : "ltr"}
+      className="min-h-screen bg-[#070707] text-white"
+    >
       <Navbar />
 
       {/* Product Section */}
@@ -373,7 +643,11 @@ export default function GarminCirqaPage() {
             <Image
               key={selectedColour.name}
               src={selectedColour.image}
-              alt={`${PRODUCT_NAME} - ${selectedColour.name}`}
+              alt={`${PRODUCT_NAME} - ${
+                copy.colours[
+                  selectedColour.name as keyof typeof copy.colours
+                ]
+              }`}
               width={700}
               height={700}
               priority
@@ -384,11 +658,11 @@ export default function GarminCirqaPage() {
           {/* Product Details */}
           <div>
             <span className="inline-flex rounded-full border border-white/15 bg-white/5 px-5 py-2 text-sm font-bold uppercase tracking-[0.25em] text-gray-300">
-              Coming Soon
+              {copy.comingSoon}
             </span>
 
             <p className="mt-7 text-sm uppercase tracking-[0.4em] text-gray-500">
-              Screen-Free Smart Band
+              {copy.band}
             </p>
 
             <h1 className="mt-5 text-5xl font-black leading-none sm:text-6xl">
@@ -396,15 +670,12 @@ export default function GarminCirqaPage() {
             </h1>
 
             <p className="mt-6 max-w-xl text-lg leading-8 text-gray-400">
-              A screen-free smart band designed
-              to track your health, sleep,
-              recovery and daily activity
-              through Garmin Connect.
+              {copy.description}
             </p>
 
             {/* Colour */}
             <p className="mt-10 text-sm uppercase tracking-[0.35em] text-gray-500">
-              Choose your colour
+              {copy.chooseColour}
             </p>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
@@ -425,7 +696,7 @@ export default function GarminCirqaPage() {
                       setMessage("");
                       setSuccess(false);
                     }}
-                    className={`flex items-center gap-3 rounded-2xl border p-4 text-left font-bold transition ${
+                    className={`flex items-center gap-3 rounded-2xl border p-4 text-start font-bold transition ${
                       selected
                         ? "border-white bg-white text-black"
                         : "border-white/15 bg-white/5 text-white hover:border-white/30"
@@ -439,7 +710,13 @@ export default function GarminCirqaPage() {
                       } ${colour.dot}`}
                     />
 
-                    <span>{colour.name}</span>
+                    <span>
+                      {
+                        copy.colours[
+                          colour.name as keyof typeof copy.colours
+                        ]
+                      }
+                    </span>
                   </button>
                 );
               })}
@@ -447,7 +724,7 @@ export default function GarminCirqaPage() {
 
             {/* Size */}
             <p className="mt-10 text-sm uppercase tracking-[0.35em] text-gray-500">
-              Choose your size
+              {copy.chooseSize}
             </p>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
@@ -479,17 +756,20 @@ export default function GarminCirqaPage() {
             {/* Selection */}
             <div className="mt-10 rounded-3xl border border-white/10 bg-white/5 p-6">
               <p className="text-sm uppercase tracking-[0.25em] text-gray-500">
-                Selected option
+                {copy.selectedOption}
               </p>
 
               <p className="mt-3 text-xl font-bold">
-                {selectedColour.name} ·{" "}
+                {
+                  copy.colours[
+                    selectedColour.name as keyof typeof copy.colours
+                  ]
+                } ·{" "}
                 {selectedSize}
               </p>
 
               <p className="mt-3 text-sm leading-6 text-gray-400">
-                Price and official launch date
-                will be announced soon.
+                {copy.launchNote}
               </p>
             </div>
 
@@ -521,13 +801,11 @@ export default function GarminCirqaPage() {
                 />
               </svg>
 
-              Notify Me When Available
+              {copy.notifyAvailable}
             </button>
 
             <p className="mt-4 text-center text-sm leading-6 text-gray-500">
-              Join the list and we will contact
-              you by email or phone when Garmin
-              CIRQA becomes available.
+              {copy.notifyNote}
             </p>
 
             {/* Notify Form */}
@@ -540,25 +818,22 @@ export default function GarminCirqaPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-sm uppercase tracking-[0.3em] text-gray-500">
-                      Launch Notification
+                      {copy.launchNotification}
                     </p>
 
                     <h2 className="mt-3 text-2xl font-black">
-                      Join the Garmin CIRQA List
+                      {copy.joinList}
                     </h2>
 
                     <p className="mt-3 text-sm leading-6 text-gray-400">
-                      Enter your email or phone
-                      number and we will contact
-                      you when the product
-                      launches.
+                      {copy.formDescription}
                     </p>
                   </div>
 
                   <button
                     type="button"
                     onClick={closeNotifyForm}
-                    aria-label="Close notification form"
+                    aria-label={copy.closeForm}
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/15 text-2xl transition hover:bg-white/10"
                   >
                     ×
@@ -567,11 +842,15 @@ export default function GarminCirqaPage() {
 
                 <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-4">
                   <p className="text-xs uppercase tracking-[0.2em] text-gray-500">
-                    Your selection
+                    {copy.yourSelection}
                   </p>
 
                   <p className="mt-2 font-black">
-                    {selectedColour.name} ·{" "}
+                    {
+                      copy.colours[
+                        selectedColour.name as keyof typeof copy.colours
+                      ]
+                    } ·{" "}
                     {selectedSize}
                   </p>
                 </div>
@@ -579,7 +858,7 @@ export default function GarminCirqaPage() {
                 <div className="mt-6 grid gap-5">
                   <label>
                     <span className="mb-2 block text-sm font-bold text-gray-300">
-                      Name
+                      {copy.name}
                     </span>
 
                     <input
@@ -593,7 +872,7 @@ export default function GarminCirqaPage() {
                         setMessage("");
                         setSuccess(false);
                       }}
-                      placeholder="Enter your name"
+                      placeholder={copy.namePlaceholder}
                       autoComplete="name"
                       disabled={sending}
                       required
@@ -603,11 +882,12 @@ export default function GarminCirqaPage() {
 
                   <label>
                     <span className="mb-2 block text-sm font-bold text-gray-300">
-                      Email address
+                      {copy.email}
                     </span>
 
                     <input
                       type="email"
+                      dir="ltr"
                       value={email}
                       onChange={(event) => {
                         setEmail(
@@ -629,7 +909,7 @@ export default function GarminCirqaPage() {
                     <div className="h-px flex-1 bg-white/10" />
 
                     <span className="text-xs font-bold uppercase tracking-[0.2em] text-gray-600">
-                      Or
+                      {copy.or}
                     </span>
 
                     <div className="h-px flex-1 bg-white/10" />
@@ -637,11 +917,12 @@ export default function GarminCirqaPage() {
 
                   <label>
                     <span className="mb-2 block text-sm font-bold text-gray-300">
-                      Phone number
+                      {copy.phone}
                     </span>
 
                     <input
                       type="tel"
+                      dir="ltr"
                       value={phone}
                       onChange={(event) => {
                         setPhone(
@@ -661,8 +942,7 @@ export default function GarminCirqaPage() {
                 </div>
 
                 <p className="mt-4 text-xs leading-6 text-gray-500">
-                  Enter at least one contact
-                  method: email or phone number.
+                  {copy.contactNote}
                 </p>
 
                 {message && (
@@ -690,8 +970,8 @@ export default function GarminCirqaPage() {
                     className="mt-6 flex w-full items-center justify-center rounded-full bg-white px-7 py-5 font-black text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {sending
-                      ? "Joining List..."
-                      : "Notify Me at Launch"}
+                      ? copy.joining
+                      : copy.notifyLaunch}
                   </button>
                 ) : (
                   <button
@@ -699,7 +979,7 @@ export default function GarminCirqaPage() {
                     onClick={closeNotifyForm}
                     className="mt-6 flex w-full items-center justify-center rounded-full border border-white/15 px-7 py-4 font-black transition hover:bg-white/10"
                   >
-                    Done
+                    {copy.done}
                   </button>
                 )}
               </form>
@@ -717,13 +997,11 @@ export default function GarminCirqaPage() {
             </p>
 
             <h2 className="mt-5 text-4xl font-black sm:text-6xl">
-              Features at a glance
+              {copy.featuresTitle}
             </h2>
 
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-gray-400">
-              The most important health, sleep
-              and fitness features, organised
-              into simple cards.
+              {copy.featuresSubtitle}
             </p>
           </div>
 
@@ -767,10 +1045,7 @@ export default function GarminCirqaPage() {
           </div>
 
           <p className="mx-auto mt-16 max-w-3xl text-center text-xs leading-6 text-gray-600">
-            Feature availability may depend on
-            your country, compatible device,
-            Garmin Connect version or a Garmin
-            Connect+ subscription.
+            {copy.availabilityNote}
           </p>
         </div>
       </section>
@@ -779,14 +1054,14 @@ export default function GarminCirqaPage() {
       <footer className="border-t border-white/10 py-8">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 text-sm text-gray-500 sm:px-6 md:flex-row">
           <p>
-            © 2026 ORVIX. All rights reserved.
+            © 2026 ORVIX. {copy.rights}
           </p>
 
           <Link
             href="/#products"
             className="font-bold text-white"
           >
-            View all products
+            {copy.allProducts}
           </Link>
         </div>
       </footer>

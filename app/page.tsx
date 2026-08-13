@@ -8,6 +8,10 @@ import {
   useState,
 } from "react";
 import Navbar from "@/components/Navbar";
+import {
+  Language,
+  useLanguage,
+} from "@/components/LanguageProvider";
 
 type ProductStatus =
   | "available"
@@ -34,89 +38,289 @@ type Product = {
   updatedAt: string;
 };
 
-const benefits = [
-  {
-    number: "01",
-    title: "Carefully Selected",
-    description:
-      "We focus on smart fitness technology that offers useful features, reliable performance and a clean design.",
-  },
-  {
-    number: "02",
-    title: "Simple Ordering",
-    description:
-      "Choose your product, colour and delivery area, then complete your order securely through our website.",
-  },
-  {
-    number: "03",
-    title: "Order Tracking",
-    description:
-      "Use your order number and phone number to check the latest status of your ORVIX order at any time.",
-  },
-];
+const benefitsByLanguage = {
+  en: [
+    {
+      number: "01",
+      title: "Carefully Selected",
+      description:
+        "We focus on smart fitness technology that offers useful features, reliable performance and a clean design.",
+    },
+    {
+      number: "02",
+      title: "Simple Ordering",
+      description:
+        "Choose your product, colour and delivery area, then complete your order securely through our website.",
+    },
+    {
+      number: "03",
+      title: "Order Tracking",
+      description:
+        "Use your order number and phone number to check the latest status of your ORVIX order at any time.",
+    },
+  ],
+  ar: [
+    {
+      number: "01",
+      title: "اختيار بعناية",
+      description:
+        "نختار تقنيات اللياقة الذكية التي تجمع بين المزايا العملية والأداء الموثوق والتصميم الأنيق.",
+    },
+    {
+      number: "02",
+      title: "طلب سهل",
+      description:
+        "اختر المنتج واللون ومنطقة التوصيل، ثم أكمل طلبك بأمان عبر موقعنا.",
+    },
+    {
+      number: "03",
+      title: "تتبّع الطلب",
+      description:
+        "استخدم رقم الطلب ورقم الهاتف لمعرفة أحدث حالة لطلب ORVIX في أي وقت.",
+    },
+  ],
+} as const;
 
-const frequentlyAskedQuestions = [
-  {
-    question: "How can I place an order?",
-    answer:
-      "Open an available product, select your preferred options and quantity, add it to your cart, then complete the checkout form.",
-  },
-  {
-    question: "How do I track my order?",
-    answer:
-      "Open the Track Order page and enter the order number and phone number used during checkout. Your current order status will appear immediately.",
-  },
-  {
-    question:
-      "Where can I find my order number?",
-    answer:
-      "Your order number appears on the confirmation page after checkout and is also sent to the email address used during your order.",
-  },
-  {
-    question:
-      "What payment method is available?",
-    answer:
-      "Payment is completed through InstaPay when your order arrives. No advance payment is required.",
-  },
-  {
-    question:
-      "How much does delivery cost?",
-    answer:
-      "Delivery fees depend on your selected area and are calculated automatically during checkout before you place the order.",
-  },
-  {
-    question:
-      "Can I use a discount code?",
-    answer:
-      "Yes. Enter an active discount code in the order summary during checkout. The discount will appear before you submit the order.",
-  },
-  {
-    question:
-      "What happens when a product is out of stock?",
-    answer:
-      "The product remains visible, but purchasing is disabled until new stock is added.",
-  },
-  {
-    question:
-      "How can I get notified about coming-soon products?",
-    answer:
-      "Open the coming-soon product and complete its notification form when one is available.",
-  },
-  {
-    question: "How can I contact ORVIX?",
-    answer:
-      "You can contact ORVIX through our official Instagram account. Include your order number when asking about an existing order.",
-  },
-];
+const faqsByLanguage = {
+  en: [
+    {
+      question: "How can I place an order?",
+      answer:
+        "Open an available product, select your preferred options and quantity, add it to your cart, then complete the checkout form.",
+    },
+    {
+      question: "How do I track my order?",
+      answer:
+        "Open the Track Order page and enter the order number and phone number used during checkout. Your current order status will appear immediately.",
+    },
+    {
+      question:
+        "Where can I find my order number?",
+      answer:
+        "Your order number appears on the confirmation page after checkout and is also sent to the email address used during your order.",
+    },
+    {
+      question:
+        "What payment method is available?",
+      answer:
+        "Payment is completed through InstaPay when your order arrives. No advance payment is required.",
+    },
+    {
+      question:
+        "How much does delivery cost?",
+      answer:
+        "Delivery fees depend on your selected area and are calculated automatically during checkout before you place the order.",
+    },
+    {
+      question:
+        "Can I use a discount code?",
+      answer:
+        "Yes. Enter an active discount code in the order summary during checkout. The discount will appear before you submit the order.",
+    },
+    {
+      question:
+        "What happens when a product is out of stock?",
+      answer:
+        "The product remains visible, but purchasing is disabled until new stock is added.",
+    },
+    {
+      question:
+        "How can I get notified about coming-soon products?",
+      answer:
+        "Open the coming-soon product and complete its notification form when one is available.",
+    },
+    {
+      question: "How can I contact ORVIX?",
+      answer:
+        "You can contact ORVIX through our official Instagram account. Include your order number when asking about an existing order.",
+    },
+  ],
+  ar: [
+    {
+      question: "كيف يمكنني إنشاء طلب؟",
+      answer:
+        "افتح منتجًا متاحًا، واختر الخيارات والكمية المناسبة، ثم أضفه إلى السلة وأكمل بيانات إتمام الطلب.",
+    },
+    {
+      question: "كيف أتتبّع طلبي؟",
+      answer:
+        "افتح صفحة تتبّع الطلب، ثم أدخل رقم الطلب ورقم الهاتف المستخدم أثناء الشراء لتظهر حالته الحالية فورًا.",
+    },
+    {
+      question: "أين أجد رقم طلبي؟",
+      answer:
+        "يظهر رقم الطلب في صفحة التأكيد بعد إتمام الشراء، ويُرسل أيضًا إلى البريد الإلكتروني المستخدم في الطلب.",
+    },
+    {
+      question: "ما طريقة الدفع المتاحة؟",
+      answer:
+        "يتم الدفع عبر InstaPay عند وصول الطلب، ولا يلزم دفع أي مبلغ مقدمًا.",
+    },
+    {
+      question: "كم تبلغ رسوم التوصيل؟",
+      answer:
+        "تعتمد رسوم التوصيل على المنطقة التي تختارها، وتُحسب تلقائيًا قبل تأكيد الطلب.",
+    },
+    {
+      question: "هل يمكنني استخدام كود خصم؟",
+      answer:
+        "نعم. أدخل كود خصم ساريًا في ملخص الطلب، وسيظهر الخصم قبل إرسال الطلب.",
+    },
+    {
+      question: "ماذا يحدث إذا نفد المنتج؟",
+      answer:
+        "يظل المنتج ظاهرًا، لكن الشراء يتوقف مؤقتًا حتى تتوفر كمية جديدة.",
+    },
+    {
+      question: "كيف أعرف عند توفر منتج قريبًا؟",
+      answer:
+        "افتح صفحة المنتج القادم وأكمل نموذج التنبيه عندما يكون متاحًا.",
+    },
+    {
+      question: "كيف أتواصل مع ORVIX؟",
+      answer:
+        "يمكنك التواصل معنا عبر حساب ORVIX الرسمي على Instagram. اذكر رقم طلبك إذا كان استفسارك عن طلب قائم.",
+    },
+  ],
+} as const;
 
-function formatPrice(price: number) {
+const copyByLanguage = {
+  en: {
+    collection: "ORVIX COLLECTION",
+    products: "OUR PRODUCTS",
+    productsSubtitle:
+      "Explore our fitness technology and choose the product that fits your lifestyle.",
+    loadingProducts: "Loading products...",
+    couldNotLoadProducts:
+      "Could not load products",
+    tryAgain: "Try Again",
+    noProducts: "No products available",
+    noProductsDescription:
+      "New ORVIX products will appear here soon.",
+    discoverProduct:
+      "Discover this ORVIX product and explore its features.",
+    comingSoon: "Coming soon",
+    stockCount: (count: number) =>
+      `${count} in stock`,
+    comingSoonHelp:
+      "Open the product page to view launch information and notification options.",
+    unavailableHelp:
+      "Purchasing is currently disabled until stock becomes available.",
+    aboutEyebrow: "ABOUT ORVIX",
+    aboutTitle:
+      "Fitness technology made simple.",
+    aboutDescription:
+      "ORVIX is an Egyptian technology brand focused on modern fitness and health-tracking products. We provide carefully selected devices with a simple ordering experience and reliable customer support.",
+    exploreProducts: "Explore Our Products",
+    alreadyOrdered: "Already placed an order?",
+    trackTitle: "Track your ORVIX order",
+    trackDescription:
+      "Enter your order number and phone number to view the latest status of your order.",
+    trackButton: "Track Your Order",
+    beFirst: "Be first to know.",
+    garminDescription:
+      "Join the notification list and we will contact you when Garmin CIRQA becomes available.",
+    notify: "Notify Me When Available",
+    helpEyebrow: "NEED HELP?",
+    faqTitle: "Frequently Asked Questions",
+    faqSubtitle:
+      "Everything you need to know about ordering, delivery, tracking and products.",
+    contactEyebrow: "CONTACT US",
+    contactTitle: "We are here to help.",
+    contactDescription:
+      "Contact ORVIX for product questions, order assistance or general support. Include your order number when asking about an existing order.",
+    instagramButton: "Message Us on Instagram",
+    trackAnOrder: "Track an Order",
+    officialAccount: "Official Account",
+    safetyNote:
+      "For your safety, only communicate with ORVIX through our official website and official social media account.",
+    orderSupport: "Order support",
+    orderSupportDescription:
+      "Send us your order number and the phone number used during checkout so we can assist you faster.",
+    rights: "All rights reserved.",
+    productsNav: "Products",
+    aboutNav: "About Us",
+    faqNav: "FAQ",
+    contactNav: "Contact Us",
+    trackNav: "Track Order",
+    garminNotifications: "Garmin Notifications",
+    arrow: "→",
+  },
+  ar: {
+    collection: "مجموعة ORVIX",
+    products: "منتجاتنا",
+    productsSubtitle:
+      "اكتشف تقنيات اللياقة التي نقدمها واختر المنتج الأنسب لأسلوب حياتك.",
+    loadingProducts: "جارٍ تحميل المنتجات...",
+    couldNotLoadProducts:
+      "تعذر تحميل المنتجات",
+    tryAgain: "حاول مرة أخرى",
+    noProducts: "لا توجد منتجات متاحة",
+    noProductsDescription:
+      "ستظهر منتجات ORVIX الجديدة هنا قريبًا.",
+    discoverProduct:
+      "اكتشف هذا المنتج من ORVIX وتعرّف على مزاياه.",
+    comingSoon: "قريبًا",
+    stockCount: (count: number) =>
+      `${count.toLocaleString("ar-EG")} متوفر`,
+    comingSoonHelp:
+      "افتح صفحة المنتج لمعرفة تفاصيل الإطلاق وخيارات التنبيه.",
+    unavailableHelp:
+      "الشراء متوقف مؤقتًا حتى يتوفر المنتج من جديد.",
+    aboutEyebrow: "عن ORVIX",
+    aboutTitle: "تقنيات لياقة أكثر بساطة.",
+    aboutDescription:
+      "ORVIX علامة تكنولوجية مصرية تركّز على منتجات اللياقة الحديثة وتتبع الصحة. نوفر أجهزة مختارة بعناية، وتجربة طلب سهلة، ودعمًا موثوقًا للعملاء.",
+    exploreProducts: "اكتشف منتجاتنا",
+    alreadyOrdered: "أنشأت طلبًا بالفعل؟",
+    trackTitle: "تتبّع طلبك من ORVIX",
+    trackDescription:
+      "أدخل رقم الطلب ورقم الهاتف لمعرفة أحدث حالة لطلبك.",
+    trackButton: "تتبّع طلبك",
+    beFirst: "كن أول من يعرف.",
+    garminDescription:
+      "انضم إلى قائمة التنبيهات وسنتواصل معك عند توفر Garmin CIRQA.",
+    notify: "نبّهني عند التوفر",
+    helpEyebrow: "تحتاج إلى مساعدة؟",
+    faqTitle: "الأسئلة الشائعة",
+    faqSubtitle:
+      "كل ما تحتاج إلى معرفته عن الطلب والتوصيل والتتبّع والمنتجات.",
+    contactEyebrow: "تواصل معنا",
+    contactTitle: "نحن هنا لمساعدتك.",
+    contactDescription:
+      "تواصل مع ORVIX للاستفسار عن المنتجات أو الطلبات أو للحصول على الدعم. اذكر رقم طلبك عند السؤال عن طلب قائم.",
+    instagramButton: "راسلنا على Instagram",
+    trackAnOrder: "تتبّع طلبًا",
+    officialAccount: "الحساب الرسمي",
+    safetyNote:
+      "لسلامتك، تواصل مع ORVIX فقط عبر موقعنا الرسمي وحسابنا الرسمي على وسائل التواصل.",
+    orderSupport: "دعم الطلبات",
+    orderSupportDescription:
+      "أرسل لنا رقم الطلب ورقم الهاتف المستخدم عند الشراء حتى نساعدك بسرعة أكبر.",
+    rights: "جميع الحقوق محفوظة.",
+    productsNav: "المنتجات",
+    aboutNav: "من نحن",
+    faqNav: "الأسئلة الشائعة",
+    contactNav: "تواصل معنا",
+    trackNav: "تتبّع الطلب",
+    garminNotifications: "تنبيهات Garmin",
+    arrow: "←",
+  },
+} as const;
+
+function formatPrice(
+  price: number,
+  language: Language
+) {
   if (price <= 0) {
-    return "Price coming soon";
+    return language === "ar"
+      ? "السعر قريبًا"
+      : "Price coming soon";
   }
 
   return `${price.toLocaleString(
-    "en-GB"
-  )} EGP`;
+    language === "ar" ? "ar-EG" : "en-GB"
+  )} ${language === "ar" ? "ج.م" : "EGP"}`;
 }
 
 function getProductHref(product: Product) {
@@ -125,12 +329,17 @@ function getProductHref(product: Product) {
   )}`;
 }
 
-function getStatusLabel(product: Product) {
+function getStatusLabel(
+  product: Product,
+  language: Language
+) {
   if (
     product.status === "available" &&
     product.stockQuantity <= 0
   ) {
-    return "Out of stock";
+    return language === "ar"
+      ? "غير متوفر"
+      : "Out of stock";
   }
 
   if (product.status === "available") {
@@ -138,23 +347,33 @@ function getStatusLabel(product: Product) {
       product.stockQuantity <=
       product.lowStockLimit
     ) {
-      return `Only ${product.stockQuantity} left`;
+      return language === "ar"
+        ? `متبقي ${product.stockQuantity.toLocaleString(
+            "ar-EG"
+          )} فقط`
+        : `Only ${product.stockQuantity} left`;
     }
 
-    return "Available now";
+    return language === "ar"
+      ? "متوفر الآن"
+      : "Available now";
   }
 
   if (product.status === "coming_soon") {
-    return "Coming soon";
+    return language === "ar"
+      ? "قريبًا"
+      : "Coming soon";
   }
 
   if (
     product.status === "out_of_stock"
   ) {
-    return "Out of stock";
+    return language === "ar"
+      ? "غير متوفر"
+      : "Out of stock";
   }
 
-  return "Hidden";
+  return language === "ar" ? "مخفي" : "Hidden";
 }
 
 function getStatusClasses(
@@ -205,13 +424,20 @@ function getBadgeClasses(
   return "border-red-500/20 bg-red-500 text-white";
 }
 
-function getButtonText(product: Product) {
+function getButtonText(
+  product: Product,
+  language: Language
+) {
   if (product.status === "coming_soon") {
     if (product.slug === "garmin-cirqa") {
-      return "Notify Me When Available";
+      return language === "ar"
+        ? "نبّهني عند التوفر"
+        : "Notify Me When Available";
     }
 
-    return "View Coming Soon Product";
+    return language === "ar"
+      ? "شاهد المنتج القادم"
+      : "View Coming Soon Product";
   }
 
   if (
@@ -219,10 +445,14 @@ function getButtonText(product: Product) {
     product.stockQuantity <= 0 ||
     !product.allowPurchase
   ) {
-    return "View Product";
+    return language === "ar"
+      ? "عرض المنتج"
+      : "View Product";
   }
 
-  return "View Product";
+  return language === "ar"
+    ? "عرض المنتج"
+    : "View Product";
 }
 
 function getButtonClasses(
@@ -245,6 +475,14 @@ function getButtonClasses(
 }
 
 export default function Home() {
+  const { language, isArabic } =
+    useLanguage();
+  const copy = copyByLanguage[language];
+  const benefits =
+    benefitsByLanguage[language];
+  const frequentlyAskedQuestions =
+    faqsByLanguage[language];
+
   const [products, setProducts] =
     useState<Product[]>([]);
 
@@ -295,7 +533,15 @@ export default function Home() {
   }
 
   useEffect(() => {
-    loadProducts();
+    const animationFrame =
+      window.requestAnimationFrame(() => {
+        void loadProducts();
+      });
+
+    return () =>
+      window.cancelAnimationFrame(
+        animationFrame
+      );
   }, []);
 
   const firstProduct = useMemo(
@@ -313,7 +559,11 @@ export default function Home() {
   );
 
   return (
-    <main className="min-h-screen bg-[#070707] text-white">
+    <main
+      lang={language}
+      dir={isArabic ? "rtl" : "ltr"}
+      className="min-h-screen bg-[#070707] text-white"
+    >
       <Navbar />
 
       {/* Products */}
@@ -324,17 +574,15 @@ export default function Home() {
         <div className="mx-auto max-w-7xl">
           <div className="text-center">
             <p className="text-sm uppercase tracking-[0.45em] text-gray-500">
-              ORVIX COLLECTION
+              {copy.collection}
             </p>
 
             <h1 className="mt-5 text-5xl font-black sm:text-7xl">
-              OUR PRODUCTS
+              {copy.products}
             </h1>
 
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-gray-400">
-              Explore our fitness technology
-              and choose the product that fits
-              your lifestyle.
+              {copy.productsSubtitle}
             </p>
           </div>
 
@@ -343,17 +591,19 @@ export default function Home() {
               <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-white" />
 
               <p className="mt-5 font-bold text-gray-400">
-                Loading products...
+                {copy.loadingProducts}
               </p>
             </div>
           ) : productsError ? (
             <div className="mt-14 rounded-[36px] border border-red-500/20 bg-red-500/10 p-8 text-center">
               <h2 className="text-2xl font-black text-red-300">
-                Could not load products
+                {copy.couldNotLoadProducts}
               </h2>
 
               <p className="mt-3 text-red-200/70">
-                {productsError}
+                {language === "ar"
+                  ? copy.couldNotLoadProducts
+                  : productsError}
               </p>
 
               <button
@@ -361,18 +611,17 @@ export default function Home() {
                 onClick={loadProducts}
                 className="mt-6 rounded-full bg-white px-7 py-4 font-black text-black"
               >
-                Try Again
+                {copy.tryAgain}
               </button>
             </div>
           ) : products.length === 0 ? (
             <div className="mt-14 rounded-[36px] border border-white/10 bg-white/5 p-12 text-center">
               <h2 className="text-2xl font-black">
-                No products available
+                {copy.noProducts}
               </h2>
 
               <p className="mt-3 text-gray-400">
-                New ORVIX products will appear
-                here soon.
+                {copy.noProductsDescription}
               </p>
             </div>
           ) : (
@@ -410,7 +659,8 @@ export default function Home() {
                             )}`}
                           >
                             {getStatusLabel(
-                              product
+                              product,
+                              language
                             )}
                           </span>
                         </div>
@@ -425,7 +675,8 @@ export default function Home() {
                               )}`}
                             >
                               {getStatusLabel(
-                                product
+                                product,
+                                language
                               )}
                             </p>
 
@@ -444,14 +695,16 @@ export default function Home() {
                           </div>
 
                           <span className="text-3xl transition group-hover:translate-x-1">
-                            →
+                            {copy.arrow}
                           </span>
                         </div>
 
                         <p className="mt-5 min-h-[84px] leading-7 text-gray-400">
-                          {product.shortDescription ||
-                            product.description ||
-                            "Discover this ORVIX product and explore its features."}
+                          {language === "ar"
+                            ? copy.discoverProduct
+                            : product.shortDescription ||
+                              product.description ||
+                              copy.discoverProduct}
                         </p>
 
                         <div className="mt-7">
@@ -461,11 +714,13 @@ export default function Home() {
                               "coming_soon"
                                 ? product.price > 0
                                   ? formatPrice(
-                                      product.price
+                                      product.price,
+                                      language
                                     )
-                                  : "Coming soon"
+                                  : copy.comingSoon
                                 : formatPrice(
-                                    product.price
+                                    product.price,
+                                    language
                                   )}
                             </strong>
 
@@ -474,10 +729,9 @@ export default function Home() {
                               product.stockQuantity >
                                 0 && (
                                 <span className="text-sm font-bold text-gray-500">
-                                  {
+                                  {copy.stockCount(
                                     product.stockQuantity
-                                  }{" "}
-                                  in stock
+                                  )}
                                 </span>
                               )}
                           </div>
@@ -489,17 +743,15 @@ export default function Home() {
                             )}`}
                           >
                             {getButtonText(
-                              product
+                              product,
+                              language
                             )}
                           </Link>
 
                           {product.status ===
                             "coming_soon" && (
                             <p className="mt-3 text-center text-xs leading-5 text-gray-500">
-                              Open the product
-                              page to view launch
-                              information and
-                              notification options.
+                              {copy.comingSoonHelp}
                             </p>
                           )}
 
@@ -510,10 +762,7 @@ export default function Home() {
                             product.status !==
                               "coming_soon" && (
                               <p className="mt-3 text-center text-xs leading-5 text-red-300/70">
-                                Purchasing is
-                                currently disabled
-                                until stock becomes
-                                available.
+                                {copy.unavailableHelp}
                               </p>
                             )}
                         </div>
@@ -536,23 +785,15 @@ export default function Home() {
           <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
             <div>
               <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
-                ABOUT ORVIX
+                {copy.aboutEyebrow}
               </p>
 
               <h2 className="mt-5 text-4xl font-black leading-tight sm:text-6xl">
-                Fitness technology made
-                simple.
+                {copy.aboutTitle}
               </h2>
 
               <p className="mt-6 max-w-xl text-lg leading-8 text-gray-400">
-                ORVIX is an Egyptian
-                technology brand focused on
-                modern fitness and
-                health-tracking products. We
-                provide carefully selected
-                devices with a simple ordering
-                experience and reliable
-                customer support.
+                {copy.aboutDescription}
               </p>
 
               <Link
@@ -565,7 +806,7 @@ export default function Home() {
                 }
                 className="mt-8 inline-flex items-center justify-center rounded-full bg-white px-7 py-4 font-black text-black transition hover:bg-gray-200"
               >
-                Explore Our Products
+                {copy.exploreProducts}
               </Link>
             </div>
 
@@ -604,24 +845,22 @@ export default function Home() {
         <div className="mx-auto max-w-7xl">
           <div className="overflow-hidden rounded-[36px] border border-white/10 bg-white/5 p-7 text-center sm:p-12">
             <p className="text-sm uppercase tracking-[0.35em] text-gray-500">
-              Already placed an order?
+              {copy.alreadyOrdered}
             </p>
 
             <h2 className="mt-4 text-3xl font-black sm:text-5xl">
-              Track your ORVIX order
+              {copy.trackTitle}
             </h2>
 
             <p className="mx-auto mt-5 max-w-xl leading-7 text-gray-400">
-              Enter your order number and
-              phone number to view the latest
-              status of your order.
+              {copy.trackDescription}
             </p>
 
             <Link
               href="/track-order"
               className="mx-auto mt-8 flex w-full max-w-sm items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-black text-black transition hover:bg-gray-200"
             >
-              Track Your Order
+              {copy.trackButton}
             </Link>
           </div>
         </div>
@@ -649,16 +888,18 @@ export default function Home() {
 
                 <div className="flex flex-col justify-center p-7 sm:p-12">
                   <span className="w-fit rounded-full border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-yellow-200">
-                    Coming Soon
+                    {copy.comingSoon}
                   </span>
 
                   <h2 className="mt-5 text-4xl font-black sm:text-6xl">
-                    Be first to know.
+                    {copy.beFirst}
                   </h2>
 
                   <p className="mt-5 max-w-xl text-lg leading-8 text-gray-400">
-                    {garminProduct.description ||
-                      "Join the notification list and we will contact you when Garmin CIRQA becomes available."}
+                    {language === "ar"
+                      ? copy.garminDescription
+                      : garminProduct.description ||
+                        copy.garminDescription}
                   </p>
 
                   <Link
@@ -667,7 +908,7 @@ export default function Home() {
                     )}
                     className="mt-8 inline-flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-center text-lg font-black text-black transition hover:bg-gray-200 sm:w-fit"
                   >
-                    Notify Me When Available
+                    {copy.notify}
                   </Link>
                 </div>
               </div>
@@ -683,17 +924,15 @@ export default function Home() {
         <div className="mx-auto max-w-4xl">
           <div className="text-center">
             <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
-              NEED HELP?
+              {copy.helpEyebrow}
             </p>
 
             <h2 className="mt-5 text-4xl font-black sm:text-6xl">
-              Frequently Asked Questions
+              {copy.faqTitle}
             </h2>
 
             <p className="mx-auto mt-5 max-w-2xl leading-7 text-gray-400">
-              Everything you need to know
-              about ordering, delivery,
-              tracking and products.
+              {copy.faqSubtitle}
             </p>
           </div>
 
@@ -701,7 +940,7 @@ export default function Home() {
             {frequentlyAskedQuestions.map(
               (item, index) => (
                 <details
-                  key={item.question}
+                  key={`${language}-${item.question}`}
                   className="group rounded-[24px] border border-white/10 bg-black/30 p-5 open:border-white/25 sm:p-6"
                 >
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-5 font-black">
@@ -735,19 +974,15 @@ export default function Home() {
             <div className="grid lg:grid-cols-2">
               <div className="p-7 sm:p-12">
                 <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
-                  CONTACT US
+                  {copy.contactEyebrow}
                 </p>
 
                 <h2 className="mt-5 text-4xl font-black sm:text-6xl">
-                  We are here to help.
+                  {copy.contactTitle}
                 </h2>
 
                 <p className="mt-6 max-w-xl text-lg leading-8 text-gray-400">
-                  Contact ORVIX for product
-                  questions, order assistance
-                  or general support. Include
-                  your order number when asking
-                  about an existing order.
+                  {copy.contactDescription}
                 </p>
 
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -757,21 +992,21 @@ export default function Home() {
                     rel="noopener noreferrer"
                     className="inline-flex items-center justify-center rounded-full bg-white px-7 py-4 font-black text-black transition hover:bg-gray-200"
                   >
-                    Message Us on Instagram
+                    {copy.instagramButton}
                   </a>
 
                   <Link
                     href="/track-order"
                     className="inline-flex items-center justify-center rounded-full border border-white/15 px-7 py-4 font-black transition hover:bg-white/10"
                   >
-                    Track an Order
+                    {copy.trackAnOrder}
                   </Link>
                 </div>
               </div>
 
               <div className="border-t border-white/10 bg-black/30 p-7 sm:p-12 lg:border-l lg:border-t-0">
                 <p className="text-sm font-black uppercase tracking-[0.3em] text-gray-500">
-                  Official Account
+                  {copy.officialAccount}
                 </p>
 
                 <a
@@ -784,23 +1019,16 @@ export default function Home() {
                 </a>
 
                 <p className="mt-5 leading-7 text-gray-400">
-                  For your safety, only
-                  communicate with ORVIX
-                  through our official website
-                  and official social media
-                  account.
+                  {copy.safetyNote}
                 </p>
 
                 <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-5">
                   <p className="text-sm font-bold text-gray-300">
-                    Order support
+                    {copy.orderSupport}
                   </p>
 
                   <p className="mt-2 text-sm leading-6 text-gray-500">
-                    Send us your order number
-                    and the phone number used
-                    during checkout so we can
-                    assist you faster.
+                    {copy.orderSupportDescription}
                   </p>
                 </div>
               </div>
@@ -811,15 +1039,14 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-white/10 px-4 py-8">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 text-center lg:flex-row lg:text-left">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 text-center lg:flex-row lg:text-start">
           <div>
             <p className="font-black tracking-[0.3em]">
               ORVIX
             </p>
 
             <p className="mt-2 text-sm text-gray-600">
-              © 2026 ORVIX. All rights
-              reserved.
+              © 2026 ORVIX. {copy.rights}
             </p>
           </div>
 
@@ -828,35 +1055,35 @@ export default function Home() {
               href="/#products"
               className="transition hover:text-white"
             >
-              Products
+              {copy.productsNav}
             </Link>
 
             <Link
               href="/#about"
               className="transition hover:text-white"
             >
-              About Us
+              {copy.aboutNav}
             </Link>
 
             <Link
               href="/#faq"
               className="transition hover:text-white"
             >
-              FAQ
+              {copy.faqNav}
             </Link>
 
             <Link
               href="/#contact"
               className="transition hover:text-white"
             >
-              Contact Us
+              {copy.contactNav}
             </Link>
 
             <Link
               href="/track-order"
               className="transition hover:text-white"
             >
-              Track Order
+              {copy.trackNav}
             </Link>
 
             {garminProduct && (
@@ -866,7 +1093,7 @@ export default function Home() {
                 )}
                 className="transition hover:text-white"
               >
-                Garmin Notifications
+                {copy.garminNotifications}
               </Link>
             )}
           </div>

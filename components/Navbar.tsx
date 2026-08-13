@@ -8,6 +8,8 @@ import {
   useMemo,
   useState,
 } from "react";
+import LanguageSwitcher from "./LanguageSwitcher";
+import { useLanguage } from "./LanguageProvider";
 
 type CartItem = {
   id: string;
@@ -33,22 +35,115 @@ const WISHLIST_STORAGE_KEY = "orvixWishlist";
 
 const navigationLinks = [
   {
-    label: "Products",
+    label: {
+      en: "Products",
+      ar: "المنتجات",
+    },
     id: "products",
   },
   {
-    label: "About Us",
+    label: {
+      en: "About Us",
+      ar: "من نحن",
+    },
     id: "about",
   },
   {
-    label: "FAQ",
+    label: {
+      en: "FAQ",
+      ar: "الأسئلة الشائعة",
+    },
     id: "faq",
   },
   {
-    label: "Contact Us",
+    label: {
+      en: "Contact Us",
+      ar: "تواصل معنا",
+    },
     id: "contact",
   },
 ];
+
+const copyByLanguage = {
+  en: {
+    trackOrder: "Track Order",
+    trackYourOrder: "Track Your Order",
+    shopNow: "Shop Now",
+    wishlist: "Wishlist",
+    yourWishlist: "Your Wishlist",
+    emptyWishlist: "Your wishlist is empty",
+    emptyWishlistDescription:
+      "Save products you like and return to them whenever you are ready.",
+    exploreProducts: "Explore Products",
+    colour: "Colour",
+    remove: "Remove",
+    moveToCart: "Move to Cart",
+    openCart: "Open Cart",
+    continueShopping: "Continue Shopping",
+    shoppingCart: "Shopping cart",
+    yourCart: "Your Cart",
+    emptyCart: "Your cart is empty",
+    emptyCartDescription:
+      "Add a product to your cart and it will appear here.",
+    quantity: "Quantity",
+    subtotal: "Subtotal",
+    deliveryAtCheckout:
+      "Delivery calculated at checkout",
+    proceedToCheckout: "Proceed to Checkout",
+    closeWishlist: "Close wishlist",
+    closeCart: "Close cart",
+    openWishlist: (count: number) =>
+      `Open wishlist with ${count} items`,
+    openCartWithCount: (count: number) =>
+      `Open cart with ${count} items`,
+    closeMenu: "Close navigation menu",
+    openMenu: "Open navigation menu",
+    decreaseQuantity: (name: string) =>
+      `Decrease ${name} quantity`,
+    increaseQuantity: (name: string) =>
+      `Increase ${name} quantity`,
+    currency: "EGP",
+  },
+  ar: {
+    trackOrder: "تتبّع الطلب",
+    trackYourOrder: "تتبّع طلبك",
+    shopNow: "تسوّق الآن",
+    wishlist: "المفضلة",
+    yourWishlist: "قائمة المفضلة",
+    emptyWishlist: "قائمة المفضلة فارغة",
+    emptyWishlistDescription:
+      "احفظ المنتجات التي تعجبك وارجع إليها عندما تكون مستعدًا.",
+    exploreProducts: "تصفّح المنتجات",
+    colour: "اللون",
+    remove: "إزالة",
+    moveToCart: "انقل إلى السلة",
+    openCart: "افتح السلة",
+    continueShopping: "تابع التسوق",
+    shoppingCart: "سلة التسوق",
+    yourCart: "سلة التسوق",
+    emptyCart: "سلة التسوق فارغة",
+    emptyCartDescription:
+      "أضف منتجًا إلى سلتك وسيظهر هنا.",
+    quantity: "الكمية",
+    subtotal: "الإجمالي الفرعي",
+    deliveryAtCheckout:
+      "تُحسب رسوم التوصيل عند إتمام الطلب",
+    proceedToCheckout: "إتمام الطلب",
+    closeWishlist: "إغلاق قائمة المفضلة",
+    closeCart: "إغلاق السلة",
+    openWishlist: (count: number) =>
+      `افتح قائمة المفضلة وبها ${count} منتج`,
+    openCartWithCount: (count: number) =>
+      `افتح السلة وبها ${count} منتج`,
+    closeMenu: "إغلاق قائمة التنقل",
+    openMenu: "فتح قائمة التنقل",
+    decreaseQuantity: (name: string) =>
+      `تقليل كمية ${name}`,
+    increaseQuantity: (name: string) =>
+      `زيادة كمية ${name}`,
+    currency: "ج.م",
+  },
+} as const;
 
 function readCartFromStorage(): CartItem[] {
   try {
@@ -94,6 +189,11 @@ function readWishlistFromStorage(): WishlistItem[] {
 }
 
 export default function Navbar() {
+  const { language } = useLanguage();
+  const copy = copyByLanguage[language];
+  const numberLocale =
+    language === "ar" ? "ar-EG" : "en-GB";
+
   const [menuOpen, setMenuOpen] =
     useState(false);
 
@@ -416,7 +516,7 @@ export default function Navbar() {
               className="h-11 w-11 rounded-full object-cover"
             />
 
-            <span className="text-lg font-black tracking-[0.3em]">
+            <span className="hidden text-lg font-black tracking-[0.3em] sm:inline">
               ORVIX
             </span>
           </Link>
@@ -434,7 +534,7 @@ export default function Navbar() {
                 }
                 className="text-sm font-bold text-gray-300 transition hover:text-white"
               >
-                {item.label}
+                {item.label[language]}
               </a>
             ))}
 
@@ -442,23 +542,31 @@ export default function Navbar() {
               href="/track-order"
               className="text-sm font-bold text-gray-300 transition hover:text-white"
             >
-              Track Order
+              {copy.trackOrder}
             </Link>
 
             <Link
               href="/products/google-fitbit-air"
               className="rounded-full bg-white px-6 py-3 text-sm font-black text-black transition hover:bg-gray-200"
             >
-              Shop Now
+              {copy.shopNow}
             </Link>
           </nav>
 
           <div className="flex items-center gap-2">
+            <LanguageSwitcher className="hidden sm:inline-flex" />
+            <LanguageSwitcher
+              compact
+              className="sm:hidden"
+            />
+
             {/* Wishlist Button */}
             <button
               type="button"
               onClick={openWishlist}
-              aria-label={`Open wishlist with ${wishlistItems.length} items`}
+              aria-label={copy.openWishlist(
+                wishlistItems.length
+              )}
               className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/5 transition hover:bg-white/10"
             >
               <svg
@@ -493,7 +601,9 @@ export default function Navbar() {
             <button
               type="button"
               onClick={openCart}
-              aria-label={`Open cart with ${totalQuantity} items`}
+              aria-label={copy.openCartWithCount(
+                totalQuantity
+              )}
               className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/5 transition hover:bg-white/10"
             >
               <svg
@@ -540,8 +650,8 @@ export default function Navbar() {
               }
               aria-label={
                 menuOpen
-                  ? "Close navigation menu"
-                  : "Open navigation menu"
+                  ? copy.closeMenu
+                  : copy.openMenu
               }
               aria-expanded={menuOpen}
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/15 transition hover:bg-white/10 lg:hidden"
@@ -568,7 +678,7 @@ export default function Navbar() {
                   }
                   className="rounded-2xl border border-white/10 px-5 py-4 font-bold text-gray-200 transition hover:bg-white/10"
                 >
-                  {item.label}
+                  {item.label[language]}
                 </a>
               ))}
 
@@ -577,15 +687,15 @@ export default function Navbar() {
                 onClick={closeMenu}
                 className="rounded-2xl border border-white/10 px-5 py-4 font-bold text-gray-200 transition hover:bg-white/10"
               >
-                Track Your Order
+                {copy.trackYourOrder}
               </Link>
 
               <button
                 type="button"
                 onClick={openWishlist}
-                className="rounded-2xl border border-white/10 px-5 py-4 text-left font-bold text-gray-200 transition hover:bg-white/10"
+                className="rounded-2xl border border-white/10 px-5 py-4 text-start font-bold text-gray-200 transition hover:bg-white/10"
               >
-                Wishlist (
+                {copy.wishlist} (
                 {wishlistItems.length})
               </button>
 
@@ -594,7 +704,7 @@ export default function Navbar() {
                 onClick={closeMenu}
                 className="rounded-2xl bg-white px-5 py-4 text-center font-black text-black transition hover:bg-gray-200"
               >
-                Shop Now
+                {copy.shopNow}
               </Link>
             </div>
           </nav>
@@ -618,7 +728,7 @@ export default function Navbar() {
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label="Wishlist"
+        aria-label={copy.wishlist}
         className={`fixed bottom-0 right-0 top-0 z-[80] flex w-full max-w-md flex-col border-l border-white/10 bg-[#0b0b0b] text-white shadow-2xl transition-transform duration-300 ${
           wishlistOpen
             ? "translate-x-0"
@@ -632,7 +742,7 @@ export default function Navbar() {
             </p>
 
             <h2 className="mt-1 text-2xl font-black">
-              Your Wishlist
+              {copy.yourWishlist}
             </h2>
           </div>
 
@@ -641,7 +751,7 @@ export default function Navbar() {
             onClick={() =>
               setWishlistOpen(false)
             }
-            aria-label="Close wishlist"
+            aria-label={copy.closeWishlist}
             className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 text-2xl transition hover:bg-white/10"
           >
             ×
@@ -668,12 +778,11 @@ export default function Navbar() {
             </div>
 
             <h3 className="mt-6 text-2xl font-black">
-              Your wishlist is empty
+              {copy.emptyWishlist}
             </h3>
 
             <p className="mt-3 max-w-xs leading-7 text-gray-400">
-              Save products you like and return
-              to them whenever you are ready.
+              {copy.emptyWishlistDescription}
             </p>
 
             <Link
@@ -683,7 +792,7 @@ export default function Navbar() {
               }
               className="mt-7 rounded-full bg-white px-7 py-4 font-black text-black transition hover:bg-gray-200"
             >
-              Explore Products
+              {copy.exploreProducts}
             </Link>
           </div>
         ) : (
@@ -723,14 +832,14 @@ export default function Navbar() {
                       </Link>
 
                       <p className="mt-1 text-sm text-gray-400">
-                        Colour: {item.colour}
+                        {copy.colour}: {item.colour}
                       </p>
 
                       <p className="mt-2 font-black">
                         {item.price.toLocaleString(
-                          "en-GB"
+                          numberLocale
                         )}{" "}
-                        EGP
+                        {copy.currency}
                       </p>
 
                       <button
@@ -742,7 +851,7 @@ export default function Navbar() {
                         }
                         className="mt-2 text-sm font-bold text-gray-500 underline underline-offset-4 transition hover:text-white"
                       >
-                        Remove
+                        {copy.remove}
                       </button>
                     </div>
                   </div>
@@ -756,7 +865,7 @@ export default function Navbar() {
                     }
                     className="mt-4 flex w-full items-center justify-center rounded-full bg-white px-5 py-4 font-black text-black transition hover:bg-gray-200"
                   >
-                    Move to Cart
+                    {copy.moveToCart}
                   </button>
                 </article>
               ))}
@@ -771,7 +880,7 @@ export default function Navbar() {
                 }}
                 className="flex w-full items-center justify-center rounded-full border border-white/15 px-7 py-4 font-black transition hover:bg-white/10"
               >
-                Open Cart
+                {copy.openCart}
               </button>
 
               <button
@@ -781,7 +890,7 @@ export default function Navbar() {
                 }
                 className="mt-3 w-full py-3 text-sm font-bold text-gray-400 transition hover:text-white"
               >
-                Continue Shopping
+                {copy.continueShopping}
               </button>
             </div>
           </>
@@ -792,7 +901,7 @@ export default function Navbar() {
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label="Shopping cart"
+        aria-label={copy.shoppingCart}
         className={`fixed bottom-0 right-0 top-0 z-[80] flex w-full max-w-md flex-col border-l border-white/10 bg-[#0b0b0b] text-white shadow-2xl transition-transform duration-300 ${
           cartOpen
             ? "translate-x-0"
@@ -806,7 +915,7 @@ export default function Navbar() {
             </p>
 
             <h2 className="mt-1 text-2xl font-black">
-              Your Cart
+              {copy.yourCart}
             </h2>
           </div>
 
@@ -815,7 +924,7 @@ export default function Navbar() {
             onClick={() =>
               setCartOpen(false)
             }
-            aria-label="Close cart"
+            aria-label={copy.closeCart}
             className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 text-2xl transition hover:bg-white/10"
           >
             ×
@@ -856,12 +965,11 @@ export default function Navbar() {
             </div>
 
             <h3 className="mt-6 text-2xl font-black">
-              Your cart is empty
+              {copy.emptyCart}
             </h3>
 
             <p className="mt-3 max-w-xs leading-7 text-gray-400">
-              Add a product to your cart and it
-              will appear here.
+              {copy.emptyCartDescription}
             </p>
 
             <Link
@@ -871,7 +979,7 @@ export default function Navbar() {
               }
               className="mt-7 rounded-full bg-white px-7 py-4 font-black text-black transition hover:bg-gray-200"
             >
-              Explore Products
+              {copy.exploreProducts}
             </Link>
           </div>
         ) : (
@@ -899,14 +1007,14 @@ export default function Navbar() {
                       </p>
 
                       <p className="mt-1 text-sm text-gray-400">
-                        Colour: {item.colour}
+                        {copy.colour}: {item.colour}
                       </p>
 
                       <p className="mt-2 font-black">
                         {item.price.toLocaleString(
-                          "en-GB"
+                          numberLocale
                         )}{" "}
-                        EGP
+                        {copy.currency}
                       </p>
 
                       <button
@@ -918,14 +1026,14 @@ export default function Navbar() {
                         }
                         className="mt-2 text-sm font-bold text-gray-500 underline underline-offset-4 transition hover:text-white"
                       >
-                        Remove
+                        {copy.remove}
                       </button>
                     </div>
                   </div>
 
                   <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4">
                     <span className="text-sm font-bold text-gray-400">
-                      Quantity
+                      {copy.quantity}
                     </span>
 
                     <div className="flex items-center rounded-full border border-white/15 bg-black p-1">
@@ -936,7 +1044,9 @@ export default function Navbar() {
                             item.id
                           )
                         }
-                        aria-label={`Decrease ${item.name} quantity`}
+                        aria-label={copy.decreaseQuantity(
+                          item.name
+                        )}
                         className="flex h-9 w-9 items-center justify-center rounded-full text-xl transition hover:bg-white/10"
                       >
                         −
@@ -953,7 +1063,9 @@ export default function Navbar() {
                             item.id
                           )
                         }
-                        aria-label={`Increase ${item.name} quantity`}
+                        aria-label={copy.increaseQuantity(
+                          item.name
+                        )}
                         className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-xl text-black"
                       >
                         +
@@ -968,19 +1080,19 @@ export default function Navbar() {
               <div className="flex items-center justify-between gap-5">
                 <div>
                   <p className="text-sm text-gray-500">
-                    Subtotal
+                    {copy.subtotal}
                   </p>
 
                   <p className="mt-1 text-xs text-gray-600">
-                    Delivery calculated at checkout
+                    {copy.deliveryAtCheckout}
                   </p>
                 </div>
 
                 <strong className="text-2xl">
                   {cartSubtotal.toLocaleString(
-                    "en-GB"
+                    numberLocale
                   )}{" "}
-                  EGP
+                  {copy.currency}
                 </strong>
               </div>
 
@@ -991,7 +1103,7 @@ export default function Navbar() {
                 }
                 className="mt-5 flex w-full items-center justify-center rounded-full bg-white px-7 py-5 text-lg font-black text-black transition hover:bg-gray-200"
               >
-                Proceed to Checkout
+                {copy.proceedToCheckout}
               </Link>
 
               <button
@@ -1001,7 +1113,7 @@ export default function Navbar() {
                 }
                 className="mt-3 w-full py-3 text-sm font-bold text-gray-400 transition hover:text-white"
               >
-                Continue Shopping
+                {copy.continueShopping}
               </button>
             </div>
           </>

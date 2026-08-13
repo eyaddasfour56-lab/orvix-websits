@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import {
   FormEvent,
   TouchEvent,
@@ -9,6 +10,10 @@ import {
   useState,
 } from "react";
 import Navbar from "@/components/Navbar";
+import {
+  Language,
+  useLanguage,
+} from "@/components/LanguageProvider";
 
 type ProductStatus =
   | "available"
@@ -104,7 +109,7 @@ const colourImages: Record<
   Berry: ["/berry.jpeg"],
 };
 
-const features = [
+const featuresEn = [
   {
     number: "01",
     title: "Screen-free tracking",
@@ -143,7 +148,7 @@ const features = [
   },
 ];
 
-const techCategories: TechCategory[] = [
+const techCategoriesEn: TechCategory[] = [
   {
     title: "Memory",
     icon: "◫",
@@ -284,14 +289,336 @@ const techCategories: TechCategory[] = [
   },
 ];
 
-function formatPrice(price: number) {
+const featuresAr = [
+  {
+    number: "01",
+    title: "تتبّع من دون شاشة",
+    description:
+      "تابع صحتك ونشاطك من دون شاشة إضافية تشتت انتباهك على معصمك.",
+  },
+  {
+    number: "02",
+    title: "مراقبة معدل ضربات القلب",
+    description:
+      "تابع بيانات معدل ضربات القلب اليومية وافهم نشاطك بشكل أفضل.",
+  },
+  {
+    number: "03",
+    title: "تتبّع النوم",
+    description:
+      "راجع مدة النوم وبيانات الصحة الليلية من خلال التطبيق المتصل.",
+  },
+  {
+    number: "04",
+    title: "بطارية حتى 7 أيام",
+    description:
+      "اقضِ وقتًا أقل في الشحن ووقتًا أطول في متابعة روتينك.",
+  },
+  {
+    number: "05",
+    title: "تصميم خفيف",
+    description:
+      "مصمم للارتداء المريح يوميًا وأثناء التمرين والنوم.",
+  },
+  {
+    number: "06",
+    title: "مؤشرات صحية",
+    description:
+      "تابع النشاط وSpO₂ ومؤشرات التعافي عبر التطبيق المتصل.",
+  },
+];
+
+const techCategoriesAr: TechCategory[] = [
+  {
+    title: "الذاكرة",
+    icon: "◫",
+    description:
+      "تظل البيانات الصحية متاحة بين عمليات المزامنة.",
+    items: [
+      "يحفظ حتى 7 أيام من بيانات الحركة التفصيلية",
+      "يحفظ الإجماليات اليومية لآخر 30 يومًا",
+      "يخزن بيانات معدل ضربات القلب على فترات قصيرة",
+    ],
+  },
+  {
+    title: "البطارية والطاقة",
+    icon: "ϟ",
+    items: [
+      "عمر بطارية يصل إلى 7 أيام",
+      "مدة شحن تقارب 90 دقيقة",
+      "يدعم الشحن السريع",
+      "بطارية ليثيوم بوليمر",
+      "كابل شحن USB-C مرفق",
+      "اتصال Bluetooth 5.0",
+    ],
+  },
+  {
+    title: "الخامات",
+    icon: "◇",
+    items: [
+      "هيكل خفيف لجهاز التتبّع",
+      "سوار سيليكون مرن",
+      "مصمم للارتداء اليومي المريح",
+      "عبوة ألياف قابلة لإعادة التدوير",
+    ],
+  },
+  {
+    title: "المستشعرات والمكونات",
+    icon: "◎",
+    items: [
+      "مستشعر بصري لمعدل ضربات القلب",
+      "مقياس تسارع ثلاثي المحاور",
+      "جيروسكوب",
+      "مستشعرات حمراء وتحت حمراء",
+      "مستشعر حرارة",
+      "مستشعر إضاءة محيطة",
+      "محرك اهتزاز",
+    ],
+  },
+  {
+    title: "مقاس السوار",
+    icon: "⌁",
+    items: [
+      "سوار قابل للتعديل بمقاس واحد",
+      "المقاس الصغير: نحو 130–175 مم",
+      "المقاس الكبير: نحو 165–210 مم",
+      "سوار سيليكون مرن مرفق",
+    ],
+  },
+  {
+    title: "مقاومة الماء",
+    icon: "≈",
+    items: [
+      "مقاوم للماء حتى عمق 50 مترًا",
+      "مناسب للاستخدام اليومي",
+      "جفف الجهاز قبل ارتدائه مرة أخرى",
+      "غير مخصص لأنشطة المياه العميقة",
+    ],
+  },
+  {
+    title: "معدل ضربات القلب",
+    icon: "♥",
+    items: [
+      "تتبّع بصري مستمر لمعدل ضربات القلب",
+      "قد تختلف الدقة حسب الحركة وموضع الجهاز",
+      "قد تختلف النتائج حسب الجسم والبيئة",
+      "مصمم لتقديم معلومات عامة عن العافية",
+    ],
+  },
+  {
+    title: "العناية",
+    icon: "✦",
+    items: [
+      "نظف السوار برفق بعد التمرين",
+      "امنح بشرتك فرصة للتهوية بانتظام",
+      "جفف الجهاز والسوار قبل الارتداء",
+      "تجنب مواد التنظيف القاسية",
+    ],
+  },
+  {
+    title: "الأبعاد",
+    icon: "↔",
+    items: [
+      "الطول: نحو 34.9 مم",
+      "العرض: نحو 17 مم",
+      "الارتفاع: نحو 8.3 مم",
+      "هيكل صغير من دون شاشة",
+    ],
+  },
+  {
+    title: "الوزن",
+    icon: "●",
+    items: [
+      "الجهاز من دون السوار: نحو 5.2 جم",
+      "الجهاز مع السوار: نحو 12 جم",
+      "مناسب للارتداء نهارًا وليلًا",
+    ],
+  },
+  {
+    title: "التوافق",
+    icon: "⌘",
+    items: [
+      "يتطلب حساب Google",
+      "يتطلب تطبيق هاتف متوافقًا",
+      "يدعم أجهزة Android المتوافقة",
+      "يدعم أجهزة iPhone المتوافقة",
+      "يتطلب Bluetooth Low Energy",
+      "قد يلزم الاتصال بالإنترنت",
+    ],
+  },
+  {
+    title: "معلومات السلامة",
+    icon: "!",
+    items: [
+      "مصمم للاستخدام العام المتعلق بالعافية",
+      "لا يغني عن الاستشارة الطبية المتخصصة",
+      "توقف عن استخدامه إذا ظهر تهيج",
+      "اقرأ تعليمات السلامة قبل الاستخدام",
+    ],
+  },
+  {
+    title: "محتويات العلبة",
+    icon: "□",
+    items: [
+      "جهاز Google Fitbit Air",
+      "سوار معصم",
+      "كابل شحن USB-C",
+      "دليل البدء السريع",
+      "معلومات السلامة",
+    ],
+  },
+];
+
+const copyByLanguage = {
+  en: {
+    colourNames: {
+      Black: "Black",
+      Lavender: "Lavender",
+      Berry: "Berry",
+    },
+    priceSoon: "Price coming soon",
+    customer: "ORVIX Customer",
+    loadApiError:
+      "Google Fitbit Air could not be loaded.",
+    loadError: "The product could not be loaded.",
+    unavailableMessage:
+      "This product is currently unavailable.",
+    cartAdded: (
+      name: string,
+      colour: string
+    ) => `${name} in ${colour} was added to your cart.`,
+    removedWishlist:
+      "Removed from your wishlist.",
+    addedWishlist: "Added to your wishlist.",
+    enterName: "Please enter your name.",
+    longerReview: "Please write a longer review.",
+    reviewError: "Review could not be submitted.",
+    reviewSuccess:
+      "Your review was submitted for approval.",
+    loading: "Loading Google Fitbit Air...",
+    unavailable: "Product unavailable",
+    loadTitle: "We couldn’t load this product.",
+    back: "← Back to products",
+    onlyLeft: (count: number) =>
+      `Only ${count} left`,
+    availableNow: "Available now",
+    outOfStock: "Out of stock",
+    tracker: "Screen-free tracker",
+    fallbackDescription:
+      "A lightweight screen-free tracker designed to monitor daily activity, heart rate, sleep and recovery.",
+    chooseColour: "Choose colour",
+    quantity: "Quantity",
+    piecesAvailable: (count: number) =>
+      `${count} pieces available`,
+    addToCart: "Add to cart",
+    currentlyUnavailable: "Currently unavailable",
+    removeWishlist: "Remove from wishlist",
+    addWishlist: "Add to wishlist",
+    overview: "Overview",
+    specs: "Tech Specs",
+    reviews: "Reviews",
+    productDetails: "Product details",
+    overviewTitle:
+      "Fitness tracking without distractions.",
+    overviewDescription:
+      "Google Fitbit Air combines everyday health tracking with a lightweight screen-free design.",
+    technicalSpecifications:
+      "Technical specifications",
+    specsTitle: "Everything, neatly organised.",
+    customerReviews: "Customer reviews",
+    shareExperience: "Share your experience.",
+    yourName: "Your name",
+    ratingLabel: (rating: number) =>
+      `${rating} star rating`,
+    yourReview: "Your review",
+    submitting: "Submitting...",
+    submitReview: "Submit review",
+    loadingReviews: "Loading reviews...",
+    noReviews: "No reviews yet.",
+    previousImage: "Previous image",
+    nextImage: "Next image",
+  },
+  ar: {
+    colourNames: {
+      Black: "أسود",
+      Lavender: "لافندر",
+      Berry: "توتي",
+    },
+    priceSoon: "السعر قريبًا",
+    customer: "عميل ORVIX",
+    loadApiError:
+      "تعذر تحميل Google Fitbit Air.",
+    loadError: "تعذر تحميل المنتج.",
+    unavailableMessage:
+      "هذا المنتج غير متاح حاليًا.",
+    cartAdded: (
+      name: string,
+      colour: string
+    ) => `تمت إضافة ${name} باللون ${colour} إلى السلة.`,
+    removedWishlist:
+      "تمت الإزالة من قائمة المفضلة.",
+    addedWishlist:
+      "تمت الإضافة إلى قائمة المفضلة.",
+    enterName: "من فضلك أدخل اسمك.",
+    longerReview:
+      "من فضلك اكتب تقييمًا أطول.",
+    reviewError: "تعذر إرسال التقييم.",
+    reviewSuccess:
+      "تم إرسال تقييمك للمراجعة.",
+    loading: "جارٍ تحميل Google Fitbit Air...",
+    unavailable: "المنتج غير متاح",
+    loadTitle: "تعذر تحميل هذا المنتج.",
+    back: "→ العودة إلى المنتجات",
+    onlyLeft: (count: number) =>
+      `متبقي ${count.toLocaleString("ar-EG")} فقط`,
+    availableNow: "متوفر الآن",
+    outOfStock: "غير متوفر",
+    tracker: "جهاز تتبّع من دون شاشة",
+    fallbackDescription:
+      "جهاز خفيف من دون شاشة لمتابعة النشاط اليومي ومعدل ضربات القلب والنوم والتعافي.",
+    chooseColour: "اختر اللون",
+    quantity: "الكمية",
+    piecesAvailable: (count: number) =>
+      `${count.toLocaleString("ar-EG")} قطعة متوفرة`,
+    addToCart: "أضف إلى السلة",
+    currentlyUnavailable: "غير متاح حاليًا",
+    removeWishlist: "إزالة من المفضلة",
+    addWishlist: "أضف إلى المفضلة",
+    overview: "نظرة عامة",
+    specs: "المواصفات",
+    reviews: "التقييمات",
+    productDetails: "تفاصيل المنتج",
+    overviewTitle: "تتبّع اللياقة من دون تشتيت.",
+    overviewDescription:
+      "يجمع Google Fitbit Air بين متابعة الصحة اليومية وتصميم خفيف من دون شاشة.",
+    technicalSpecifications: "المواصفات التقنية",
+    specsTitle: "كل التفاصيل مرتبة بوضوح.",
+    customerReviews: "تقييمات العملاء",
+    shareExperience: "شاركنا تجربتك.",
+    yourName: "اسمك",
+    ratingLabel: (rating: number) =>
+      `تقييم ${rating} من 5 نجوم`,
+    yourReview: "اكتب تقييمك",
+    submitting: "جارٍ الإرسال...",
+    submitReview: "إرسال التقييم",
+    loadingReviews: "جارٍ تحميل التقييمات...",
+    noReviews: "لا توجد تقييمات بعد.",
+    previousImage: "الصورة السابقة",
+    nextImage: "الصورة التالية",
+  },
+} as const;
+
+function formatPrice(
+  price: number,
+  language: Language
+) {
   if (!price || price <= 0) {
-    return "Price coming soon";
+    return copyByLanguage[language].priceSoon;
   }
 
   return `${price.toLocaleString(
-    "en-GB"
-  )} EGP`;
+    language === "ar" ? "ar-EG" : "en-GB"
+  )} ${language === "ar" ? "ج.م" : "EGP"}`;
 }
 
 function readStorage<T>(
@@ -312,11 +639,14 @@ function readStorage<T>(
   }
 }
 
-function getReviewName(review: Review) {
+function getReviewName(
+  review: Review,
+  language: Language
+) {
   return (
     review.name ||
     review.customer_name ||
-    "ORVIX Customer"
+    copyByLanguage[language].customer
   );
 }
 
@@ -325,6 +655,16 @@ function getReviewComment(review: Review) {
 }
 
 export default function GoogleFitbitAirPage() {
+  const { language, isArabic } =
+    useLanguage();
+  const copy = copyByLanguage[language];
+  const features =
+    language === "ar" ? featuresAr : featuresEn;
+  const techCategories =
+    language === "ar"
+      ? techCategoriesAr
+      : techCategoriesEn;
+
   const [product, setProduct] =
     useState<Product | null>(null);
 
@@ -473,7 +813,15 @@ export default function GoogleFitbitAirPage() {
       }
     }
 
-    loadProduct();
+    const animationFrame =
+      window.requestAnimationFrame(() => {
+        void loadProduct();
+      });
+
+    return () =>
+      window.cancelAnimationFrame(
+        animationFrame
+      );
   }, []);
 
   useEffect(() => {
@@ -514,7 +862,15 @@ export default function GoogleFitbitAirPage() {
       }
     }
 
-    loadReviews();
+    const animationFrame =
+      window.requestAnimationFrame(() => {
+        void loadReviews();
+      });
+
+    return () =>
+      window.cancelAnimationFrame(
+        animationFrame
+      );
   }, []);
 
   const productImages = useMemo(
@@ -645,7 +1001,7 @@ export default function GoogleFitbitAirPage() {
   function addToCart() {
     if (!product || !canPurchase) {
       showMessage(
-        "This product is currently unavailable.",
+        copy.unavailableMessage,
         "error"
       );
       return;
@@ -708,7 +1064,10 @@ export default function GoogleFitbitAirPage() {
     );
 
     showMessage(
-      `${product.name} in ${selectedColour} was added to your cart.`,
+      copy.cartAdded(
+        product.name,
+        copy.colourNames[selectedColour]
+      ),
       "success"
     );
   }
@@ -773,8 +1132,8 @@ export default function GoogleFitbitAirPage() {
 
     showMessage(
       alreadyAdded
-        ? "Removed from your wishlist."
-        : "Added to your wishlist.",
+        ? copy.removedWishlist
+        : copy.addedWishlist,
       "success"
     );
   }
@@ -786,7 +1145,7 @@ export default function GoogleFitbitAirPage() {
 
     if (!reviewName.trim()) {
       showMessage(
-        "Please enter your name.",
+        copy.enterName,
         "error"
       );
       return;
@@ -796,7 +1155,7 @@ export default function GoogleFitbitAirPage() {
       reviewComment.trim().length < 5
     ) {
       showMessage(
-        "Please write a longer review.",
+        copy.longerReview,
         "error"
       );
       return;
@@ -833,7 +1192,7 @@ export default function GoogleFitbitAirPage() {
       ) {
         throw new Error(
           result.message ||
-            "Review could not be submitted."
+            copy.reviewError
         );
       }
 
@@ -842,14 +1201,16 @@ export default function GoogleFitbitAirPage() {
       setReviewComment("");
 
       showMessage(
-        "Your review was submitted for approval.",
+        copy.reviewSuccess,
         "success"
       );
     } catch (error) {
       showMessage(
         error instanceof Error
-          ? error.message
-          : "Review could not be submitted.",
+          ? language === "ar"
+            ? copy.reviewError
+            : error.message
+          : copy.reviewError,
         "error"
       );
     } finally {
@@ -875,7 +1236,11 @@ export default function GoogleFitbitAirPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#050505] text-white">
+      <main
+        lang={language}
+        dir={isArabic ? "rtl" : "ltr"}
+        className="min-h-screen bg-[#050505] text-white"
+      >
         <Navbar />
 
         <div className="flex min-h-[80vh] items-center justify-center">
@@ -883,7 +1248,7 @@ export default function GoogleFitbitAirPage() {
             <div className="mx-auto h-12 w-12 animate-spin rounded-full border-2 border-white/15 border-t-white" />
 
             <p className="mt-5 text-sm font-semibold text-white/45">
-              Loading Google Fitbit Air...
+              {copy.loading}
             </p>
           </div>
         </div>
@@ -893,28 +1258,34 @@ export default function GoogleFitbitAirPage() {
 
   if (pageError || !product) {
     return (
-      <main className="min-h-screen bg-[#050505] text-white">
+      <main
+        lang={language}
+        dir={isArabic ? "rtl" : "ltr"}
+        className="min-h-screen bg-[#050505] text-white"
+      >
         <Navbar />
 
         <section className="flex min-h-[80vh] items-center justify-center px-5">
           <div className="max-w-lg rounded-[32px] border border-red-500/20 bg-red-500/10 p-8 text-center">
             <p className="text-xs font-black uppercase tracking-[0.3em] text-red-300">
-              Product unavailable
+              {copy.unavailable}
             </p>
 
             <h1 className="mt-4 text-3xl font-black">
-              We couldn’t load this product.
+              {copy.loadTitle}
             </h1>
 
             <p className="mt-4 leading-7 text-red-100/60">
-              {pageError}
+              {language === "ar"
+                ? copy.loadError
+                : pageError}
             </p>
 
             <Link
               href="/#products"
               className="mt-7 inline-flex rounded-full bg-white px-7 py-4 font-black text-black"
             >
-              Back to products
+              {copy.back}
             </Link>
           </div>
         </section>
@@ -923,7 +1294,11 @@ export default function GoogleFitbitAirPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#050505] pb-28 text-white lg:pb-0">
+    <main
+      lang={language}
+      dir={isArabic ? "rtl" : "ltr"}
+      className="min-h-screen bg-[#050505] pb-28 text-white lg:pb-0"
+    >
       <Navbar />
 
       <section className="relative overflow-hidden px-4 pb-16 pt-8 sm:px-6 sm:pb-24 sm:pt-14">
@@ -934,7 +1309,7 @@ export default function GoogleFitbitAirPage() {
             href="/#products"
             className="inline-flex items-center gap-2 text-sm font-bold text-white/45 transition hover:text-white"
           >
-            ← Back to products
+            {copy.back}
           </Link>
 
           <div className="mt-8 grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
@@ -951,10 +1326,13 @@ export default function GoogleFitbitAirPage() {
                 }
                 className="group relative touch-pan-y select-none overflow-hidden rounded-[36px] border border-white/10 bg-gradient-to-b from-white to-[#e9e9e9] p-5 shadow-2xl shadow-black/30 sm:p-10"
               >
-                <img
+                <Image
                   src={activeImage}
                   alt={`${product.name} ${selectedColour}`}
                   draggable={false}
+                  width={900}
+                  height={900}
+                  sizes="(max-width: 1024px) 100vw, 50vw"
                   className="aspect-square h-auto w-full object-contain transition duration-500 group-hover:scale-[1.02]"
                 />
 
@@ -965,6 +1343,7 @@ export default function GoogleFitbitAirPage() {
                       onClick={
                         previousImage
                       }
+                      aria-label={copy.previousImage}
                       className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/75 text-2xl font-black sm:left-5"
                     >
                       ‹
@@ -973,6 +1352,7 @@ export default function GoogleFitbitAirPage() {
                     <button
                       type="button"
                       onClick={nextImage}
+                      aria-label={copy.nextImage}
                       className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/75 text-2xl font-black sm:right-5"
                     >
                       ›
@@ -1004,9 +1384,15 @@ export default function GoogleFitbitAirPage() {
                           : "border-white/10 opacity-50"
                       }`}
                     >
-                      <img
+                      <Image
                         src={image}
-                        alt={colour.name}
+                        alt={
+                          copy.colourNames[
+                            colour.name
+                          ]
+                        }
+                        width={160}
+                        height={160}
                         className="h-full w-full object-contain"
                       />
                     </button>
@@ -1027,13 +1413,15 @@ export default function GoogleFitbitAirPage() {
                   {canPurchase
                     ? product.stockQuantity <=
                       product.lowStockLimit
-                      ? `Only ${product.stockQuantity} left`
-                      : "Available now"
-                    : "Out of stock"}
+                      ? copy.onlyLeft(
+                          product.stockQuantity
+                        )
+                      : copy.availableNow
+                    : copy.outOfStock}
                 </span>
 
                 <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[11px] font-black uppercase tracking-[0.22em] text-white/55">
-                  Screen-free tracker
+                  {copy.tracker}
                 </span>
               </div>
 
@@ -1042,22 +1430,31 @@ export default function GoogleFitbitAirPage() {
               </h1>
 
               <p className="mt-6 max-w-xl text-lg leading-8 text-white/55">
-                {product.shortDescription ||
-                  "A lightweight screen-free tracker designed to monitor daily activity, heart rate, sleep and recovery."}
+                {language === "ar"
+                  ? copy.fallbackDescription
+                  : product.shortDescription ||
+                    copy.fallbackDescription}
               </p>
 
               <p className="mt-7 text-3xl font-black sm:text-4xl">
-                {formatPrice(product.price)}
+                {formatPrice(
+                  product.price,
+                  language
+                )}
               </p>
 
               <div className="mt-8 rounded-[30px] border border-white/10 bg-white/[0.035] p-5 sm:p-6">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-black uppercase tracking-[0.24em] text-white/35">
-                    Choose colour
+                    {copy.chooseColour}
                   </p>
 
                   <p className="font-black">
-                    {selectedColour}
+                    {
+                      copy.colourNames[
+                        selectedColour
+                      ]
+                    }
                   </p>
                 </div>
 
@@ -1087,7 +1484,11 @@ export default function GoogleFitbitAirPage() {
                         />
 
                         <span className="mt-3 block text-xs font-black sm:text-sm">
-                          {colour.name}
+                          {
+                            copy.colourNames[
+                              colour.name
+                            ]
+                          }
                         </span>
                       </button>
                     );
@@ -1099,12 +1500,13 @@ export default function GoogleFitbitAirPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.24em] text-white/35">
-                      Quantity
+                      {copy.quantity}
                     </p>
 
                     <p className="mt-2 text-sm text-white/45">
-                      {product.stockQuantity}{" "}
-                      pieces available
+                      {copy.piecesAvailable(
+                        product.stockQuantity
+                      )}
                     </p>
                   </div>
 
@@ -1160,8 +1562,8 @@ export default function GoogleFitbitAirPage() {
                 className="mt-5 w-full rounded-full bg-white px-7 py-5 font-black text-black disabled:opacity-35"
               >
                 {canPurchase
-                  ? "Add to cart"
-                  : "Currently unavailable"}
+                  ? copy.addToCart
+                  : copy.currentlyUnavailable}
               </button>
 
               {product.allowWishlist && (
@@ -1171,8 +1573,8 @@ export default function GoogleFitbitAirPage() {
                   className="mt-3 w-full rounded-full border border-white/10 px-7 py-5 font-black"
                 >
                   {isInWishlist
-                    ? "Remove from wishlist"
-                    : "Add to wishlist"}
+                    ? copy.removeWishlist
+                    : copy.addWishlist}
                 </button>
               )}
             </div>
@@ -1185,16 +1587,16 @@ export default function GoogleFitbitAirPage() {
           {[
             {
               key: "overview" as const,
-              label: "Overview",
+              label: copy.overview,
             },
             {
               key:
                 "specifications" as const,
-              label: "Tech Specs",
+              label: copy.specs,
             },
             {
               key: "reviews" as const,
-              label: "Reviews",
+              label: copy.reviews,
             },
           ].map((tab) => (
             <button
@@ -1221,17 +1623,18 @@ export default function GoogleFitbitAirPage() {
       >
         <div className="mx-auto max-w-7xl">
           <p className="text-xs font-black uppercase tracking-[0.36em] text-white/30">
-            Product details
+            {copy.productDetails}
           </p>
 
           <h2 className="mt-5 max-w-4xl text-4xl font-black sm:text-6xl">
-            Fitness tracking without
-            distractions.
+            {copy.overviewTitle}
           </h2>
 
           <p className="mt-6 max-w-3xl text-lg leading-8 text-white/50">
-            {product.description ||
-              "Google Fitbit Air combines everyday health tracking with a lightweight screen-free design."}
+            {language === "ar"
+              ? copy.overviewDescription
+              : product.description ||
+                copy.overviewDescription}
           </p>
 
           <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -1264,12 +1667,11 @@ export default function GoogleFitbitAirPage() {
         <div className="mx-auto max-w-7xl">
           <div className="text-center">
             <p className="text-xs font-black uppercase tracking-[0.36em] text-white/30">
-              Technical specifications
+              {copy.technicalSpecifications}
             </p>
 
             <h2 className="mt-5 text-4xl font-black sm:text-6xl">
-              Everything, neatly
-              organised.
+              {copy.specsTitle}
             </h2>
           </div>
 
@@ -1330,11 +1732,11 @@ export default function GoogleFitbitAirPage() {
         <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-2">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.36em] text-white/30">
-              Customer reviews
+              {copy.customerReviews}
             </p>
 
             <h2 className="mt-5 text-4xl font-black">
-              Share your experience.
+              {copy.shareExperience}
             </h2>
 
             <form
@@ -1348,7 +1750,7 @@ export default function GoogleFitbitAirPage() {
                     event.target.value
                   )
                 }
-                placeholder="Your name"
+                placeholder={copy.yourName}
                 className="w-full rounded-2xl border border-white/10 bg-black px-4 py-4"
               />
 
@@ -1363,6 +1765,9 @@ export default function GoogleFitbitAirPage() {
                           rating
                         )
                       }
+                      aria-label={copy.ratingLabel(
+                        rating
+                      )}
                       className={`text-3xl ${
                         rating <=
                         reviewRating
@@ -1383,7 +1788,7 @@ export default function GoogleFitbitAirPage() {
                     event.target.value
                   )
                 }
-                placeholder="Your review"
+                placeholder={copy.yourReview}
                 rows={5}
                 className="mt-5 w-full resize-none rounded-2xl border border-white/10 bg-black px-4 py-4"
               />
@@ -1394,8 +1799,8 @@ export default function GoogleFitbitAirPage() {
                 className="mt-5 w-full rounded-full bg-white px-6 py-4 font-black text-black"
               >
                 {submittingReview
-                  ? "Submitting..."
-                  : "Submit review"}
+                  ? copy.submitting
+                  : copy.submitReview}
               </button>
             </form>
           </div>
@@ -1415,11 +1820,11 @@ export default function GoogleFitbitAirPage() {
 
             {reviewsLoading ? (
               <div className="rounded-[30px] border border-white/10 p-8">
-                Loading reviews...
+                {copy.loadingReviews}
               </div>
             ) : reviews.length === 0 ? (
               <div className="rounded-[30px] border border-white/10 p-8">
-                No reviews yet.
+                {copy.noReviews}
               </div>
             ) : (
               reviews.map((review) => (
@@ -1428,7 +1833,10 @@ export default function GoogleFitbitAirPage() {
                   className="rounded-[30px] border border-white/10 p-7"
                 >
                   <h3 className="font-black">
-                    {getReviewName(review)}
+                    {getReviewName(
+                      review,
+                      language
+                    )}
                   </h3>
 
                   <p className="mt-2 text-yellow-300">
@@ -1463,7 +1871,10 @@ export default function GoogleFitbitAirPage() {
             </p>
 
             <p className="mt-1 text-xs text-white/45">
-              {formatPrice(product.price)}
+              {formatPrice(
+                product.price,
+                language
+              )}
             </p>
           </div>
 
@@ -1473,7 +1884,7 @@ export default function GoogleFitbitAirPage() {
             disabled={!canPurchase}
             className="rounded-full bg-white px-6 py-4 text-sm font-black text-black disabled:opacity-40"
           >
-            Add to cart
+            {copy.addToCart}
           </button>
         </div>
       </div>

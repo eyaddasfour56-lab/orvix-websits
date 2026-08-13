@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+html[data-language-pending="true"] body {
+  visibility: hidden;
+}
+
+html[dir="rtl"] body {
+  font-family: Arial, Tahoma, sans-serif;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
