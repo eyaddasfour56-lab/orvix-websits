@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useParams } from "next/navigation";
 import {
   TouchEvent,
@@ -9,6 +10,10 @@ import {
   useState,
 } from "react";
 import Navbar from "@/components/Navbar";
+import {
+  Language,
+  useLanguage,
+} from "@/components/LanguageProvider";
 
 type ProductStatus =
   | "available"
@@ -53,14 +58,140 @@ type WishlistItem = {
   image: string;
 };
 
-function formatPrice(price: number) {
+const copyByLanguage = {
+  en: {
+    priceComingSoon: "Price coming soon",
+    comingSoon: "Coming Soon",
+    outOfStock: "Out of Stock",
+    onlyLeft: (count: number) =>
+      `Only ${count} left`,
+    availableNow: "Available Now",
+    productNotFoundApi: "Product was not found.",
+    loadError: "Could not load product.",
+    addedToCart: (name: string) =>
+      `${name} added to your cart.`,
+    removedFromWishlist: (name: string) =>
+      `${name} removed from your wishlist.`,
+    addedToWishlist: (name: string) =>
+      `${name} added to your wishlist.`,
+    loading: "Loading product...",
+    unavailableEyebrow: "Product unavailable",
+    notFound: "Product not found",
+    notFoundDescription:
+      "This product does not exist or is currently hidden.",
+    allProducts: "View All Products",
+    back: "← Back to Products",
+    previousImage: "Previous image",
+    nextImage: "Next image",
+    imageAlt: (name: string, index: number) =>
+      `${name} image ${index}`,
+    thumbnailAlt: (
+      name: string,
+      index: number
+    ) => `${name} thumbnail ${index}`,
+    viewImage: (index: number) =>
+      `View image ${index}`,
+    goToImage: (index: number) =>
+      `Go to image ${index}`,
+    swipe:
+      "Swipe left or right to view more pictures",
+    productDetails: "Product Details",
+    quantity: "Quantity",
+    piecesAvailable: (count: number) =>
+      `${count} pieces currently available`,
+    addToCart: "Add to Cart",
+    comingSoonTitle:
+      "This product is coming soon.",
+    unavailableTitle:
+      "This product is currently unavailable.",
+    comingSoonDescription:
+      "Follow ORVIX for availability updates and launch information.",
+    unavailableDescription:
+      "Purchasing will be enabled again when stock becomes available.",
+    removeWishlist: "Remove from Wishlist",
+    addWishlist: "Add to Wishlist",
+    secureOrdering: "Secure Ordering",
+    orderTracking: "Order Tracking",
+    support: "ORVIX Support",
+    rights: "All rights reserved.",
+    exploreMore: "Explore More Products",
+  },
+  ar: {
+    priceComingSoon: "السعر قريبًا",
+    comingSoon: "قريبًا",
+    outOfStock: "غير متوفر",
+    onlyLeft: (count: number) =>
+      `متبقي ${count.toLocaleString("ar-EG")} فقط`,
+    availableNow: "متوفر الآن",
+    productNotFoundApi:
+      "لم يتم العثور على المنتج.",
+    loadError: "تعذر تحميل المنتج.",
+    addedToCart: (name: string) =>
+      `تمت إضافة ${name} إلى سلة التسوق.`,
+    removedFromWishlist: (name: string) =>
+      `تمت إزالة ${name} من قائمة المفضلة.`,
+    addedToWishlist: (name: string) =>
+      `تمت إضافة ${name} إلى قائمة المفضلة.`,
+    loading: "جارٍ تحميل المنتج...",
+    unavailableEyebrow: "المنتج غير متاح",
+    notFound: "لم يتم العثور على المنتج",
+    notFoundDescription:
+      "هذا المنتج غير موجود أو مخفي حاليًا.",
+    allProducts: "عرض جميع المنتجات",
+    back: "→ العودة إلى المنتجات",
+    previousImage: "الصورة السابقة",
+    nextImage: "الصورة التالية",
+    imageAlt: (name: string, index: number) =>
+      `صورة ${name} رقم ${index.toLocaleString("ar-EG")}`,
+    thumbnailAlt: (
+      name: string,
+      index: number
+    ) =>
+      `صورة مصغرة لـ ${name} رقم ${index.toLocaleString(
+        "ar-EG"
+      )}`,
+    viewImage: (index: number) =>
+      `عرض الصورة ${index.toLocaleString("ar-EG")}`,
+    goToImage: (index: number) =>
+      `الانتقال إلى الصورة ${index.toLocaleString(
+        "ar-EG"
+      )}`,
+    swipe:
+      "اسحب يمينًا أو يسارًا لمشاهدة صور أخرى",
+    productDetails: "تفاصيل المنتج",
+    quantity: "الكمية",
+    piecesAvailable: (count: number) =>
+      `${count.toLocaleString("ar-EG")} قطعة متوفرة حاليًا`,
+    addToCart: "أضف إلى السلة",
+    comingSoonTitle: "هذا المنتج سيتوفر قريبًا.",
+    unavailableTitle:
+      "هذا المنتج غير متاح حاليًا.",
+    comingSoonDescription:
+      "تابع ORVIX لمعرفة موعد التوفر وتفاصيل الإطلاق.",
+    unavailableDescription:
+      "سيتم تفعيل الشراء مرة أخرى عند توفر المنتج.",
+    removeWishlist: "إزالة من المفضلة",
+    addWishlist: "أضف إلى المفضلة",
+    secureOrdering: "طلب آمن",
+    orderTracking: "تتبّع الطلب",
+    support: "دعم ORVIX",
+    rights: "جميع الحقوق محفوظة.",
+    exploreMore: "اكتشف منتجات أخرى",
+  },
+} as const;
+
+function formatPrice(
+  price: number,
+  language: Language
+) {
   if (price <= 0) {
-    return "Price coming soon";
+    return copyByLanguage[language]
+      .priceComingSoon;
   }
 
   return `${price.toLocaleString(
-    "en-GB"
-  )} EGP`;
+    language === "ar" ? "ar-EG" : "en-GB"
+  )} ${language === "ar" ? "ج.م" : "EGP"}`;
 }
 
 function readLocalStorage<T>(
@@ -149,11 +280,14 @@ function normaliseProduct(
 }
 
 function getStatusDetails(
-  product: Product
+  product: Product,
+  language: Language
 ) {
+  const copy = copyByLanguage[language];
+
   if (product.status === "coming_soon") {
     return {
-      label: "Coming Soon",
+      label: copy.comingSoon,
       classes:
         "border-yellow-500/30 bg-yellow-500/10 text-yellow-300",
     };
@@ -164,7 +298,7 @@ function getStatusDetails(
     product.stockQuantity <= 0
   ) {
     return {
-      label: "Out of Stock",
+      label: copy.outOfStock,
       classes:
         "border-red-500/30 bg-red-500/10 text-red-300",
     };
@@ -175,20 +309,26 @@ function getStatusDetails(
     product.lowStockLimit
   ) {
     return {
-      label: `Only ${product.stockQuantity} left`,
+      label: copy.onlyLeft(
+        product.stockQuantity
+      ),
       classes:
         "border-orange-500/30 bg-orange-500/10 text-orange-300",
     };
   }
 
   return {
-    label: "Available Now",
+    label: copy.availableNow,
     classes:
       "border-green-500/30 bg-green-500/10 text-green-300",
   };
 }
 
 export default function DynamicProductPage() {
+  const { language, isArabic } =
+    useLanguage();
+  const copy = copyByLanguage[language];
+
   const params = useParams<{
     slug: string;
   }>();
@@ -293,7 +433,15 @@ export default function DynamicProductPage() {
       }
     }
 
-    loadProduct();
+    const animationFrame =
+      window.requestAnimationFrame(() => {
+        void loadProduct();
+      });
+
+    return () =>
+      window.cancelAnimationFrame(
+        animationFrame
+      );
   }, [slug]);
 
   useEffect(() => {
@@ -307,13 +455,21 @@ export default function DynamicProductPage() {
         []
       );
 
-    setIsInWishlist(
-      wishlist.some(
-        (item) =>
-          item.id === product.id ||
-          item.slug === product.slug
-      )
-    );
+    const animationFrame =
+      window.requestAnimationFrame(() => {
+        setIsInWishlist(
+          wishlist.some(
+            (item) =>
+              item.id === product.id ||
+              item.slug === product.slug
+          )
+        );
+      });
+
+    return () =>
+      window.cancelAnimationFrame(
+        animationFrame
+      );
   }, [product]);
 
   const productImages = useMemo(() => {
@@ -337,8 +493,11 @@ export default function DynamicProductPage() {
       return null;
     }
 
-    return getStatusDetails(product);
-  }, [product]);
+    return getStatusDetails(
+      product,
+      language
+    );
+  }, [language, product]);
 
   const canPurchase = Boolean(
     product &&
@@ -510,7 +669,7 @@ export default function DynamicProductPage() {
     );
 
     setMessage(
-      `${product.name} added to your cart.`
+      copy.addedToCart(product.name)
     );
   }
 
@@ -575,14 +734,20 @@ export default function DynamicProductPage() {
 
     setMessage(
       alreadyAdded
-        ? `${product.name} removed from your wishlist.`
-        : `${product.name} added to your wishlist.`
+        ? copy.removedFromWishlist(
+            product.name
+          )
+        : copy.addedToWishlist(product.name)
     );
   }
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#070707] text-white">
+      <main
+        lang={language}
+        dir={isArabic ? "rtl" : "ltr"}
+        className="min-h-screen bg-[#070707] text-white"
+      >
         <Navbar />
 
         <div className="flex min-h-[75vh] items-center justify-center px-5">
@@ -590,7 +755,7 @@ export default function DynamicProductPage() {
             <div className="mx-auto h-11 w-11 animate-spin rounded-full border-2 border-white/20 border-t-white" />
 
             <p className="mt-5 text-gray-400">
-              Loading product...
+              {copy.loading}
             </p>
           </div>
         </div>
@@ -600,29 +765,34 @@ export default function DynamicProductPage() {
 
   if (error || !product) {
     return (
-      <main className="min-h-screen bg-[#070707] text-white">
+      <main
+        lang={language}
+        dir={isArabic ? "rtl" : "ltr"}
+        className="min-h-screen bg-[#070707] text-white"
+      >
         <Navbar />
 
         <section className="flex min-h-[75vh] items-center justify-center px-5">
           <div className="w-full max-w-xl rounded-[36px] border border-red-500/20 bg-red-500/10 p-8 text-center sm:p-12">
             <p className="text-sm font-black uppercase tracking-[0.3em] text-red-300">
-              Product unavailable
+              {copy.unavailableEyebrow}
             </p>
 
             <h1 className="mt-5 text-4xl font-black">
-              Product not found
+              {copy.notFound}
             </h1>
 
             <p className="mt-5 leading-7 text-red-200/70">
-              {error ||
-                "This product does not exist or is currently hidden."}
+              {language === "ar"
+                ? copy.notFoundDescription
+                : error || copy.notFoundDescription}
             </p>
 
             <Link
               href="/#products"
               className="mt-8 inline-flex rounded-full bg-white px-7 py-4 font-black text-black transition hover:bg-gray-200"
             >
-              View All Products
+              {copy.allProducts}
             </Link>
           </div>
         </section>
@@ -631,7 +801,11 @@ export default function DynamicProductPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#070707] text-white">
+    <main
+      lang={language}
+      dir={isArabic ? "rtl" : "ltr"}
+      className="min-h-screen bg-[#070707] text-white"
+    >
       <Navbar />
 
       <section className="px-4 py-10 sm:px-6 sm:py-16">
@@ -640,7 +814,7 @@ export default function DynamicProductPage() {
             href="/#products"
             className="inline-flex items-center gap-2 text-sm font-bold text-gray-400 transition hover:text-white"
           >
-            ← Back to Products
+            {copy.back}
           </Link>
 
           <div className="mt-8 grid gap-10 lg:grid-cols-2 lg:items-start">
@@ -657,13 +831,18 @@ export default function DynamicProductPage() {
                 }
                 className="relative touch-pan-y select-none overflow-hidden rounded-[40px] border border-white/10 bg-white p-6 sm:p-10"
               >
-                <img
+                <Image
                   key={activeImage}
                   src={activeImage}
-                  alt={`${product.name} image ${
+                  alt={copy.imageAlt(
+                    product.name,
                     activeImageIndex + 1
-                  }`}
+                  )}
                   draggable={false}
+                  width={900}
+                  height={900}
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  unoptimized
                   className="aspect-square h-auto w-full animate-[fadeIn_250ms_ease-in-out] object-contain"
                 />
 
@@ -675,7 +854,7 @@ export default function DynamicProductPage() {
                       onClick={
                         showPreviousImage
                       }
-                      aria-label="Previous image"
+                      aria-label={copy.previousImage}
                       className="absolute left-3 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/80 text-2xl font-black text-white backdrop-blur transition hover:scale-105 hover:bg-black sm:left-5"
                     >
                       ‹
@@ -686,7 +865,7 @@ export default function DynamicProductPage() {
                       onClick={
                         showNextImage
                       }
-                      aria-label="Next image"
+                      aria-label={copy.nextImage}
                       className="absolute right-3 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/80 text-2xl font-black text-white backdrop-blur transition hover:scale-105 hover:bg-black sm:right-5"
                     >
                       ›
@@ -716,9 +895,9 @@ export default function DynamicProductPage() {
                               imageIndex
                             )
                           }
-                          aria-label={`View image ${
+                          aria-label={copy.viewImage(
                             imageIndex + 1
-                          }`}
+                          )}
                           className={`flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border bg-white p-2 transition ${
                             activeImageIndex ===
                             imageIndex
@@ -726,12 +905,16 @@ export default function DynamicProductPage() {
                               : "border-white/15 opacity-60 hover:opacity-100"
                           }`}
                         >
-                          <img
+                          <Image
                             src={imageUrl}
-                            alt={`${product.name} thumbnail ${
+                            alt={copy.thumbnailAlt(
+                              product.name,
                               imageIndex + 1
-                            }`}
+                            )}
                             draggable={false}
+                            width={160}
+                            height={160}
+                            unoptimized
                             className="h-full w-full object-contain"
                           />
                         </button>
@@ -750,9 +933,9 @@ export default function DynamicProductPage() {
                               imageIndex
                             )
                           }
-                          aria-label={`Go to image ${
+                          aria-label={copy.goToImage(
                             imageIndex + 1
-                          }`}
+                          )}
                           className={`h-2 rounded-full transition-all ${
                             activeImageIndex ===
                             imageIndex
@@ -765,8 +948,7 @@ export default function DynamicProductPage() {
                   </div>
 
                   <p className="mt-4 text-center text-xs font-semibold text-gray-500 sm:hidden">
-                    Swipe left or right to view
-                    more pictures
+                    {copy.swipe}
                   </p>
                 </>
               )}
@@ -797,16 +979,17 @@ export default function DynamicProductPage() {
                 {product.status ===
                   "coming_soon" &&
                 product.price <= 0
-                  ? "Coming soon"
+                  ? copy.comingSoon
                   : formatPrice(
-                      product.price
+                      product.price,
+                      language
                     )}
               </p>
 
               {product.description && (
                 <div className="mt-8 rounded-[28px] border border-white/10 bg-white/5 p-6">
                   <p className="text-sm font-black uppercase tracking-[0.25em] text-gray-500">
-                    Product Details
+                    {copy.productDetails}
                   </p>
 
                   <p className="mt-4 whitespace-pre-line leading-8 text-gray-300">
@@ -824,7 +1007,7 @@ export default function DynamicProductPage() {
               {canPurchase ? (
                 <div className="mt-8">
                   <p className="text-sm font-black uppercase tracking-[0.2em] text-gray-500">
-                    Quantity
+                    {copy.quantity}
                   </p>
 
                   <div className="mt-3 flex items-center gap-3">
@@ -858,8 +1041,9 @@ export default function DynamicProductPage() {
                   </div>
 
                   <p className="mt-3 text-sm text-gray-500">
-                    {product.stockQuantity}{" "}
-                    pieces currently available
+                    {copy.piecesAvailable(
+                      product.stockQuantity
+                    )}
                   </p>
 
                   <button
@@ -867,7 +1051,7 @@ export default function DynamicProductPage() {
                     onClick={addToCart}
                     className="mt-7 w-full rounded-full bg-white px-7 py-5 text-lg font-black text-black transition hover:bg-gray-200"
                   >
-                    Add to Cart
+                    {copy.addToCart}
                   </button>
                 </div>
               ) : (
@@ -875,15 +1059,15 @@ export default function DynamicProductPage() {
                   <h2 className="text-xl font-black">
                     {product.status ===
                     "coming_soon"
-                      ? "This product is coming soon."
-                      : "This product is currently unavailable."}
+                      ? copy.comingSoonTitle
+                      : copy.unavailableTitle}
                   </h2>
 
                   <p className="mt-3 leading-7 text-gray-400">
                     {product.status ===
                     "coming_soon"
-                      ? "Follow ORVIX for availability updates and launch information."
-                      : "Purchasing will be enabled again when stock becomes available."}
+                      ? copy.comingSoonDescription
+                      : copy.unavailableDescription}
                   </p>
                 </div>
               )}
@@ -895,27 +1079,27 @@ export default function DynamicProductPage() {
                   className="mt-4 w-full rounded-full border border-white/15 px-7 py-5 font-black transition hover:bg-white/10"
                 >
                   {isInWishlist
-                    ? "Remove from Wishlist"
-                    : "Add to Wishlist"}
+                    ? copy.removeWishlist
+                    : copy.addWishlist}
                 </button>
               )}
 
               <div className="mt-8 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center">
                   <p className="font-black">
-                    Secure Ordering
+                    {copy.secureOrdering}
                   </p>
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center">
                   <p className="font-black">
-                    Order Tracking
+                    {copy.orderTracking}
                   </p>
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center">
                   <p className="font-black">
-                    ORVIX Support
+                    {copy.support}
                   </p>
                 </div>
               </div>
@@ -925,15 +1109,14 @@ export default function DynamicProductPage() {
       </section>
 
       <footer className="mt-14 border-t border-white/10 px-4 py-8">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-start">
           <div>
             <p className="font-black tracking-[0.3em]">
               ORVIX
             </p>
 
             <p className="mt-2 text-sm text-gray-600">
-              © 2026 ORVIX. All rights
-              reserved.
+              © 2026 ORVIX. {copy.rights}
             </p>
           </div>
 
@@ -941,7 +1124,7 @@ export default function DynamicProductPage() {
             href="/#products"
             className="text-sm font-bold text-gray-400 transition hover:text-white"
           >
-            Explore More Products
+            {copy.exploreMore}
           </Link>
         </div>
       </footer>

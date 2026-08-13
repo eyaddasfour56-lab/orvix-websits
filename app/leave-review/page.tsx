@@ -7,8 +7,83 @@ import {
 } from "react";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import { useLanguage } from "@/components/LanguageProvider";
+
+const copyByLanguage = {
+  en: {
+    eyebrow: "ORVIX Reviews",
+    title: "Share Your Experience",
+    subtitle:
+      "Your feedback helps us improve and helps other customers shop with confidence.",
+    orderNumber: "Order Number",
+    phoneNumber: "Phone Number",
+    rating: "Your Rating",
+    starLabel: (star: number) =>
+      `${star} star rating`,
+    selectStars: "Select from 1 to 5 stars.",
+    starsSelected: (rating: number) =>
+      `${rating} out of 5 stars selected.`,
+    review: "Your Review",
+    reviewPlaceholder:
+      "Tell us what you liked about your ORVIX experience...",
+    minimum: "Minimum 5 characters",
+    submitting: "Submitting Review...",
+    submit: "Submit Review",
+    reviewNote:
+      "Reviews can only be submitted for delivered orders. Reviews are checked before appearing publicly.",
+    track: "Track Your Order",
+    back: "Back to Product",
+    rights: "All rights reserved.",
+    missingOrder: "Please enter your order number.",
+    missingPhone: "Please enter your phone number.",
+    missingRating:
+      "Please select a rating from 1 to 5 stars.",
+    shortReview:
+      "Please write at least 5 characters.",
+    genericError:
+      "Could not submit your review.",
+    success:
+      "Thank you! Your review was submitted successfully.",
+  },
+  ar: {
+    eyebrow: "تقييمات ORVIX",
+    title: "شاركنا تجربتك",
+    subtitle:
+      "ملاحظاتك تساعدنا على التطور وتساعد العملاء الآخرين على التسوق بثقة.",
+    orderNumber: "رقم الطلب",
+    phoneNumber: "رقم الهاتف",
+    rating: "تقييمك",
+    starLabel: (star: number) =>
+      `تقييم ${star} من 5 نجوم`,
+    selectStars: "اختر تقييمًا من نجمة إلى 5 نجوم.",
+    starsSelected: (rating: number) =>
+      `اخترت ${rating.toLocaleString("ar-EG")} من 5 نجوم.`,
+    review: "اكتب تقييمك",
+    reviewPlaceholder:
+      "أخبرنا بما أعجبك في تجربتك مع ORVIX...",
+    minimum: "5 أحرف على الأقل",
+    submitting: "جارٍ إرسال التقييم...",
+    submit: "إرسال التقييم",
+    reviewNote:
+      "يمكن إضافة تقييم للطلبات التي تم توصيلها فقط، وتتم مراجعته قبل ظهوره للعامة.",
+    track: "تتبّع طلبك",
+    back: "العودة إلى المنتج",
+    rights: "جميع الحقوق محفوظة.",
+    missingOrder: "من فضلك أدخل رقم الطلب.",
+    missingPhone: "من فضلك أدخل رقم الهاتف.",
+    missingRating: "من فضلك اختر تقييمًا من 1 إلى 5.",
+    shortReview: "من فضلك اكتب 5 أحرف على الأقل.",
+    genericError:
+      "تعذر إرسال تقييمك الآن. حاول مرة أخرى.",
+    success: "شكرًا لك! تم إرسال تقييمك بنجاح.",
+  },
+} as const;
 
 export default function LeaveReviewPage() {
+  const { language, isArabic } =
+    useLanguage();
+  const copy = copyByLanguage[language];
+
   const [orderNumber, setOrderNumber] =
     useState("");
 
@@ -32,29 +107,38 @@ export default function LeaveReviewPage() {
     useState(false);
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(
-      window.location.search
-    );
+    const animationFrame =
+      window.requestAnimationFrame(() => {
+        const searchParams =
+          new URLSearchParams(
+            window.location.search
+          );
 
-    const orderNumberFromUrl =
-      searchParams.get("orderNumber");
+        const orderNumberFromUrl =
+          searchParams.get("orderNumber");
 
-    const savedPhone =
-      sessionStorage.getItem(
-        "orvixLastOrderPhone"
+        const savedPhone =
+          sessionStorage.getItem(
+            "orvixLastOrderPhone"
+          );
+
+        if (orderNumberFromUrl) {
+          setOrderNumber(
+            orderNumberFromUrl
+              .trim()
+              .toUpperCase()
+          );
+        }
+
+        if (savedPhone) {
+          setPhone(savedPhone);
+        }
+      });
+
+    return () =>
+      window.cancelAnimationFrame(
+        animationFrame
       );
-
-    if (orderNumberFromUrl) {
-      setOrderNumber(
-        orderNumberFromUrl
-          .trim()
-          .toUpperCase()
-      );
-    }
-
-    if (savedPhone) {
-      setPhone(savedPhone);
-    }
   }, []);
 
   async function handleSubmit(
@@ -71,7 +155,7 @@ export default function LeaveReviewPage() {
 
     if (!orderNumber.trim()) {
       setMessage(
-        "Please enter your order number."
+        copy.missingOrder
       );
 
       return;
@@ -79,7 +163,7 @@ export default function LeaveReviewPage() {
 
     if (!phone.trim()) {
       setMessage(
-        "Please enter your phone number."
+        copy.missingPhone
       );
 
       return;
@@ -87,7 +171,7 @@ export default function LeaveReviewPage() {
 
     if (rating < 1 || rating > 5) {
       setMessage(
-        "Please select a rating from 1 to 5 stars."
+        copy.missingRating
       );
 
       return;
@@ -95,7 +179,7 @@ export default function LeaveReviewPage() {
 
     if (reviewText.trim().length < 5) {
       setMessage(
-        "Please write at least 5 characters."
+        copy.shortReview
       );
 
       return;
@@ -131,15 +215,16 @@ export default function LeaveReviewPage() {
       if (!response.ok || !result.success) {
         throw new Error(
           result.message ||
-            "Could not submit your review."
+            copy.genericError
         );
       }
 
       setSuccess(true);
 
       setMessage(
-        result.message ||
-          "Thank you! Your review was submitted successfully."
+        language === "ar"
+          ? copy.success
+          : result.message || copy.success
       );
 
       setRating(0);
@@ -150,8 +235,10 @@ export default function LeaveReviewPage() {
 
       setMessage(
         error instanceof Error
-          ? error.message
-          : "Could not submit your review."
+          ? language === "ar"
+            ? copy.genericError
+            : error.message
+          : copy.genericError
       );
     } finally {
       setLoading(false);
@@ -162,24 +249,26 @@ export default function LeaveReviewPage() {
     hoveredRating || rating;
 
   return (
-    <main className="min-h-screen bg-[#070707] text-white">
+    <main
+      lang={language}
+      dir={isArabic ? "rtl" : "ltr"}
+      className="min-h-screen bg-[#070707] text-white"
+    >
       <Navbar />
 
       <section className="px-4 py-14 sm:px-6 sm:py-20">
         <div className="mx-auto max-w-3xl">
           <div className="text-center">
             <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
-              ORVIX Reviews
+              {copy.eyebrow}
             </p>
 
             <h1 className="mt-4 text-4xl font-black sm:text-6xl">
-              Share Your Experience
+              {copy.title}
             </h1>
 
             <p className="mx-auto mt-5 max-w-xl leading-7 text-gray-400">
-              Your feedback helps us improve and
-              helps other customers shop with
-              confidence.
+              {copy.subtitle}
             </p>
           </div>
 
@@ -190,11 +279,12 @@ export default function LeaveReviewPage() {
             <div className="grid gap-5 sm:grid-cols-2">
               <label>
                 <span className="mb-2 block text-sm font-bold text-gray-300">
-                  Order Number
+                  {copy.orderNumber}
                 </span>
 
                 <input
                   type="text"
+                  dir="ltr"
                   value={orderNumber}
                   onChange={(event) => {
                     setOrderNumber(
@@ -213,11 +303,12 @@ export default function LeaveReviewPage() {
 
               <label>
                 <span className="mb-2 block text-sm font-bold text-gray-300">
-                  Phone Number
+                  {copy.phoneNumber}
                 </span>
 
                 <input
                   type="tel"
+                  dir="ltr"
                   value={phone}
                   onChange={(event) => {
                     setPhone(
@@ -238,7 +329,7 @@ export default function LeaveReviewPage() {
 
             <div className="mt-7">
               <p className="text-sm font-bold text-gray-300">
-                Your Rating
+                {copy.rating}
               </p>
 
               <div
@@ -268,7 +359,9 @@ export default function LeaveReviewPage() {
                           )
                         }
                         disabled={loading}
-                        aria-label={`${star} star rating`}
+                        aria-label={copy.starLabel(
+                          star
+                        )}
                         className={`flex h-14 w-14 items-center justify-center rounded-2xl border text-3xl transition disabled:opacity-50 ${
                           active
                             ? "border-yellow-400/30 bg-yellow-400/10 text-yellow-300"
@@ -284,14 +377,14 @@ export default function LeaveReviewPage() {
 
               <p className="mt-3 text-sm text-gray-500">
                 {rating === 0
-                  ? "Select from 1 to 5 stars."
-                  : `${rating} out of 5 stars selected.`}
+                  ? copy.selectStars
+                  : copy.starsSelected(rating)}
               </p>
             </div>
 
             <label className="mt-7 block">
               <span className="mb-2 block text-sm font-bold text-gray-300">
-                Your Review
+                {copy.review}
               </span>
 
               <textarea
@@ -304,7 +397,7 @@ export default function LeaveReviewPage() {
                   setMessage("");
                   setSuccess(false);
                 }}
-                placeholder="Tell us what you liked about your ORVIX experience..."
+                placeholder={copy.reviewPlaceholder}
                 rows={6}
                 maxLength={1000}
                 disabled={loading}
@@ -313,7 +406,7 @@ export default function LeaveReviewPage() {
 
               <div className="mt-2 flex items-center justify-between gap-4 text-xs text-gray-500">
                 <span>
-                  Minimum 5 characters
+                  {copy.minimum}
                 </span>
 
                 <span>
@@ -347,14 +440,12 @@ export default function LeaveReviewPage() {
               className="mt-7 flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-black text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading
-                ? "Submitting Review..."
-                : "Submit Review"}
+                ? copy.submitting
+                : copy.submit}
             </button>
 
             <p className="mt-4 text-center text-xs leading-5 text-gray-500">
-              Reviews can only be submitted for
-              delivered orders. Reviews are checked
-              before appearing publicly.
+              {copy.reviewNote}
             </p>
           </form>
 
@@ -363,14 +454,14 @@ export default function LeaveReviewPage() {
               href="/track-order"
               className="flex items-center justify-center rounded-full border border-white/15 px-6 py-4 text-center font-bold transition hover:bg-white/10"
             >
-              Track Your Order
+              {copy.track}
             </Link>
 
             <Link
               href="/products/google-fitbit-air"
               className="flex items-center justify-center rounded-full border border-white/15 px-6 py-4 text-center font-bold transition hover:bg-white/10"
             >
-              Back to Product
+              {copy.back}
             </Link>
           </div>
         </div>
@@ -378,7 +469,7 @@ export default function LeaveReviewPage() {
 
       <footer className="border-t border-white/10 px-4 py-8">
         <p className="text-center text-sm text-gray-600">
-          © 2026 ORVIX. All rights reserved.
+          © 2026 ORVIX. {copy.rights}
         </p>
       </footer>
     </main>

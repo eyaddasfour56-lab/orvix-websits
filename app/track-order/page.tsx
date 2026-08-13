@@ -7,6 +7,10 @@ import {
   useState,
 } from "react";
 import Navbar from "@/components/Navbar";
+import {
+  Language,
+  useLanguage,
+} from "@/components/LanguageProvider";
 
 type TrackedOrder = {
   orderNumber: string;
@@ -25,8 +29,6 @@ type TrackedOrder = {
   carrierStatus?: string | null;
   lastUpdatedAt: string;
 };
-
-type Language = "en" | "ar";
 
 type TrackingResult = {
   success: boolean;
@@ -432,8 +434,8 @@ function getBostaTrackingLink(
 }
 
 export default function TrackOrderPage() {
-  const [language, setLanguage] =
-    useState<Language>("en");
+  const { language, isArabic } =
+    useLanguage();
 
   const [orderNumber, setOrderNumber] =
     useState("");
@@ -453,8 +455,6 @@ export default function TrackOrderPage() {
     useState(false);
 
   const copy = copyByLanguage[language];
-  const isArabic = language === "ar";
-
   useEffect(() => {
     const animationFrame =
       window.requestAnimationFrame(() => {
@@ -472,23 +472,6 @@ export default function TrackOrderPage() {
           sessionStorage.getItem(
             "orvixLastOrderPhone"
           ) || "";
-
-        const savedLanguage =
-          localStorage.getItem(
-            "orvixTrackingLanguage"
-          );
-
-        const preferredLanguage: Language =
-          savedLanguage === "ar" ||
-          savedLanguage === "en"
-            ? savedLanguage
-            : navigator.language
-                  .toLowerCase()
-                  .startsWith("ar")
-              ? "ar"
-              : "en";
-
-        setLanguage(preferredLanguage);
 
         if (orderNumberFromUrl) {
           setOrderNumber(
@@ -510,18 +493,6 @@ export default function TrackOrderPage() {
         animationFrame
       );
   }, []);
-
-  function changeLanguage(
-    nextLanguage: Language
-  ) {
-    setLanguage(nextLanguage);
-    setMessage("");
-
-    localStorage.setItem(
-      "orvixTrackingLanguage",
-      nextLanguage
-    );
-  }
 
   async function trackOrder(
     submittedOrderNumber: string,
@@ -717,41 +688,6 @@ export default function TrackOrderPage() {
 
       <section className="px-4 py-14 sm:px-6 sm:py-20">
         <div className="mx-auto max-w-4xl">
-          <div className="mb-8 flex justify-center sm:justify-end">
-            <div
-              dir="ltr"
-              role="group"
-              aria-label={copy.languageLabel}
-              className="inline-flex rounded-full border border-white/10 bg-white/5 p-1"
-            >
-              <button
-                type="button"
-                aria-pressed={language === "en"}
-                onClick={() => changeLanguage("en")}
-                className={`rounded-full px-5 py-2 text-sm font-black transition ${
-                  language === "en"
-                    ? "bg-white text-black"
-                    : "text-gray-400 hover:text-white"
-                }`}
-              >
-                English
-              </button>
-
-              <button
-                type="button"
-                aria-pressed={language === "ar"}
-                onClick={() => changeLanguage("ar")}
-                className={`rounded-full px-5 py-2 text-sm font-black transition ${
-                  language === "ar"
-                    ? "bg-white text-black"
-                    : "text-gray-400 hover:text-white"
-                }`}
-              >
-                العربية
-              </button>
-            </div>
-          </div>
-
           <div className="text-center">
             <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
               {copy.eyebrow}

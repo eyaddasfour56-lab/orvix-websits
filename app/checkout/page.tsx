@@ -12,6 +12,8 @@ import {
   useState,
 } from "react";
 import Navbar from "@/components/Navbar";
+import { useLanguage } from "@/components/LanguageProvider";
+import { checkoutCopy } from "@/lib/checkout-copy";
 import {
   getDeliveryAreaForBostaCity,
 } from "@/lib/shipping-pricing";
@@ -349,7 +351,7 @@ function SearchableLocationPicker({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-controls={isOpen ? listboxId : undefined}
-        className="flex w-full items-center justify-between gap-4 rounded-2xl border border-white/15 bg-black px-5 py-4 text-left text-white outline-none transition hover:border-white/30 focus:border-white disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex w-full items-center justify-between gap-4 rounded-2xl border border-white/15 bg-black px-5 py-4 text-start text-white outline-none transition hover:border-white/30 focus:border-white disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span
           className={
@@ -626,6 +628,19 @@ function getReturnedDiscountCode(
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const { language, isArabic } =
+    useLanguage();
+  const copy = checkoutCopy[language];
+  const numberLocale =
+    language === "ar" ? "ar-EG" : "en-GB";
+
+  function formatNumber(value: number) {
+    return value.toLocaleString(numberLocale);
+  }
+
+  function formatMoney(value: number) {
+    return `${formatNumber(value)} ${copy.currency}`;
+  }
 
   const [selectedColour, setSelectedColour] =
     useState<Colour>(colours[0]);
@@ -708,23 +723,36 @@ export default function CheckoutPage() {
     () =>
       cities.map((city) => ({
         id: city.id,
-        name: city.name,
-        secondaryName: city.nameAr,
+        name:
+          language === "ar"
+            ? city.nameAr || city.name
+            : city.name,
+        secondaryName:
+          language === "ar" && city.nameAr
+            ? city.name
+            : city.nameAr,
       })),
-    [cities]
+    [cities, language]
   );
 
   const districtOptions = useMemo(
     () =>
       districts.map((district) => ({
         id: district.id,
-        name: district.name,
-        secondaryName: district.nameAr,
+        name:
+          language === "ar"
+            ? district.nameAr || district.name
+            : district.name,
+        secondaryName:
+          language === "ar" &&
+          district.nameAr
+            ? district.name
+            : district.nameAr,
         searchTerms: [
           district.zoneName ?? "",
         ],
       })),
-    [districts]
+    [districts, language]
   );
 
   const selectedArea = selectedCity
@@ -992,7 +1020,7 @@ export default function CheckoutPage() {
       setAppliedDiscount(null);
 
       setDiscountMessage(
-        "Please select your delivery area first."
+        copy.selectDeliveryFirst
       );
 
       setDiscountMessageType("error");
@@ -1003,7 +1031,7 @@ export default function CheckoutPage() {
       setAppliedDiscount(null);
 
       setDiscountMessage(
-        "Please enter a discount code."
+        copy.enterDiscount
       );
 
       setDiscountMessageType("error");
@@ -1046,8 +1074,10 @@ export default function CheckoutPage() {
         setAppliedDiscount(null);
 
         setDiscountMessage(
-          result.message ||
-            "Invalid discount code."
+          language === "ar"
+            ? copy.invalidDiscount
+            : result.message ||
+              copy.invalidDiscount
         );
 
         setDiscountMessageType("error");
@@ -1070,7 +1100,7 @@ export default function CheckoutPage() {
         setAppliedDiscount(null);
 
         setDiscountMessage(
-          "This discount code has an unsupported discount type."
+          copy.unsupportedDiscount
         );
 
         setDiscountMessageType("error");
@@ -1084,7 +1114,7 @@ export default function CheckoutPage() {
         setAppliedDiscount(null);
 
         setDiscountMessage(
-          "This discount code does not have a valid discount amount."
+          copy.invalidDiscountAmount
         );
 
         setDiscountMessageType("error");
@@ -1099,7 +1129,7 @@ export default function CheckoutPage() {
         setAppliedDiscount(null);
 
         setDiscountMessage(
-          "This discount code does not have a valid percentage."
+          copy.invalidPercentage
         );
 
         setDiscountMessageType("error");
@@ -1119,7 +1149,7 @@ export default function CheckoutPage() {
         discountType === "free_delivery"
       ) {
         setDiscountMessage(
-          "Free delivery applied successfully."
+          copy.freeDeliveryApplied
         );
 
         return;
@@ -1129,22 +1159,25 @@ export default function CheckoutPage() {
         discountType === "percentage"
       ) {
         setDiscountMessage(
-          `${discountValue}% discount applied successfully.`
+          copy.percentageApplied(
+            discountValue
+          )
         );
 
         return;
       }
 
       setDiscountMessage(
-        `${discountValue.toLocaleString(
-          "en-GB"
-        )} EGP discount applied successfully.`
+        copy.amountApplied(
+          discountValue,
+          formatNumber(discountValue)
+        )
       );
     } catch {
       setAppliedDiscount(null);
 
       setDiscountMessage(
-        "Could not check the discount code."
+        copy.discountCheckError
       );
 
       setDiscountMessageType("error");
@@ -1158,7 +1191,7 @@ export default function CheckoutPage() {
     setDiscountCode("");
 
     setDiscountMessage(
-      "Discount code removed."
+      copy.discountRemoved
     );
 
     setDiscountMessageType("neutral");
@@ -1183,7 +1216,7 @@ export default function CheckoutPage() {
       !selectedArea
     ) {
       setOrderError(
-        "Please select your delivery city."
+        copy.selectCityError
       );
 
       return;
@@ -1191,7 +1224,7 @@ export default function CheckoutPage() {
 
     if (!selectedDistrict) {
       setOrderError(
-        "Please select your delivery district."
+        copy.selectDistrictError
       );
 
       return;
@@ -1199,7 +1232,7 @@ export default function CheckoutPage() {
 
     if (!fullName.trim()) {
       setOrderError(
-        "Please enter your full name."
+        copy.fullNameError
       );
 
       return;
@@ -1207,7 +1240,7 @@ export default function CheckoutPage() {
 
     if (!phone.trim()) {
       setOrderError(
-        "Please enter your phone number."
+        copy.phoneError
       );
 
       return;
@@ -1222,7 +1255,7 @@ export default function CheckoutPage() {
       !isValidEmail(normalisedEmail)
     ) {
       setOrderError(
-        "Please enter a valid email address or leave it empty."
+        copy.emailError
       );
 
       return;
@@ -1230,7 +1263,7 @@ export default function CheckoutPage() {
 
     if (!address.trim()) {
       setOrderError(
-        "Please enter your full address."
+        copy.addressError
       );
 
       return;
@@ -1245,7 +1278,7 @@ export default function CheckoutPage() {
       !appliedDiscount
     ) {
       setOrderError(
-        "Please press Apply to verify your discount code before placing the order."
+        copy.applyDiscountError
       );
 
       return;
@@ -1443,8 +1476,10 @@ export default function CheckoutPage() {
     } catch (error) {
       setOrderError(
         error instanceof Error
-          ? error.message
-          : "Could not place your order."
+          ? language === "ar"
+            ? copy.orderError
+            : error.message
+          : copy.orderError
       );
 
       setIsSending(false);
@@ -1452,27 +1487,26 @@ export default function CheckoutPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#070707] text-white">
+    <main
+      lang={language}
+      dir={isArabic ? "rtl" : "ltr"}
+      className="min-h-screen bg-[#070707] text-white"
+    >
       <Navbar />
 
       <section className="px-4 py-12 sm:px-6 sm:py-20">
         <div className="mx-auto max-w-7xl">
           <div className="mb-12">
             <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
-              Secure checkout
+              {copy.eyebrow}
             </p>
 
             <h1 className="mt-4 text-4xl font-black sm:text-6xl">
-              Complete your order
+              {copy.title}
             </h1>
 
             <p className="mt-5 max-w-2xl leading-7 text-gray-400">
-              Review your product, enter your
-              delivery information, then pay the
-              products total to ORVIX through
-              InstaPay when your order arrives.
-              The courier collects only the
-              delivery fee.
+              {copy.intro}
             </p>
           </div>
 
@@ -1483,7 +1517,7 @@ export default function CheckoutPage() {
             <div className="space-y-8">
               <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
                 <h2 className="text-2xl font-black">
-                  Your product
+                  {copy.yourProduct}
                 </h2>
 
                 <div className="mt-6 grid gap-6 sm:grid-cols-[180px_1fr] sm:items-center">
@@ -1491,7 +1525,11 @@ export default function CheckoutPage() {
                     <Image
                       key={selectedColour.name}
                       src={selectedColour.image}
-                      alt={`${PRODUCT_NAME} - ${selectedColour.name}`}
+                      alt={`${PRODUCT_NAME} - ${
+                        copy.colours[
+                          selectedColour.name as keyof typeof copy.colours
+                        ]
+                      }`}
                       width={500}
                       height={500}
                       priority
@@ -1501,7 +1539,7 @@ export default function CheckoutPage() {
 
                   <div>
                     <p className="text-sm uppercase tracking-[0.3em] text-gray-500">
-                      Fitness tracker
+                      {copy.fitnessTracker}
                     </p>
 
                     <h3 className="mt-3 text-3xl font-black">
@@ -1509,15 +1547,19 @@ export default function CheckoutPage() {
                     </h3>
 
                     <p className="mt-3 text-gray-400">
-                      {PRODUCT_PRICE.toLocaleString(
-                        "en-GB"
-                      )}{" "}
-                      EGP each
+                      {formatMoney(
+                        PRODUCT_PRICE
+                      )} {copy.each}
                     </p>
 
                     <p className="mt-2 text-sm text-gray-500">
-                      {selectedColour.name} ·
-                      Quantity {quantity}
+                      {
+                        copy.colours[
+                          selectedColour.name as keyof typeof copy.colours
+                        ]
+                      } · {copy.quantityInline} {quantity.toLocaleString(
+                        numberLocale
+                      )}
                     </p>
                   </div>
                 </div>
@@ -1525,7 +1567,7 @@ export default function CheckoutPage() {
 
               <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
                 <h2 className="text-2xl font-black">
-                  Choose your colour
+                  {copy.chooseColour}
                 </h2>
 
                 <div className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -1544,7 +1586,7 @@ export default function CheckoutPage() {
                           )
                         }
                         disabled={isSending}
-                        className={`flex items-center gap-3 rounded-2xl border p-4 text-left font-bold transition disabled:opacity-50 ${
+                        className={`flex items-center gap-3 rounded-2xl border p-4 text-start font-bold transition disabled:opacity-50 ${
                           selected
                             ? "border-white bg-white text-black"
                             : "border-white/15 bg-black/20 text-white hover:border-white/30"
@@ -1560,7 +1602,11 @@ export default function CheckoutPage() {
                           }`}
                         />
 
-                        {colour.name}
+                        {
+                          copy.colours[
+                            colour.name as keyof typeof copy.colours
+                          ]
+                        }
                       </button>
                     );
                   })}
@@ -1569,7 +1615,7 @@ export default function CheckoutPage() {
 
               <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
                 <h2 className="text-2xl font-black">
-                  Quantity
+                  {copy.quantity}
                 </h2>
 
                 <div className="mt-6 flex w-fit items-center rounded-full border border-white/15 bg-black/30 p-2">
@@ -1584,14 +1630,16 @@ export default function CheckoutPage() {
                       )
                     }
                     disabled={isSending}
-                    aria-label="Decrease quantity"
+                    aria-label={copy.decreaseQuantity}
                     className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-2xl disabled:opacity-50"
                   >
                     −
                   </button>
 
                   <span className="min-w-16 text-center text-xl font-bold">
-                    {quantity}
+                    {quantity.toLocaleString(
+                      numberLocale
+                    )}
                   </span>
 
                   <button
@@ -1605,7 +1653,7 @@ export default function CheckoutPage() {
                       )
                     }
                     disabled={isSending}
-                    aria-label="Increase quantity"
+                    aria-label={copy.increaseQuantity}
                     className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-2xl text-black disabled:opacity-50"
                   >
                     +
@@ -1615,13 +1663,13 @@ export default function CheckoutPage() {
 
               <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
                 <h2 className="text-2xl font-black">
-                  Contact information
+                  {copy.contactInformation}
                 </h2>
 
                 <div className="mt-6 grid gap-5">
                   <label>
                     <span className="mb-2 block text-sm font-bold text-gray-300">
-                      Full name
+                      {copy.fullName}
                     </span>
 
                     <input
@@ -1632,7 +1680,7 @@ export default function CheckoutPage() {
                           event.target.value
                         )
                       }
-                      placeholder="Enter your full name"
+                      placeholder={copy.fullNamePlaceholder}
                       autoComplete="name"
                       disabled={isSending}
                       required
@@ -1642,11 +1690,12 @@ export default function CheckoutPage() {
 
                   <label>
                     <span className="mb-2 block text-sm font-bold text-gray-300">
-                      Phone number
+                      {copy.phoneNumber}
                     </span>
 
                     <input
                       type="tel"
+                      dir="ltr"
                       value={phone}
                       onChange={(event) =>
                         setPhone(
@@ -1664,11 +1713,12 @@ export default function CheckoutPage() {
 
                   <label>
                     <span className="mb-2 block text-sm font-bold text-gray-300">
-                      Email address — optional
+                      {copy.emailOptional}
                     </span>
 
                     <input
                       type="email"
+                      dir="ltr"
                       value={customerEmail}
                       onChange={(event) =>
                         setCustomerEmail(
@@ -1683,9 +1733,7 @@ export default function CheckoutPage() {
                     />
 
                     <p className="mt-2 text-sm leading-6 text-gray-500">
-                      If you enter an email, your
-                      order and tracking details
-                      can be sent to it.
+                      {copy.emailNote}
                     </p>
                   </label>
                 </div>
@@ -1693,13 +1741,13 @@ export default function CheckoutPage() {
 
               <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
                 <h2 className="text-2xl font-black">
-                  Delivery information
+                  {copy.deliveryInformation}
                 </h2>
 
                 <div className="mt-6 grid gap-5">
                   <div>
                     <span className="mb-2 block text-sm font-bold text-gray-300">
-                      Governorate / city
+                      {copy.city}
                     </span>
 
                     <SearchableLocationPicker
@@ -1719,10 +1767,10 @@ export default function CheckoutPage() {
                         setDiscountCode("");
                       }}
                       options={cityOptions}
-                      placeholder="Select your governorate or city"
-                      searchPlaceholder="Search governorate or city..."
-                      emptyMessage="No matching governorate or city found."
-                      loadingMessage="Loading Bosta cities..."
+                      placeholder={copy.cityPlaceholder}
+                      searchPlaceholder={copy.citySearch}
+                      emptyMessage={copy.cityEmpty}
+                      loadingMessage={copy.citiesLoading}
                       disabled={
                         isSending
                       }
@@ -1731,15 +1779,16 @@ export default function CheckoutPage() {
 
                     {selectedArea && (
                       <p className="mt-2 text-sm text-gray-500">
-                        Delivery fee: {selectedArea.fee}{" "}
-                        EGP
+                        {copy.deliveryFee}: {formatMoney(
+                          selectedArea.fee
+                        )}
                       </p>
                     )}
                   </div>
 
                   <div>
                     <span className="mb-2 block text-sm font-bold text-gray-300">
-                      District / area
+                      {copy.district}
                     </span>
 
                     <SearchableLocationPicker
@@ -1752,12 +1801,12 @@ export default function CheckoutPage() {
                       options={districtOptions}
                       placeholder={
                         selectedCity
-                          ? "Select your district or area"
-                          : "Select a governorate first"
+                          ? copy.districtPlaceholder
+                          : copy.selectCityFirst
                       }
-                      searchPlaceholder="Search district or area..."
-                      emptyMessage="No matching district or area found."
-                      loadingMessage="Loading districts..."
+                      searchPlaceholder={copy.districtSearch}
+                      emptyMessage={copy.districtEmpty}
+                      loadingMessage={copy.districtsLoading}
                       disabled={
                         isSending ||
                         !selectedCity
@@ -1766,21 +1815,21 @@ export default function CheckoutPage() {
                     />
 
                     <p className="mt-2 text-sm text-gray-500">
-                      Search using the English or
-                      Arabic place name.
+                      {copy.bilingualSearch}
                     </p>
                   </div>
 
                   {locationsError && (
                     <p className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
-                      {locationsError} Refresh the
-                      page to try again.
+                      {language === "ar"
+                        ? copy.cityLoadError
+                        : locationsError} {copy.refreshLocations}
                     </p>
                   )}
 
                   <label>
                     <span className="mb-2 block text-sm font-bold text-gray-300">
-                      Full address
+                      {copy.fullAddress}
                     </span>
 
                     <textarea
@@ -1790,7 +1839,7 @@ export default function CheckoutPage() {
                           event.target.value
                         )
                       }
-                      placeholder="Area, street, building, floor and apartment"
+                      placeholder={copy.addressPlaceholder}
                       rows={4}
                       autoComplete="street-address"
                       disabled={isSending}
@@ -1801,7 +1850,7 @@ export default function CheckoutPage() {
 
                   <label>
                     <span className="mb-2 block text-sm font-bold text-gray-300">
-                      Order notes — optional
+                      {copy.notes}
                     </span>
 
                     <textarea
@@ -1811,7 +1860,7 @@ export default function CheckoutPage() {
                           event.target.value
                         )
                       }
-                      placeholder="Add any useful delivery notes"
+                      placeholder={copy.notesPlaceholder}
                       rows={3}
                       disabled={isSending}
                       className="w-full resize-none rounded-2xl border border-white/15 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
@@ -1823,93 +1872,98 @@ export default function CheckoutPage() {
 
             <aside className="rounded-[32px] border border-white/10 bg-[#111111] p-5 sm:p-7 lg:sticky lg:top-28">
               <h2 className="text-2xl font-black">
-                Order summary
+                {copy.orderSummary}
               </h2>
 
               <div className="mt-7 space-y-5">
                 <div className="flex justify-between gap-5">
                   <span className="text-gray-400">
-                    Product
+                    {copy.product}
                   </span>
 
-                  <strong className="text-right">
+                  <strong className="text-end">
                     {PRODUCT_NAME}
                   </strong>
                 </div>
 
                 <div className="flex justify-between gap-5">
                   <span className="text-gray-400">
-                    Colour
+                    {copy.colour}
                   </span>
 
                   <strong>
-                    {selectedColour.name}
+                    {
+                      copy.colours[
+                        selectedColour.name as keyof typeof copy.colours
+                      ]
+                    }
                   </strong>
                 </div>
 
                 <div className="flex justify-between gap-5">
                   <span className="text-gray-400">
-                    Quantity
+                    {copy.quantity}
                   </span>
 
-                  <strong>{quantity}</strong>
+                  <strong>
+                    {quantity.toLocaleString(
+                      numberLocale
+                    )}
+                  </strong>
                 </div>
 
                 <div className="flex justify-between gap-5">
                   <span className="text-gray-400">
-                    Products total
+                    {copy.productsTotal}
                   </span>
 
                   <strong>
-                    {productsTotal.toLocaleString(
-                      "en-GB"
-                    )}{" "}
-                    EGP
+                    {formatMoney(productsTotal)}
                   </strong>
                 </div>
 
                 {productDiscount > 0 && (
                   <div className="flex justify-between gap-5 text-green-400">
                     <span>
-                      Product discount
+                      {copy.productDiscount}
                     </span>
 
                     <strong>
                       -
-                      {productDiscount.toLocaleString(
-                        "en-GB"
-                      )}{" "}
-                      EGP
+                      {formatMoney(
+                        productDiscount
+                      )}
                     </strong>
                   </div>
                 )}
 
                 <div className="flex justify-between gap-5">
                   <span className="text-gray-400">
-                    Delivery
+                    {copy.delivery}
                   </span>
 
                   <strong>
                     {!selectedArea
-                      ? "Select city"
+                      ? copy.selectCity
                       : finalDeliveryFee === 0
-                        ? "FREE"
-                        : `${finalDeliveryFee} EGP`}
+                        ? copy.free
+                        : formatMoney(
+                            finalDeliveryFee
+                          )}
                   </strong>
                 </div>
 
                 {deliveryDiscount > 0 && (
                   <div className="flex justify-between gap-5 text-green-400">
                     <span>
-                      Delivery discount
+                      {copy.deliveryDiscount}
                     </span>
 
                     <strong>
                       -
-                      {deliveryDiscount.toLocaleString(
-                        "en-GB"
-                      )}{" "}
-                      EGP
+                      {formatMoney(
+                        deliveryDiscount
+                      )}
                     </strong>
                   </div>
                 )}
@@ -1917,7 +1971,7 @@ export default function CheckoutPage() {
                 {appliedDiscount && (
                   <div className="flex justify-between gap-5">
                     <span className="text-gray-400">
-                      Discount code
+                      {copy.discountCode}
                     </span>
 
                     <strong className="text-green-400">
@@ -1929,7 +1983,7 @@ export default function CheckoutPage() {
 
               <div className="mt-8 border-t border-white/10 pt-8">
                 <p className="text-sm uppercase tracking-[0.25em] text-gray-500">
-                  Discount code
+                  {copy.discountCode}
                 </p>
 
                 <div className="mt-4 flex gap-3">
@@ -1948,7 +2002,7 @@ export default function CheckoutPage() {
                         "neutral"
                       );
                     }}
-                    placeholder="Enter code"
+                    placeholder={copy.discountPlaceholder}
                     disabled={
                       !selectedArea ||
                       isSending
@@ -1971,17 +2025,16 @@ export default function CheckoutPage() {
                     className="rounded-2xl bg-white px-5 py-4 font-bold text-black disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {checkingDiscount
-                      ? "Checking..."
+                      ? copy.checking
                       : hasAppliedDiscount
-                        ? "Remove"
-                        : "Apply"}
+                        ? copy.remove
+                        : copy.apply}
                   </button>
                 </div>
 
                 {!selectedArea && (
                   <p className="mt-3 text-sm text-gray-500">
-                    Select your delivery city before
-                    applying a code.
+                    {copy.selectCityBeforeDiscount}
                   </p>
                 )}
 
@@ -2007,29 +2060,23 @@ export default function CheckoutPage() {
               {totalDiscount > 0 && (
                 <div className="mb-5 flex justify-between gap-5 text-green-400">
                   <span className="font-bold">
-                    Total saved
+                    {copy.totalSaved}
                   </span>
 
                   <strong>
                     -
-                    {totalDiscount.toLocaleString(
-                      "en-GB"
-                    )}{" "}
-                    EGP
+                    {formatMoney(totalDiscount)}
                   </strong>
                 </div>
               )}
 
               <div className="flex items-end justify-between gap-5">
                 <span className="text-xl font-black">
-                  Final total
+                  {copy.finalTotal}
                 </span>
 
                 <strong className="text-3xl">
-                  {finalTotal.toLocaleString(
-                    "en-GB"
-                  )}{" "}
-                  EGP
+                  {formatMoney(finalTotal)}
                 </strong>
               </div>
 
@@ -2048,12 +2095,11 @@ export default function CheckoutPage() {
 
                   <div className="min-w-0">
                     <p className="text-xs font-black uppercase tracking-[0.22em] text-violet-300">
-                      How payment works
+                      {copy.paymentHow}
                     </p>
 
                     <p className="mt-2 text-lg font-black text-white">
-                      Two separate payments on
-                      delivery
+                      {copy.twoPayments}
                     </p>
                   </div>
                 </div>
@@ -2063,20 +2109,18 @@ export default function CheckoutPage() {
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <p className="font-black text-violet-200">
-                          1. InstaPay to ORVIX
+                          {copy.instapayToOrvix}
                         </p>
 
                         <p className="mt-1 text-xs leading-5 text-gray-400">
-                          Products total only — when
-                          your order arrives.
+                          {copy.productsOnly}
                         </p>
                       </div>
 
                       <strong className="shrink-0 text-lg text-violet-300">
-                        {finalProductsTotal.toLocaleString(
-                          "en-GB"
-                        )}{" "}
-                        EGP
+                        {formatMoney(
+                          finalProductsTotal
+                        )}
                       </strong>
                     </div>
                   </div>
@@ -2085,22 +2129,20 @@ export default function CheckoutPage() {
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <p className="font-black text-blue-200">
-                          2. Cash to Bosta courier
+                          {copy.cashToCourier}
                         </p>
 
                         <p className="mt-1 text-xs leading-5 text-gray-400">
-                          Delivery fee only. The
-                          courier does not collect
-                          the product price.
+                          {copy.deliveryOnly}
                         </p>
                       </div>
 
                       <strong className="shrink-0 text-lg text-blue-300">
                         {selectedArea
-                          ? `${finalDeliveryFee.toLocaleString(
-                              "en-GB"
-                            )} EGP`
-                          : "Select city"}
+                          ? formatMoney(
+                              finalDeliveryFee
+                            )
+                          : copy.selectCity}
                       </strong>
                     </div>
                   </div>
@@ -2108,12 +2150,7 @@ export default function CheckoutPage() {
 
                 <div className="mt-4 border-t border-white/10 pt-4">
                   <p className="text-xs font-semibold leading-5 text-gray-400">
-                    No advance payment is required.
-                    ORVIX&apos;s verified InstaPay
-                    details will be provided when
-                    your order is confirmed. Never
-                    send the products total to the
-                    courier.
+                    {copy.paymentSafety}
                   </p>
                 </div>
               </div>
@@ -2138,24 +2175,21 @@ export default function CheckoutPage() {
                 className="mt-8 flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-bold text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSending
-                  ? "Placing order..."
+                  ? copy.placing
                   : checkingDiscount
-                    ? "Checking discount..."
-                    : `Place order — ${finalTotal.toLocaleString(
-                        "en-GB"
-                      )} EGP`}
+                    ? copy.checkingDiscount
+                    : copy.placeOrder(
+                        formatNumber(finalTotal)
+                      )}
               </button>
 
               <p className="mt-4 text-center text-xs leading-5 text-gray-500">
-                By placing your order, you confirm
-                that the provided information is
-                correct.
+                {copy.confirmation}
               </p>
 
               {isSending && (
                 <p className="mt-4 text-center text-sm text-gray-500">
-                  Please do not close or refresh
-                  this page.
+                  {copy.keepPageOpen}
                 </p>
               )}
             </aside>
@@ -2165,7 +2199,7 @@ export default function CheckoutPage() {
 
       <footer className="border-t border-white/10 py-8">
         <p className="text-center text-sm text-gray-600">
-          © 2026 ORVIX. All rights reserved.
+          © 2026 ORVIX. {copy.rights}
         </p>
       </footer>
     </main>
