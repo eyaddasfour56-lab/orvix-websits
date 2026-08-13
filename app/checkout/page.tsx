@@ -4,7 +4,11 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   FormEvent,
+  KeyboardEvent,
+  useId,
   useEffect,
+  useMemo,
+  useRef,
   useState,
 } from "react";
 import Navbar from "@/components/Navbar";
@@ -106,6 +110,25 @@ type BostaLocationsResult = {
   districts?: BostaDistrict[];
 };
 
+type LocationSearchOption = {
+  id: string;
+  name: string;
+  secondaryName?: string | null;
+  searchTerms?: string[];
+};
+
+type SearchableLocationPickerProps = {
+  value: string;
+  options: LocationSearchOption[];
+  onChange: (value: string) => void;
+  placeholder: string;
+  searchPlaceholder: string;
+  emptyMessage: string;
+  loadingMessage: string;
+  disabled?: boolean;
+  loading?: boolean;
+};
+
 const colours: Colour[] = [
   {
     name: "Black",
@@ -127,6 +150,332 @@ const colours: Colour[] = [
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
     value.trim()
+  );
+}
+
+function normaliseLocationSearch(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, "")
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9\u0600-\u06ff]+/g, " ")
+    .trim();
+}
+
+function getLocationOptionLabel(
+  option: LocationSearchOption
+) {
+  return option.secondaryName
+    ? `${option.name} — ${option.secondaryName}`
+    : option.name;
+}
+
+function SearchableLocationPicker({
+  value,
+  options,
+  onChange,
+  placeholder,
+  searchPlaceholder,
+  emptyMessage,
+  loadingMessage,
+  disabled = false,
+  loading = false,
+}: SearchableLocationPickerProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const listboxId = useId();
+
+  const selectedOption = options.find(
+    (option) => option.id === value
+  );
+
+  const filteredOptions = useMemo(() => {
+    const normalisedQuery =
+      normaliseLocationSearch(query);
+
+    if (!normalisedQuery) {
+      return options;
+    }
+
+    const queryParts = normalisedQuery.split(" ");
+
+    return options.filter((option) => {
+      const searchText = normaliseLocationSearch(
+        [
+          option.name,
+          option.secondaryName,
+          ...(option.searchTerms ?? []),
+        ]
+          .filter(Boolean)
+          .join(" ")
+      );
+
+      return queryParts.every((part) =>
+        searchText.includes(part)
+      );
+    });
+  }, [options, query]);
+
+  const safeActiveIndex = Math.min(
+    activeIndex,
+    Math.max(filteredOptions.length - 1, 0)
+  );
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    function closeOnOutsidePress(event: PointerEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(
+          event.target as Node
+        )
+      ) {
+        setIsOpen(false);
+        setQuery("");
+      }
+    }
+
+    document.addEventListener(
+      "pointerdown",
+      closeOnOutsidePress
+    );
+
+    return () => {
+      document.removeEventListener(
+        "pointerdown",
+        closeOnOutsidePress
+      );
+    };
+  }, [isOpen]);
+
+  function openPicker() {
+    if (disabled || loading) {
+      return;
+    }
+
+    setQuery("");
+    setActiveIndex(0);
+    setIsOpen(true);
+  }
+
+  function selectOption(option: LocationSearchOption) {
+    onChange(option.id);
+    setQuery("");
+    setIsOpen(false);
+  }
+
+  function handleSearchKeyDown(
+    event: KeyboardEvent<HTMLInputElement>
+  ) {
+    if (
+      filteredOptions.length === 0 &&
+      (event.key === "ArrowDown" ||
+        event.key === "ArrowUp" ||
+        event.key === "Enter")
+    ) {
+      event.preventDefault();
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveIndex((currentIndex) =>
+        Math.min(
+          currentIndex + 1,
+          filteredOptions.length - 1
+        )
+      );
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex((currentIndex) =>
+        Math.max(currentIndex - 1, 0)
+      );
+      return;
+    }
+
+    if (
+      event.key === "Enter" &&
+      filteredOptions[safeActiveIndex]
+    ) {
+      event.preventDefault();
+      selectOption(
+        filteredOptions[safeActiveIndex]
+      );
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setIsOpen(false);
+      setQuery("");
+    }
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative"
+      onBlur={(event) => {
+        if (
+          !event.currentTarget.contains(
+            event.relatedTarget
+          )
+        ) {
+          setIsOpen(false);
+          setQuery("");
+        }
+      }}
+    >
+      <button
+        type="button"
+        onClick={() =>
+          isOpen
+            ? setIsOpen(false)
+            : openPicker()
+        }
+        disabled={disabled || loading}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-controls={isOpen ? listboxId : undefined}
+        className="flex w-full items-center justify-between gap-4 rounded-2xl border border-white/15 bg-black px-5 py-4 text-left text-white outline-none transition hover:border-white/30 focus:border-white disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <span
+          className={
+            selectedOption
+              ? "min-w-0 truncate"
+              : "min-w-0 truncate text-gray-500"
+          }
+        >
+          {loading
+            ? loadingMessage
+            : selectedOption
+              ? getLocationOptionLabel(
+                  selectedOption
+                )
+              : placeholder}
+        </span>
+
+        <span
+          aria-hidden="true"
+          className={`shrink-0 text-sm text-gray-500 transition-transform ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        >
+          ▼
+        </span>
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-2xl border border-white/15 bg-[#111] shadow-2xl shadow-black/60">
+          <div className="border-b border-white/10 p-3">
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setActiveIndex(0);
+              }}
+              onKeyDown={handleSearchKeyDown}
+              placeholder={searchPlaceholder}
+              aria-label={searchPlaceholder}
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded="true"
+              aria-controls={listboxId}
+              aria-activedescendant={
+                filteredOptions[safeActiveIndex]
+                  ? `${listboxId}-${filteredOptions[safeActiveIndex].id}`
+                  : undefined
+              }
+              autoComplete="off"
+              autoFocus
+              className="w-full rounded-xl border border-white/15 bg-black px-4 py-3 text-white outline-none placeholder:text-gray-600 focus:border-white"
+            />
+          </div>
+
+          <div
+            id={listboxId}
+            role="listbox"
+            className="max-h-72 overflow-y-auto p-2"
+          >
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map(
+                (option, optionIndex) => {
+                  const isSelected =
+                    option.id === value;
+                  const isActive =
+                    optionIndex ===
+                    safeActiveIndex;
+
+                  return (
+                    <button
+                      key={option.id}
+                      id={`${listboxId}-${option.id}`}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      onMouseEnter={() =>
+                        setActiveIndex(
+                          optionIndex
+                        )
+                      }
+                      onClick={() =>
+                        selectOption(option)
+                      }
+                      className={`flex w-full items-start justify-between gap-3 rounded-xl px-4 py-3 text-left transition ${
+                        isActive
+                          ? "bg-white/10"
+                          : "hover:bg-white/5"
+                      }`}
+                    >
+                      <span className="min-w-0">
+                        <span className="block font-semibold text-white">
+                          {option.name}
+                        </span>
+
+                        {option.secondaryName && (
+                          <span
+                            dir="auto"
+                            className="mt-0.5 block text-sm text-gray-400"
+                          >
+                            {option.secondaryName}
+                          </span>
+                        )}
+                      </span>
+
+                      {isSelected && (
+                        <span
+                          aria-hidden="true"
+                          className="shrink-0 text-emerald-400"
+                        >
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  );
+                }
+              )
+            ) : (
+              <p className="px-4 py-6 text-center text-sm text-gray-500">
+                {emptyMessage}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -353,6 +702,29 @@ export default function CheckoutPage() {
   const selectedDistrict = districts.find(
     (district) =>
       district.id === selectedDistrictId
+  );
+
+  const cityOptions = useMemo(
+    () =>
+      cities.map((city) => ({
+        id: city.id,
+        name: city.name,
+        secondaryName: city.nameAr,
+      })),
+    [cities]
+  );
+
+  const districtOptions = useMemo(
+    () =>
+      districts.map((district) => ({
+        id: district.id,
+        name: district.name,
+        secondaryName: district.nameAr,
+        searchTerms: [
+          district.zoneName ?? "",
+        ],
+      })),
+    [districts]
   );
 
   const selectedArea = selectedCity
@@ -1325,16 +1697,16 @@ export default function CheckoutPage() {
                 </h2>
 
                 <div className="mt-6 grid gap-5">
-                  <label>
+                  <div>
                     <span className="mb-2 block text-sm font-bold text-gray-300">
-                      Delivery city
+                      Governorate / city
                     </span>
 
-                    <select
+                    <SearchableLocationPicker
                       value={selectedCityId}
-                      onChange={(event) => {
+                      onChange={(cityId) => {
                         setSelectedCityId(
-                          event.target.value
+                          cityId
                         );
                         setSelectedDistrictId("");
                         setDistricts([]);
@@ -1346,33 +1718,16 @@ export default function CheckoutPage() {
                         );
                         setDiscountCode("");
                       }}
+                      options={cityOptions}
+                      placeholder="Select your governorate or city"
+                      searchPlaceholder="Search governorate or city..."
+                      emptyMessage="No matching governorate or city found."
+                      loadingMessage="Loading Bosta cities..."
                       disabled={
-                        isSending ||
-                        locationsLoading
+                        isSending
                       }
-                      required
-                      className="w-full rounded-2xl border border-white/15 bg-black px-5 py-4 text-white outline-none focus:border-white disabled:opacity-50"
-                    >
-                      <option value="">
-                        {locationsLoading
-                          ? "Loading Bosta cities..."
-                          : "Select your city"}
-                      </option>
-
-                      {cities.map(
-                        (city) => (
-                          <option
-                            key={city.id}
-                            value={city.id}
-                          >
-                            {city.name}
-                            {city.nameAr
-                              ? ` — ${city.nameAr}`
-                              : ""}
-                          </option>
-                        )
-                      )}
-                    </select>
+                      loading={locationsLoading}
+                    />
 
                     {selectedArea && (
                       <p className="mt-2 text-sm text-gray-500">
@@ -1380,51 +1735,41 @@ export default function CheckoutPage() {
                         EGP
                       </p>
                     )}
-                  </label>
+                  </div>
 
-                  <label>
+                  <div>
                     <span className="mb-2 block text-sm font-bold text-gray-300">
                       District / area
                     </span>
 
-                    <select
+                    <SearchableLocationPicker
                       value={selectedDistrictId}
-                      onChange={(event) =>
+                      onChange={(districtId) =>
                         setSelectedDistrictId(
-                          event.target.value
+                          districtId
                         )
                       }
+                      options={districtOptions}
+                      placeholder={
+                        selectedCity
+                          ? "Select your district or area"
+                          : "Select a governorate first"
+                      }
+                      searchPlaceholder="Search district or area..."
+                      emptyMessage="No matching district or area found."
+                      loadingMessage="Loading districts..."
                       disabled={
                         isSending ||
-                        !selectedCity ||
-                        districtsLoading
+                        !selectedCity
                       }
-                      required
-                      className="w-full rounded-2xl border border-white/15 bg-black px-5 py-4 text-white outline-none focus:border-white disabled:opacity-50"
-                    >
-                      <option value="">
-                        {districtsLoading
-                          ? "Loading districts..."
-                          : selectedCity
-                            ? "Select your district"
-                            : "Select a city first"}
-                      </option>
+                      loading={districtsLoading}
+                    />
 
-                      {districts.map(
-                        (district) => (
-                          <option
-                            key={district.id}
-                            value={district.id}
-                          >
-                            {district.name}
-                            {district.nameAr
-                              ? ` — ${district.nameAr}`
-                              : ""}
-                          </option>
-                        )
-                      )}
-                    </select>
-                  </label>
+                    <p className="mt-2 text-sm text-gray-500">
+                      Search using the English or
+                      Arabic place name.
+                    </p>
+                  </div>
 
                   {locationsError && (
                     <p className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
