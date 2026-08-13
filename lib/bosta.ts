@@ -1,5 +1,7 @@
 import "server-only";
 
+export { getBostaStateName } from "./bosta-status";
+
 const BOSTA_API_BASE =
   "https://app.bosta.co/api/v2";
 
@@ -491,6 +493,41 @@ export async function createBostaDelivery(
   return delivery;
 }
 
+export async function getBostaDelivery(
+  trackingNumber: string
+) {
+  const cleanTrackingNumber =
+    trackingNumber.trim();
+
+  if (!cleanTrackingNumber) {
+    throw new BostaApiError(
+      "Bosta tracking number is missing.",
+      400,
+      null,
+      null
+    );
+  }
+
+  const data = await bostaRequest<unknown>(
+    `/deliveries/business/${encodeURIComponent(
+      cleanTrackingNumber
+    )}`
+  );
+
+  const delivery = normaliseDelivery(data);
+
+  if (!delivery) {
+    throw new BostaApiError(
+      "Bosta returned an invalid delivery status.",
+      502,
+      null,
+      data
+    );
+  }
+
+  return delivery;
+}
+
 export async function createBostaPickup(
   payload: Record<string, unknown>
 ) {
@@ -575,37 +612,4 @@ export async function getBostaAwbResponse(
   }
 
   return response;
-}
-
-export function getBostaStateName(
-  code: number
-) {
-  const names: Record<number, string> = {
-    10: "Pickup requested",
-    11: "Waiting for route",
-    20: "Route assigned",
-    21: "Picked up from business",
-    22: "Picking up from consignee",
-    23: "Picked up from consignee",
-    24: "Received at warehouse",
-    25: "Fulfilled",
-    30: "In transit between hubs",
-    40: "Picking up",
-    41: "Out for delivery",
-    45: "Delivered",
-    46: "Returned to business",
-    47: "Exception",
-    48: "Terminated",
-    49: "Canceled",
-    60: "Returned to stock",
-    100: "Lost",
-    101: "Damaged",
-    102: "Investigation",
-    103: "Awaiting your action",
-    104: "Archived",
-    105: "On hold",
-  };
-
-  return names[code] ||
-    `Bosta state ${code}`;
 }
