@@ -2241,14 +2241,15 @@ export default function AdminPage() {
                 </p>
 
                 <h2 className="mt-2 text-2xl font-black">
-                  Five-order pickup tools
+                  Select orders for pickup
                 </h2>
 
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-400">
                   Open these tools only when
-                  you need to prepare a Bosta
-                  pickup. This keeps the main
-                  dashboard fast on mobile.
+                  you need to choose one or more
+                  orders for a Bosta pickup. This
+                  keeps the main dashboard fast on
+                  mobile.
                 </p>
               </div>
 

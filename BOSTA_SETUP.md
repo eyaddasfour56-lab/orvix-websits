@@ -1,6 +1,6 @@
 # ORVIX Bosta shipping setup
 
-The website now creates one Bosta pickup for every five confirmed orders. Complete these one-time steps before using the new dashboard panel.
+The website lets an admin choose one or more confirmed orders and create one Bosta pickup for exactly those orders. Complete these one-time steps before using the dashboard panel.
 
 ## 1. Add the database columns
 
@@ -39,10 +39,11 @@ The Bosta account must have at least one pickup location. The default location i
 
 1. Checkout records Bosta's exact city and district for every new order.
 2. In `/admin`, change a verified order to **Confirmed**.
-3. The Bosta panel counts confirmed, address-ready orders from `0/5` to `5/5`.
-4. Choose the pickup date and press **Send these 5 + request pickup**.
-5. The server creates five deliveries, saves every tracking number, and creates one pickup containing all five tracking numbers.
-6. Press **Print 5 Bosta AWBs** to open the combined Bosta PDF.
-7. Bosta webhook updates automatically move orders through shipped, out for delivery, delivered, canceled, or exception states.
+3. The Bosta panel lists every confirmed, address-ready order with a checkbox.
+4. Select any orders you want to send. A pickup can contain a single order or several orders.
+5. Choose the pickup date and press **Send selected + request pickup**.
+6. The server creates one delivery per selected order, saves every tracking number, and creates one pickup containing those tracking numbers.
+7. Press **Print Bosta AWB(s)** to open the combined Bosta PDF.
+8. Bosta webhook updates automatically move orders through shipped, out for delivery, delivered, canceled, or exception states.
 
 For every delivery, Bosta COD is set to `delivery_fee` only. The product amount remains assigned to ORVIX's InstaPay flow.

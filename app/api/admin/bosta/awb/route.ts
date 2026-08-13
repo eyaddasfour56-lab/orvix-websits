@@ -170,14 +170,15 @@ export async function GET(
       );
 
     if (
-      orders.length !== 5 ||
-      trackingNumbers.length !== 5
+      orders.length === 0 ||
+      trackingNumbers.length !==
+        orders.length
     ) {
       return NextResponse.json(
         {
           success: false,
           message:
-            "All five Bosta tracking numbers are required before printing AWBs.",
+            "Every order in this Bosta pickup needs a tracking number before printing AWBs.",
         },
         {
           status: 400,

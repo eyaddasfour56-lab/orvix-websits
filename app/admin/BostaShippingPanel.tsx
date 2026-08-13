@@ -75,8 +75,6 @@ type Batch = {
   createdAt: string;
 };
 
-const BATCH_SIZE = 5;
-
 function getCairoToday() {
   const cairoParts =
     new Intl.DateTimeFormat("en-CA", {
@@ -258,6 +256,11 @@ export default function BostaShippingPanel({
   const [actionBatchId, setActionBatchId] =
     useState<string | null>(null);
 
+  const [
+    selectedOrderIds,
+    setSelectedOrderIds,
+  ] = useState<string[]>([]);
+
   const [message, setMessage] =
     useState("");
 
@@ -296,6 +299,26 @@ export default function BostaShippingPanel({
     [confirmedUnsubmitted]
   );
 
+  const selectedOrderIdSet = useMemo(
+    () => new Set(selectedOrderIds),
+    [selectedOrderIds]
+  );
+
+  const selectedOrders = useMemo(
+    () =>
+      readyOrders.filter((order) =>
+        selectedOrderIdSet.has(
+          String(order.id)
+        )
+      ),
+    [readyOrders, selectedOrderIdSet]
+  );
+
+  const allReadyOrdersSelected =
+    readyOrders.length > 0 &&
+    selectedOrders.length ===
+      readyOrders.length;
+
   const missingAddressOrders = useMemo(
     () =>
       confirmedUnsubmitted.filter(
@@ -304,23 +327,6 @@ export default function BostaShippingPanel({
       ),
     [confirmedUnsubmitted]
   );
-
-  const nextBatchOrders =
-    readyOrders.slice(0, BATCH_SIZE);
-
-  const readyBatchCount = Math.floor(
-    readyOrders.length / BATCH_SIZE
-  );
-
-  const counter = Math.min(
-    readyOrders.length,
-    BATCH_SIZE
-  );
-
-  const waitingForNextBatch =
-    readyOrders.length >= BATCH_SIZE
-      ? readyOrders.length % BATCH_SIZE
-      : readyOrders.length;
 
   const batches = useMemo(
     () => createBatches(orders),
@@ -428,7 +434,7 @@ export default function BostaShippingPanel({
     }
 
     const storageKey =
-      "orvix-bosta-ready-batches-notified";
+      "orvix-bosta-ready-orders-notified";
 
     const previousCount = Number(
       window.localStorage.getItem(
@@ -436,15 +442,17 @@ export default function BostaShippingPanel({
       ) || 0
     );
 
-    if (readyBatchCount > previousCount) {
+    if (
+      readyOrders.length > previousCount
+    ) {
       try {
         new window.Notification(
-          "ORVIX: Bosta pickup ready",
+          "ORVIX: Orders ready for Bosta",
           {
             body:
-              readyBatchCount === 1
-                ? "5 confirmed orders are ready to send to Bosta."
-                : `${readyBatchCount} groups of 5 orders are ready to send to Bosta.`,
+              readyOrders.length === 1
+                ? "1 confirmed order is ready. You can send it now."
+                : `${readyOrders.length} confirmed orders are ready. Choose any orders to send.`,
           }
         );
       } catch {
@@ -456,11 +464,11 @@ export default function BostaShippingPanel({
 
     window.localStorage.setItem(
       storageKey,
-      String(readyBatchCount)
+      String(readyOrders.length)
     );
   }, [
     notificationPermission,
-    readyBatchCount,
+    readyOrders.length,
   ]);
 
   async function enableNotifications() {
@@ -479,6 +487,34 @@ export default function BostaShippingPanel({
       await window.Notification.requestPermission();
 
     setNotificationPermission(permission);
+  }
+
+  function toggleOrderSelection(
+    orderId: string | number
+  ) {
+    const orderKey = String(orderId);
+
+    setSelectedOrderIds(
+      (currentOrderIds) =>
+        currentOrderIds.includes(orderKey)
+          ? currentOrderIds.filter(
+              (currentOrderId) =>
+                currentOrderId !== orderKey
+            )
+          : [...currentOrderIds, orderKey]
+    );
+  }
+
+  function selectAllReadyOrders() {
+    setSelectedOrderIds(
+      readyOrders.map((order) =>
+        String(order.id)
+      )
+    );
+  }
+
+  function clearSelectedOrders() {
+    setSelectedOrderIds([]);
   }
 
   async function dispatchBatch(
@@ -502,11 +538,10 @@ export default function BostaShippingPanel({
 
     if (
       !retryBatchId &&
-      nextBatchOrders.length !==
-        BATCH_SIZE
+      selectedOrders.length === 0
     ) {
       setMessage(
-        "Five confirmed orders are required before creating a pickup."
+        "Select at least one confirmed order to send to Bosta."
       );
       setMessageType("error");
       return;
@@ -537,7 +572,7 @@ export default function BostaShippingPanel({
                 }
               : {
                   orderIds:
-                    nextBatchOrders.map(
+                    selectedOrders.map(
                       (order) => order.id
                     ),
                 }),
@@ -564,8 +599,12 @@ export default function BostaShippingPanel({
           [result.message, detailedErrors]
             .filter(Boolean)
             .join(" — ") ||
-            "Could not send this batch to Bosta."
+            "Could not send the selected orders to Bosta."
         );
+      }
+
+      if (!retryBatchId) {
+        clearSelectedOrders();
       }
 
       setMessage(
@@ -577,7 +616,7 @@ export default function BostaShippingPanel({
       setMessage(
         error instanceof Error
           ? error.message
-          : "Could not send this batch to Bosta."
+          : "Could not send the selected orders to Bosta."
       );
       setMessageType("error");
     } finally {
@@ -615,25 +654,26 @@ export default function BostaShippingPanel({
                 Bosta Shipping
               </p>
 
-              {readyBatchCount > 0 && (
+              {readyOrders.length > 0 && (
                 <span className="animate-pulse rounded-full bg-red-500 px-3 py-1 text-xs font-black text-white">
-                  {readyBatchCount}{" "}
-                  {readyBatchCount === 1
-                    ? "pickup ready"
-                    : "pickups ready"}
+                  {readyOrders.length}{" "}
+                  {readyOrders.length === 1
+                    ? "order ready"
+                    : "orders ready"}
                 </span>
               )}
             </div>
 
             <h2 className="mt-3 text-3xl font-black">
-              Confirmed orders: {counter}/5
+              Select the orders to send
             </h2>
 
             <p className="mt-3 max-w-2xl leading-7 text-gray-400">
-              The oldest five confirmed orders are
-              sent together. Bosta receives the
-              full customer address and collects
-              only each order&apos;s delivery fee.
+              Choose any confirmed, address-ready
+              orders. You can create a Bosta pickup
+              for one order or several orders at
+              once. Bosta collects only each
+              order&apos;s delivery fee.
             </p>
           </div>
 
@@ -644,26 +684,9 @@ export default function BostaShippingPanel({
               onClick={enableNotifications}
               className="rounded-2xl border border-white/15 px-4 py-3 text-sm font-bold transition hover:bg-white/10"
             >
-              Enable 5-order alerts
+              Enable ready-order alerts
             </button>
           )}
-        </div>
-
-        <div className="mt-6 grid grid-cols-5 gap-2">
-          {Array.from({
-            length: BATCH_SIZE,
-          }).map((_, index) => (
-            <div
-              key={index}
-              className={`h-3 rounded-full ${
-                index < counter
-                  ? counter === BATCH_SIZE
-                    ? "bg-red-500"
-                    : "bg-amber-400"
-                  : "bg-white/10"
-              }`}
-            />
-          ))}
         </div>
 
         <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
@@ -672,13 +695,9 @@ export default function BostaShippingPanel({
             address-ready
           </span>
 
-          {readyOrders.length >=
-            BATCH_SIZE && (
-            <span className="text-gray-400">
-              {waitingForNextBatch}/5 waiting for
-              the next batch
-            </span>
-          )}
+          <span className="font-bold text-red-300">
+            {selectedOrders.length} selected to send
+          </span>
 
           {missingAddressOrders.length > 0 && (
             <span className="text-amber-300">
@@ -800,8 +819,7 @@ export default function BostaShippingPanel({
             }
             disabled={
               !setupReady ||
-              nextBatchOrders.length !==
-                BATCH_SIZE ||
+              selectedOrders.length === 0 ||
               actionBatchId !== null ||
               !pickupDate ||
               !pickupLocationId
@@ -809,14 +827,16 @@ export default function BostaShippingPanel({
             className="mt-5 w-full rounded-2xl bg-red-600 px-5 py-4 font-black text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {actionBatchId === "new"
-              ? "Sending 5 orders to Bosta..."
-              : nextBatchOrders.length ===
-                  BATCH_SIZE
-                ? "Send these 5 + request pickup"
-                : `Waiting for ${
-                    BATCH_SIZE -
-                    nextBatchOrders.length
-                  } more confirmed order(s)`}
+              ? `Sending ${selectedOrders.length} ${
+                  selectedOrders.length === 1
+                    ? "order"
+                    : "orders"
+                } to Bosta...`
+              : selectedOrders.length > 0
+                ? `Send selected ${
+                    selectedOrders.length
+                  } + request pickup`
+                : "Select at least one order"}
           </button>
 
           {message && (
@@ -833,27 +853,78 @@ export default function BostaShippingPanel({
         </div>
 
         <div>
-          <h3 className="text-lg font-black">
-            Next five orders
-          </h3>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-lg font-black">
+              Choose confirmed orders
+            </h3>
 
-          {nextBatchOrders.length === 0 ? (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={selectAllReadyOrders}
+                disabled={
+                  readyOrders.length === 0 ||
+                  allReadyOrdersSelected ||
+                  actionBatchId !== null
+                }
+                className="rounded-xl border border-white/15 px-3 py-2 text-xs font-black transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Select all
+              </button>
+
+              <button
+                type="button"
+                onClick={clearSelectedOrders}
+                disabled={
+                  selectedOrders.length === 0 ||
+                  actionBatchId !== null
+                }
+                className="rounded-xl border border-white/15 px-3 py-2 text-xs font-black transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+
+          {readyOrders.length === 0 ? (
             <div className="mt-4 rounded-2xl border border-dashed border-white/15 p-6 text-sm leading-6 text-gray-500">
               Confirm orders from the order list.
               They will appear here automatically
               when their Bosta address is complete.
             </div>
           ) : (
-            <div className="mt-4 space-y-3">
-              {nextBatchOrders.map(
-                (order, index) => (
-                  <div
-                    key={String(order.id)}
-                    className="grid gap-3 rounded-2xl border border-white/10 bg-black/30 p-4 sm:grid-cols-[auto_1fr_auto] sm:items-center"
+            <div className="mt-4 max-h-[34rem] space-y-3 overflow-y-auto pr-1">
+              {readyOrders.map((order) => {
+                const orderKey = String(
+                  order.id
+                );
+                const isSelected =
+                  selectedOrderIdSet.has(
+                    orderKey
+                  );
+
+                return (
+                  <label
+                    key={orderKey}
+                    className={`grid cursor-pointer gap-3 rounded-2xl border p-4 transition sm:grid-cols-[auto_1fr_auto] sm:items-center ${
+                      isSelected
+                        ? "border-red-500/60 bg-red-500/10"
+                        : "border-white/10 bg-black/30 hover:border-white/25"
+                    }`}
                   >
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-sm font-black">
-                      {index + 1}
-                    </span>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() =>
+                        toggleOrderSelection(
+                          order.id
+                        )
+                      }
+                      disabled={
+                        actionBatchId !== null
+                      }
+                      className="h-5 w-5 cursor-pointer accent-red-500 disabled:cursor-not-allowed"
+                    />
 
                     <div className="min-w-0">
                       <p className="truncate font-bold">
@@ -877,9 +948,9 @@ export default function BostaShippingPanel({
                       )}{" "}
                       EGP
                     </p>
-                  </div>
-                )
-              )}
+                  </label>
+                );
+              })}
             </div>
           )}
         </div>
@@ -924,7 +995,7 @@ export default function BostaShippingPanel({
                     >
                       {batch.pickupId
                         ? "Pickup requested"
-                        : `${batch.trackingCount}/5 created`}
+                        : `${batch.trackingCount}/${batch.orders.length} created`}
                     </span>
                   </div>
 
@@ -948,8 +1019,9 @@ export default function BostaShippingPanel({
                   )}
 
                   <div className="mt-4 flex flex-wrap gap-3">
-                    {batch.trackingCount ===
-                      BATCH_SIZE && (
+                    {batch.orders.length > 0 &&
+                      batch.trackingCount ===
+                        batch.orders.length && (
                       <button
                         type="button"
                         onClick={() =>
@@ -957,7 +1029,11 @@ export default function BostaShippingPanel({
                         }
                         className="rounded-xl bg-white px-4 py-2 text-sm font-black text-black transition hover:bg-gray-200"
                       >
-                        Print 5 Bosta AWBs
+                        Print {batch.orders.length}{" "}
+                        Bosta AWB
+                        {batch.orders.length === 1
+                          ? ""
+                          : "s"}
                       </button>
                     )}
 

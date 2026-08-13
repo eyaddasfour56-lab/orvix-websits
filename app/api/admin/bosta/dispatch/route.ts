@@ -20,7 +20,7 @@ import {
   supabaseAdminJson,
 } from "@/lib/supabase-admin";
 
-const BATCH_SIZE = 5;
+const MAX_BATCH_SIZE = 50;
 
 type ShippingOrder = {
   id: string | number;
@@ -455,11 +455,16 @@ async function processBatch({
   let orders =
     await getBatchOrders(batchId);
 
-  if (orders.length !== BATCH_SIZE) {
+  if (
+    orders.length === 0 ||
+    orders.length > MAX_BATCH_SIZE
+  ) {
     throw new Error(
-      "This Bosta batch must contain exactly five orders."
+      "This Bosta batch is empty or too large."
     );
   }
+
+  const batchSize = orders.length;
 
   const deliveryErrors: {
     orderNumber: string;
@@ -534,7 +539,7 @@ async function processBatch({
 
   if (
     deliveryErrors.length > 0 ||
-    trackingNumbers.length !== BATCH_SIZE
+    trackingNumbers.length !== batchSize
   ) {
     return {
       success: false as const,
@@ -544,7 +549,7 @@ async function processBatch({
         trackingNumbers.length,
       deliveryErrors,
       message:
-        `${trackingNumbers.length}/${BATCH_SIZE} Bosta deliveries were created. Fix the shown error, then retry this batch.`,
+        `${trackingNumbers.length}/${batchSize} Bosta deliveries were created. Fix the shown error, then retry this batch.`,
     };
   }
 
@@ -575,8 +580,12 @@ async function processBatch({
           pickupLocation.id,
         scheduledDate: pickupDate,
         notes:
-          `ORVIX batch ${batchId} - ${BATCH_SIZE} confirmed orders`,
-        numberOfParcels: BATCH_SIZE,
+          `ORVIX batch ${batchId} - ${batchSize} confirmed ${
+            batchSize === 1
+              ? "order"
+              : "orders"
+          }`,
+        numberOfParcels: batchSize,
         packageType: "Normal",
         hasFragileItems: false,
         hasBigItems: false,
@@ -614,7 +623,11 @@ async function processBatch({
       pickupDate,
       trackingNumbers,
       message:
-        "Five deliveries and one pickup were created successfully on Bosta.",
+        `${batchSize} Bosta ${
+          batchSize === 1
+            ? "delivery"
+            : "deliveries"
+        } and one pickup were created successfully.`,
     };
   } catch (error) {
     const message =
@@ -638,7 +651,11 @@ async function processBatch({
         trackingNumbers.length,
       deliveryErrors: [],
       message:
-        `All five deliveries were created, but the pickup failed: ${message}`,
+        `All ${batchSize} ${
+          batchSize === 1
+            ? "delivery was"
+            : "deliveries were"
+        } created, but the pickup failed: ${message}`,
     };
   }
 }
@@ -715,11 +732,12 @@ export async function POST(
         await getBatchOrders(batchId);
 
       if (
-        existingOrders.length !==
-        BATCH_SIZE
+        existingOrders.length === 0 ||
+        existingOrders.length >
+          MAX_BATCH_SIZE
       ) {
         throw new Error(
-          "This Bosta batch was not found or is incomplete."
+          "This Bosta batch was not found or is invalid."
         );
       }
 
@@ -779,7 +797,7 @@ export async function POST(
     } else {
       if (!Array.isArray(body.orderIds)) {
         throw new Error(
-          "Choose exactly five confirmed orders."
+          "Choose at least one confirmed order."
         );
       }
 
@@ -794,11 +812,17 @@ export async function POST(
         ),
       ];
 
+      if (orderIds.length === 0) {
+        throw new Error(
+          "Choose at least one confirmed order."
+        );
+      }
+
       if (
-        orderIds.length !== BATCH_SIZE
+        orderIds.length > MAX_BATCH_SIZE
       ) {
         throw new Error(
-          "A Bosta batch must contain exactly five confirmed orders."
+          `Choose no more than ${MAX_BATCH_SIZE} orders at once.`
         );
       }
 
