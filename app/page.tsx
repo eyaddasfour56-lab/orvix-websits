@@ -194,6 +194,19 @@ const faqsByLanguage = {
 
 const copyByLanguage = {
   en: {
+    mobileHeroEyebrow:
+      "SMART FITNESS / EGYPT",
+    mobileHeroTitle: "MOVE SMARTER.",
+    mobileHeroTitleAccent: "LIVE BETTER.",
+    mobileHeroDescription:
+      "Everyday fitness technology, selected by ORVIX and built around the way you move.",
+    mobileHeroShop: "Shop Now",
+    mobileHeroTrack: "Track Order",
+    mobileHeroDelivery: "Bosta delivery",
+    mobileHeroPayment: "No advance payment",
+    mobileHeroTracking: "Live order tracking",
+    mobileHeroFeatured: "Featured",
+    mobileHeroSelected: "ORVIX selected",
     collection: "ORVIX COLLECTION",
     products: "OUR PRODUCTS",
     productsSubtitle:
@@ -255,6 +268,19 @@ const copyByLanguage = {
     arrow: "→",
   },
   ar: {
+    mobileHeroEyebrow:
+      "لياقة ذكية / مصر",
+    mobileHeroTitle: "تحرّك بذكاء.",
+    mobileHeroTitleAccent: "وعِش بشكل أفضل.",
+    mobileHeroDescription:
+      "تقنيات لياقة يومية تختارها ORVIX بعناية لتناسب حركتك وأسلوب حياتك.",
+    mobileHeroShop: "تسوّق الآن",
+    mobileHeroTrack: "تتبّع الطلب",
+    mobileHeroDelivery: "توصيل مع بوسطة",
+    mobileHeroPayment: "بدون دفع مقدم",
+    mobileHeroTracking: "تتبّع مباشر للطلب",
+    mobileHeroFeatured: "المنتج المميز",
+    mobileHeroSelected: "مختار من ORVIX",
     collection: "مجموعة ORVIX",
     products: "منتجاتنا",
     productsSubtitle:
@@ -558,6 +584,18 @@ export default function Home() {
     [products]
   );
 
+  const mobileFeaturedProduct = useMemo(
+    () =>
+      products.find(
+        (product) =>
+          product.status === "available" &&
+          product.stockQuantity > 0 &&
+          product.allowPurchase
+      ) ||
+      firstProduct,
+    [firstProduct, products]
+  );
+
   const garminProduct = useMemo(
     () =>
       products.find(
@@ -566,6 +604,32 @@ export default function Home() {
       ) || null,
     [products]
   );
+
+  const mobileHeroHref = mobileFeaturedProduct
+    ? getProductHref(mobileFeaturedProduct)
+    : "/products/google-fitbit-air";
+
+  const mobileHeroImage =
+    mobileFeaturedProduct?.image || "/black.png";
+
+  const mobileHeroName =
+    mobileFeaturedProduct?.name ||
+    "Google Fitbit Air";
+
+  const mobileTrustItems = [
+    {
+      label: copy.mobileHeroDelivery,
+      dot: "bg-blue-400",
+    },
+    {
+      label: copy.mobileHeroPayment,
+      dot: "bg-emerald-400",
+    },
+    {
+      label: copy.mobileHeroTracking,
+      dot: "bg-violet-400",
+    },
+  ];
 
   return (
     <main
@@ -599,10 +663,161 @@ export default function Home() {
         />
       </div>
 
+      {/* Mobile storefront hero — intentionally hidden on laptop and desktop. */}
+      <section
+        aria-labelledby="mobile-storefront-title"
+        className="relative overflow-hidden px-4 pb-10 pt-7 md:hidden"
+      >
+        <motion.div
+          aria-hidden="true"
+          className="pointer-events-none absolute -left-24 top-32 h-64 w-64 rounded-full bg-blue-500/10 blur-[80px]"
+          animate={
+            reduceMotion
+              ? undefined
+              : {
+                  scale: [1, 1.12, 1],
+                  opacity: [0.45, 0.75, 0.45],
+                }
+          }
+          transition={{
+            duration: 6,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+
+        <motion.div
+          {...enterMotion(reduceMotion, 0.04, 18)}
+          className="relative mx-auto max-w-md"
+        >
+          <div className="flex justify-center">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-white/60">
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-400 shadow-[0_0_16px_rgba(96,165,250,0.85)]" />
+              {copy.mobileHeroEyebrow}
+            </span>
+          </div>
+
+          <h1
+            id="mobile-storefront-title"
+            className="mt-6 text-center text-[clamp(2.7rem,13vw,4.2rem)] font-black leading-[0.91] tracking-[-0.055em]"
+          >
+            {copy.mobileHeroTitle}
+            <span className="mt-2 block text-white/40">
+              {copy.mobileHeroTitleAccent}
+            </span>
+          </h1>
+
+          <p className="mx-auto mt-5 max-w-sm text-center text-[15px] leading-6 text-white/55">
+            {copy.mobileHeroDescription}
+          </p>
+
+          <motion.div
+            {...enterMotion(reduceMotion, 0.12, 24)}
+            className="relative mt-7 overflow-hidden rounded-[34px] border border-white/10 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.38)]"
+          >
+            <div className="absolute inset-x-4 top-4 z-10 flex items-center justify-between gap-3">
+              <span className="rounded-full bg-black px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-white">
+                {copy.mobileHeroFeatured}
+              </span>
+
+              {mobileFeaturedProduct && (
+                <span
+                  className={`rounded-full border px-3 py-2 text-[9px] font-black uppercase tracking-wider ${getBadgeClasses(
+                    mobileFeaturedProduct
+                  )}`}
+                >
+                  {getStatusLabel(
+                    mobileFeaturedProduct,
+                    language
+                  )}
+                </span>
+              )}
+            </div>
+
+            <motion.div
+              className="flex aspect-[1.2/1] items-center justify-center p-7 pt-11"
+              animate={
+                reduceMotion
+                  ? undefined
+                  : {
+                      y: [0, -7, 0],
+                    }
+              }
+              transition={{
+                duration: 4.8,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+            >
+              <Image
+                src={mobileHeroImage}
+                alt={mobileHeroName}
+                width={620}
+                height={620}
+                sizes="(max-width: 767px) calc(100vw - 60px), 1px"
+                className="h-full w-full object-contain"
+              />
+            </motion.div>
+
+            <div className="absolute bottom-4 left-4 right-4 z-10 flex items-center justify-between gap-3 rounded-2xl bg-black/90 px-4 py-3 text-white backdrop-blur-lg">
+              <div className="min-w-0">
+                <p className="truncate text-xs font-black">
+                  {mobileHeroName}
+                </p>
+                <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-white/45">
+                  {copy.mobileHeroSelected}
+                </p>
+              </div>
+
+              {mobileFeaturedProduct && (
+                <strong className="shrink-0 text-xs">
+                  {formatPrice(
+                    mobileFeaturedProduct.price,
+                    language
+                  )}
+                </strong>
+              )}
+            </div>
+          </motion.div>
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <Link
+              href={mobileHeroHref}
+              className="orvix-premium-button flex min-h-14 items-center justify-center rounded-2xl bg-white px-4 text-center text-sm font-black text-black"
+            >
+              {copy.mobileHeroShop}
+            </Link>
+
+            <Link
+              href="/track-order"
+              className="flex min-h-14 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.05] px-4 text-center text-sm font-black text-white transition active:scale-[0.98]"
+            >
+              {copy.mobileHeroTrack}
+            </Link>
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            {mobileTrustItems.map((item) => (
+              <div
+                key={item.label}
+                className="flex min-h-[68px] flex-col items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.035] px-2 py-3 text-center"
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${item.dot}`}
+                />
+                <span className="mt-2 text-[10px] font-bold leading-[1.35] text-white/55">
+                  {item.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      </section>
+
       {/* Products */}
       <section
         id="products"
-        className="scroll-mt-24 px-4 py-16 sm:px-6 sm:py-24"
+        className="scroll-mt-24 px-4 pb-16 pt-8 sm:px-6 sm:py-24"
       >
         <div className="mx-auto max-w-7xl">
           <motion.div
@@ -617,9 +832,13 @@ export default function Home() {
               {copy.collection}
             </p>
 
-            <h1 className="mt-5 text-5xl font-black sm:text-7xl">
+            <h1 className="mt-5 hidden text-7xl font-black md:block">
               {copy.products}
             </h1>
+
+            <h2 className="mt-5 text-4xl font-black sm:text-7xl md:hidden">
+              {copy.products}
+            </h2>
 
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-gray-400">
               {copy.productsSubtitle}
@@ -665,7 +884,7 @@ export default function Home() {
               </p>
             </div>
           ) : (
-            <div className="relative mt-14 grid gap-8 lg:grid-cols-2">
+            <div className="relative mt-10 grid gap-6 sm:mt-14 sm:gap-8 lg:grid-cols-2">
               {products.map(
                 (product, index) => {
                   const productHref =
@@ -679,13 +898,13 @@ export default function Home() {
                         index * 0.08,
                         30
                       )}
-                      className="orvix-card-lift group overflow-hidden rounded-[40px] border border-white/10 bg-white/5 p-5 sm:p-7"
+                      className="orvix-card-lift group overflow-hidden rounded-[32px] border border-white/10 bg-white/5 p-4 sm:rounded-[40px] sm:p-7"
                     >
                       <Link
                         href={productHref}
                         className="block"
                       >
-                        <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-[32px] bg-white p-6">
+                        <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-[26px] bg-white p-4 sm:rounded-[32px] sm:p-6">
                           <Image
                             src={
                               product.image ||
@@ -731,7 +950,7 @@ export default function Home() {
                               }
                               className="block"
                             >
-                              <h2 className="mt-3 text-3xl font-black transition group-hover:text-gray-200 sm:text-4xl">
+                              <h2 className="mt-3 text-2xl font-black transition group-hover:text-gray-200 sm:text-4xl">
                                 {
                                   product.name
                                 }
