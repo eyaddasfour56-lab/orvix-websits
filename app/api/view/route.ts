@@ -1,67 +1,181 @@
 import { NextResponse } from "next/server";
 
-export async function POST(request: Request) {
-  try {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
+import {
+  SupabaseAdminError,
+  supabaseAdminFetch,
+} from "@/lib/supabase-admin";
 
-    if (!supabaseUrl || !supabaseSecretKey) {
+const IDENTIFIER_PATTERN =
+  /^[A-Za-z0-9_-]{8,100}$/;
+
+function cleanPath(value: unknown) {
+  const path = String(value || "/")
+    .trim()
+    .slice(0, 300);
+
+  if (!path.startsWith("/")) {
+    return "/";
+  }
+
+  return path;
+}
+
+function cleanIdentifier(
+  value: unknown
+) {
+  const identifier = String(
+    value || ""
+  ).trim();
+
+  if (
+    !IDENTIFIER_PATTERN.test(
+      identifier
+    )
+  ) {
+    return null;
+  }
+
+  return identifier;
+}
+
+function cleanReferrer(value: unknown) {
+  const referrer = String(
+    value || ""
+  )
+    .trim()
+    .slice(0, 500);
+
+  return referrer || null;
+}
+
+function getDeviceType(
+  userAgent: string
+) {
+  if (
+    /bot|crawler|spider|preview|facebookexternalhit|slurp/i.test(
+      userAgent
+    )
+  ) {
+    return "bot";
+  }
+
+  if (
+    /ipad|tablet|playbook|silk/i.test(
+      userAgent
+    )
+  ) {
+    return "tablet";
+  }
+
+  if (
+    /mobile|iphone|ipod|android/i.test(
+      userAgent
+    )
+  ) {
+    return "mobile";
+  }
+
+  return "desktop";
+}
+
+function isPrivatePath(path: string) {
+  return (
+    path === "/admin" ||
+    path.startsWith("/admin/") ||
+    path === "/api" ||
+    path.startsWith("/api/") ||
+    path.startsWith("/_next/")
+  );
+}
+
+export async function POST(
+  request: Request
+) {
+  try {
+    if (
+      request.headers.get(
+        "sec-fetch-site"
+      ) === "cross-site"
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Supabase settings are missing.",
+          message: "Cross-site request rejected.",
         },
-        { status: 500 }
+        { status: 403 }
       );
     }
 
-    const body = await request.json().catch(() => ({}));
+    const body = await request
+      .json()
+      .catch(() => ({}));
 
-    const page = String(body.page || "/").slice(0, 200);
+    const path = cleanPath(body.path);
+    const visitorId =
+      cleanIdentifier(body.visitorId);
+    const sessionId =
+      cleanIdentifier(body.sessionId);
 
-    const forwardedFor = request.headers.get("x-forwarded-for");
-    const ipAddress = forwardedFor
-      ? forwardedFor.split(",")[0].trim()
-      : "unknown";
+    if (
+      isPrivatePath(path) ||
+      !visitorId ||
+      !sessionId
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Invalid analytics event.",
+        },
+        { status: 400 }
+      );
+    }
 
-    const userAgent = request.headers.get("user-agent") || "unknown";
+    const userAgent =
+      request.headers.get(
+        "user-agent"
+      ) || "unknown";
 
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/site_views`,
+    const deviceType =
+      getDeviceType(userAgent);
+
+    if (deviceType === "bot") {
+      return NextResponse.json({
+        success: true,
+        tracked: false,
+      });
+    }
+
+    await supabaseAdminFetch(
+      "site_views",
       {
         method: "POST",
         headers: {
-          apikey: supabaseSecretKey,
-          "Content-Type": "application/json",
           Prefer: "return=minimal",
         },
         body: JSON.stringify({
-          page,
-          ip_address: ipAddress,
-          user_agent: userAgent,
+          path,
+          visitor_id: visitorId,
+          session_id: sessionId,
+          referrer: cleanReferrer(
+            body.referrer
+          ),
+          device_type: deviceType,
         }),
       }
     );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-
-      console.error("View saving error:", errorText);
-
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Could not record view.",
-        },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json({
       success: true,
+      tracked: true,
     });
   } catch (error) {
-    console.error("View API error:", error);
+    console.error(
+      "View API error:",
+      error instanceof SupabaseAdminError
+        ? error.details
+        : error
+    );
 
     return NextResponse.json(
       {

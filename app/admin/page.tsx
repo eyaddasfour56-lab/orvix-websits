@@ -80,6 +80,16 @@ type WaitlistStatistics = {
   cancelled: number;
 };
 
+type SiteView = {
+  id: number;
+  path: string;
+  visitor_id: string;
+  session_id: string | null;
+  referrer: string | null;
+  device_type: string | null;
+  created_at: string;
+};
+
 /*
   المكسب الثابت من كل أوردر.
 */
@@ -609,6 +619,69 @@ function formatBostaStatusDate(
   ).format(date);
 }
 
+function formatWebsiteViewDate(
+  value: string
+) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(
+    "en-GB",
+    {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+      timeZone: "Africa/Cairo",
+    }
+  ).format(date);
+}
+
+function getWebsitePageLabel(
+  path: string
+) {
+  const labels: Record<string, string> = {
+    "/": "Home",
+    "/products/google-fitbit-air":
+      "Google Fitbit Air",
+    "/products/garmin-cirqa":
+      "Garmin Cirqa",
+    "/checkout": "Checkout",
+    "/track-order": "Track Order",
+    "/leave-review": "Leave Review",
+    "/under-construction":
+      "Under Construction",
+  };
+
+  return labels[path] || path;
+}
+
+function getWebsiteReferrerLabel(
+  referrer: string | null
+) {
+  if (!referrer) {
+    return "Direct / unknown";
+  }
+
+  if (referrer.startsWith("/")) {
+    return getWebsitePageLabel(
+      referrer
+    );
+  }
+
+  try {
+    return new URL(referrer).hostname;
+  } catch {
+    return referrer;
+  }
+}
+
 function getBostaTrackingLink(
   trackingNumber: string
 ) {
@@ -703,6 +776,16 @@ export default function AdminPage() {
     useState(0);
 
   const [
+    uniqueVisitorsToday,
+    setUniqueVisitorsToday,
+  ] = useState(0);
+
+  const [
+    recentWebsiteViews,
+    setRecentWebsiteViews,
+  ] = useState<SiteView[]>([]);
+
+  const [
     waitlistStatistics,
     setWaitlistStatistics,
   ] = useState<WaitlistStatistics>({
@@ -771,6 +854,8 @@ export default function AdminPage() {
         setAuthenticated(false);
         setOrders([]);
         setSelectedOrderIds([]);
+        setUniqueVisitorsToday(0);
+        setRecentWebsiteViews([]);
         setMaintenanceEnabled(null);
 
         setWaitlistStatistics({
@@ -841,6 +926,21 @@ export default function AdminPage() {
               viewsResult.viewsToday ||
                 0
             )
+          );
+
+          setUniqueVisitorsToday(
+            Number(
+              viewsResult.uniqueVisitorsToday ||
+                0
+            )
+          );
+
+          setRecentWebsiteViews(
+            Array.isArray(
+              viewsResult.recentViews
+            )
+              ? viewsResult.recentViews
+              : []
           );
         }
       }
@@ -2061,7 +2161,7 @@ export default function AdminPage() {
           <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
               <p className="text-gray-400">
-                Total views
+                Total website clicks
               </p>
 
               <p className="mt-3 text-4xl font-black">
@@ -2071,11 +2171,25 @@ export default function AdminPage() {
 
             <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
               <p className="text-gray-400">
-                Views today
+                Clicks today
               </p>
 
               <p className="mt-3 text-4xl font-black">
                 {viewsToday}
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-cyan-500/20 bg-cyan-500/10 p-6">
+              <p className="text-cyan-200">
+                Visitors today
+              </p>
+
+              <p className="mt-3 text-4xl font-black text-cyan-300">
+                {uniqueVisitorsToday}
+              </p>
+
+              <p className="mt-2 text-xs text-cyan-200/60">
+                Same browser counted once
               </p>
             </div>
 
@@ -2231,6 +2345,155 @@ export default function AdminPage() {
                 }
               </p>
             </Link>
+          </section>
+
+          <section className="mt-8 overflow-hidden rounded-3xl border border-cyan-500/20 bg-cyan-500/5">
+            <div className="flex flex-col gap-5 border-b border-white/10 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+              <div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="text-sm font-black uppercase tracking-[0.25em] text-cyan-300">
+                    Live Website Analytics
+                  </p>
+
+                  <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-300">
+                    Auto refresh: 1 minute
+                  </span>
+                </div>
+
+                <h2 className="mt-3 text-2xl font-black">
+                  Latest website clicks
+                </h2>
+
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-400">
+                  Every public page entry is
+                  recorded below. Admin pages and
+                  obvious bots are excluded. All
+                  dates and times use Cairo time.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  void loadDashboard(true)
+                }
+                className="shrink-0 rounded-2xl bg-cyan-400 px-5 py-3 font-black text-slate-950 transition hover:bg-cyan-300"
+              >
+                Refresh Clicks
+              </button>
+            </div>
+
+            {recentWebsiteViews.length ===
+            0 ? (
+              <div className="p-8 text-center">
+                <p className="text-lg font-black text-white">
+                  No website clicks recorded yet
+                </p>
+
+                <p className="mt-2 text-sm text-gray-400">
+                  The first real visitor will
+                  appear here with the exact date
+                  and time.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-white/5 text-xs uppercase tracking-[0.16em] text-gray-400">
+                    <tr>
+                      <th className="px-5 py-4 font-black">
+                        Click
+                      </th>
+                      <th className="px-5 py-4 font-black">
+                        Cairo date &amp; time
+                      </th>
+                      <th className="px-5 py-4 font-black">
+                        Page
+                      </th>
+                      <th className="px-5 py-4 font-black">
+                        Device
+                      </th>
+                      <th className="px-5 py-4 font-black">
+                        Visitor
+                      </th>
+                      <th className="px-5 py-4 font-black">
+                        Came from
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-white/10">
+                    {recentWebsiteViews.map(
+                      (view, index) => (
+                        <tr
+                          key={view.id}
+                          className="transition hover:bg-white/5"
+                        >
+                          <td className="whitespace-nowrap px-5 py-4 font-black text-cyan-300">
+                            #
+                            {Math.max(
+                              totalViews - index,
+                              1
+                            ).toLocaleString(
+                              "en-GB"
+                            )}
+                          </td>
+
+                          <td className="whitespace-nowrap px-5 py-4 font-bold text-white">
+                            {formatWebsiteViewDate(
+                              view.created_at
+                            )}
+                          </td>
+
+                          <td className="px-5 py-4">
+                            <p className="font-black text-white">
+                              {getWebsitePageLabel(
+                                view.path
+                              )}
+                            </p>
+
+                            <p className="mt-1 max-w-64 truncate text-xs text-gray-500">
+                              {view.path}
+                            </p>
+                          </td>
+
+                          <td className="whitespace-nowrap px-5 py-4">
+                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-black capitalize text-gray-300">
+                              {view.device_type ||
+                                "unknown"}
+                            </span>
+                          </td>
+
+                          <td className="whitespace-nowrap px-5 py-4 font-mono text-xs text-gray-300">
+                            {view.visitor_id
+                              ? view.visitor_id.slice(
+                                  -8
+                                )
+                              : "unknown"}
+                          </td>
+
+                          <td className="max-w-52 truncate px-5 py-4 text-gray-400">
+                            {getWebsiteReferrerLabel(
+                              view.referrer
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="border-t border-white/10 px-6 py-4 text-xs text-gray-500">
+              Showing the latest{" "}
+              {Math.min(
+                recentWebsiteViews.length,
+                100
+              )}{" "}
+              clicks. The total cards above keep
+              counting every recorded click.
+            </div>
           </section>
 
           <section className="mt-8 rounded-3xl border border-red-500/20 bg-red-500/10 p-6 sm:p-8">

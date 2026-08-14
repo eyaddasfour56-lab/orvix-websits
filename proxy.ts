@@ -9,6 +9,7 @@ const ALWAYS_AVAILABLE_PATHS = [
   "/admin",
   "/api/admin",
   "/api/bosta",
+  "/api/view",
   "/under-construction",
 ];
 
