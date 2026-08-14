@@ -110,30 +110,6 @@ html {
   );
 }
 
-@media (max-width: 767px) {
-  html,
-  body {
-    overflow-x: clip;
-  }
-
-  a,
-  button {
-    -webkit-tap-highlight-color: transparent;
-  }
-}
-
-@media (max-width: 767px) and (hover: none) and (pointer: coarse) {
-  .orvix-card-lift:hover {
-    border-color: rgba(255, 255, 255, 0.1);
-    box-shadow: none;
-    transform: none;
-  }
-
-  .orvix-premium-button:hover::after {
-    left: -70%;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
