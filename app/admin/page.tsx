@@ -801,6 +801,11 @@ export default function AdminPage() {
   ] = useState(false);
 
   const [
+    resettingWebsiteViews,
+    setResettingWebsiteViews,
+  ] = useState(false);
+
+  const [
     selectedOrderIds,
     setSelectedOrderIds,
   ] = useState<string[]>([]);
@@ -1456,6 +1461,92 @@ export default function AdminPage() {
       setMessageType("error");
     } finally {
       setResettingOrders(false);
+    }
+  }
+
+  async function resetAllWebsiteViews() {
+    const confirmation =
+      window.prompt(
+        `This permanently deletes all ${totalViews.toLocaleString(
+          "en-GB"
+        )} recorded website clicks and resets every analytics number. Type: DELETE ALL CLICKS`
+      );
+
+    if (
+      confirmation !==
+      "DELETE ALL CLICKS"
+    ) {
+      if (confirmation !== null) {
+        setMessage(
+          "Website clicks were not deleted. Confirmation text was incorrect."
+        );
+
+        setMessageType("error");
+      }
+
+      return;
+    }
+
+    setResettingWebsiteViews(true);
+    setMessage("");
+    setMessageType("");
+
+    try {
+      const response = await fetch(
+        "/api/admin/views",
+        {
+          method: "DELETE",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            confirmation,
+          }),
+        }
+      );
+
+      const result =
+        await response.json();
+
+      if (
+        !response.ok ||
+        !result.success
+      ) {
+        throw new Error(
+          result.message ||
+            "Could not delete website clicks."
+        );
+      }
+
+      const deletedViews = Number(
+        result.deletedViews || 0
+      );
+
+      setTotalViews(0);
+      setViewsToday(0);
+      setUniqueVisitorsToday(0);
+      setRecentWebsiteViews([]);
+
+      setMessage(
+        `${deletedViews.toLocaleString(
+          "en-GB"
+        )} website clicks were permanently deleted. Analytics now start from zero.`
+      );
+
+      setMessageType("success");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not delete website clicks."
+      );
+
+      setMessageType("error");
+    } finally {
+      setResettingWebsiteViews(false);
     }
   }
 
@@ -2372,15 +2463,35 @@ export default function AdminPage() {
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  void loadDashboard(true)
-                }
-                className="shrink-0 rounded-2xl bg-cyan-400 px-5 py-3 font-black text-slate-950 transition hover:bg-cyan-300"
-              >
-                Refresh Clicks
-              </button>
+              <div className="flex shrink-0 flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    void loadDashboard(true)
+                  }
+                  disabled={
+                    resettingWebsiteViews
+                  }
+                  className="rounded-2xl bg-cyan-400 px-5 py-3 font-black text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  Refresh Clicks
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    void resetAllWebsiteViews()
+                  }
+                  disabled={
+                    resettingWebsiteViews
+                  }
+                  className="rounded-2xl border border-red-500/40 bg-red-500/15 px-5 py-3 font-black text-red-200 transition hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {resettingWebsiteViews
+                    ? "Deleting..."
+                    : "Delete All Clicks"}
+                </button>
+              </div>
             </div>
 
             {recentWebsiteViews.length ===

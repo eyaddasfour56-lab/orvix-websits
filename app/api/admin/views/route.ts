@@ -24,6 +24,9 @@ type SiteView = {
 const CAIRO_TIME_ZONE =
   "Africa/Cairo";
 
+const DELETE_ALL_CLICKS_CONFIRMATION =
+  "DELETE ALL CLICKS";
+
 function getZonedParts(
   date: Date,
   timeZone: string
@@ -294,6 +297,80 @@ export async function GET(
         success: false,
         message:
           "Could not load website views.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest
+) {
+  try {
+    if (
+      !isAdminAuthenticated(request)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const body = (await request
+      .json()
+      .catch(() => null)) as {
+      confirmation?: unknown;
+    } | null;
+
+    if (
+      body?.confirmation !==
+      DELETE_ALL_CLICKS_CONFIRMATION
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Confirmation text is incorrect.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const deletedViews =
+      await getExactCount();
+
+    await supabaseAdminFetch(
+      "site_views?id=not.is.null",
+      {
+        method: "DELETE",
+        headers: {
+          Prefer: "return=minimal",
+        },
+      }
+    );
+
+    return NextResponse.json({
+      success: true,
+      deletedViews,
+      message:
+        "All website clicks were deleted.",
+    });
+  } catch (error) {
+    console.error(
+      "Delete admin views API error:",
+      error instanceof SupabaseAdminError
+        ? error.details
+        : error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        message:
+          "Could not delete website clicks.",
       },
       { status: 500 }
     );
