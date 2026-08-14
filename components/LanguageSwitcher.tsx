@@ -12,7 +12,7 @@ export default function LanguageSwitcher({
 
   return (
     <div
-      className={`inline-flex shrink-0 items-center rounded-full border border-white/15 bg-white/5 p-0.5 min-[390px]:p-1 ${className}`}
+      className={`inline-flex shrink-0 items-center rounded-full border border-white/15 bg-white/5 p-1 ${className}`}
       role="group"
       aria-label={
         language === "ar"
@@ -25,7 +25,7 @@ export default function LanguageSwitcher({
         lang="en"
         onClick={() => setLanguage("en")}
         aria-pressed={language === "en"}
-        className={`rounded-full px-2 py-2 text-[11px] font-black tracking-wide transition min-[390px]:px-3 min-[390px]:text-xs ${
+        className={`rounded-full px-3 py-2 text-xs font-black tracking-wide transition ${
           language === "en"
             ? "bg-white text-black shadow-sm"
             : "text-gray-400 hover:text-white"
@@ -39,7 +39,7 @@ export default function LanguageSwitcher({
         lang="ar"
         onClick={() => setLanguage("ar")}
         aria-pressed={language === "ar"}
-        className={`rounded-full px-2 py-2 text-[11px] font-black transition min-[390px]:px-3 min-[390px]:text-xs ${
+        className={`rounded-full px-3 py-2 text-xs font-black transition ${
           language === "ar"
             ? "bg-white text-black shadow-sm"
             : "text-gray-400 hover:text-white"
