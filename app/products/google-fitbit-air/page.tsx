@@ -9,11 +9,22 @@ import {
   useMemo,
   useState,
 } from "react";
+import {
+  AnimatePresence,
+  motion,
+  useAnimationControls,
+  useReducedMotion,
+} from "motion/react";
 import Navbar from "@/components/Navbar";
 import {
   Language,
   useLanguage,
 } from "@/components/LanguageProvider";
+import {
+  enterMotion,
+  premiumEase,
+  revealMotion,
+} from "@/lib/motion-config";
 
 type ProductStatus =
   | "available"
@@ -657,6 +668,9 @@ function getReviewComment(review: Review) {
 export default function GoogleFitbitAirPage() {
   const { language, isArabic } =
     useLanguage();
+  const reduceMotion = useReducedMotion();
+  const cartButtonControls =
+    useAnimationControls();
   const copy = copyByLanguage[language];
   const features =
     language === "ar" ? featuresAr : featuresEn;
@@ -1063,6 +1077,16 @@ export default function GoogleFitbitAirPage() {
       )
     );
 
+    if (!reduceMotion) {
+      void cartButtonControls.start({
+        scale: [1, 0.96, 1.025, 1],
+        transition: {
+          duration: 0.46,
+          ease: premiumEase,
+        },
+      });
+    }
+
     showMessage(
       copy.cartAdded(
         product.name,
@@ -1302,7 +1326,25 @@ export default function GoogleFitbitAirPage() {
       <Navbar />
 
       <section className="relative overflow-hidden px-4 pb-16 pt-8 sm:px-6 sm:pb-24 sm:pt-14">
-        <div className="pointer-events-none absolute left-1/2 top-10 h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-white/[0.04] blur-3xl" />
+        <div className="orvix-ambient-grid pointer-events-none absolute inset-x-0 top-0 h-[680px]" />
+
+        <motion.div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 top-10 h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-blue-500/[0.08] blur-[100px]"
+          animate={
+            reduceMotion
+              ? undefined
+              : {
+                  scale: [1, 1.14, 1],
+                  opacity: [0.5, 0.82, 0.5],
+                }
+          }
+          transition={{
+            duration: 7,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
 
         <div className="relative mx-auto max-w-7xl">
           <Link
@@ -1314,7 +1356,12 @@ export default function GoogleFitbitAirPage() {
 
           <div className="mt-8 grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
             <div>
-              <div
+              <motion.div
+                {...enterMotion(
+                  reduceMotion,
+                  0.02,
+                  28
+                )}
                 onTouchStart={
                   handleTouchStart
                 }
@@ -1326,15 +1373,50 @@ export default function GoogleFitbitAirPage() {
                 }
                 className="group relative touch-pan-y select-none overflow-hidden rounded-[36px] border border-white/10 bg-gradient-to-b from-white to-[#e9e9e9] p-5 shadow-2xl shadow-black/30 sm:p-10"
               >
-                <Image
-                  src={activeImage}
-                  alt={`${product.name} ${selectedColour}`}
-                  draggable={false}
-                  width={900}
-                  height={900}
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                  className="aspect-square h-auto w-full object-contain transition duration-500 group-hover:scale-[1.02]"
-                />
+                <AnimatePresence
+                  mode="wait"
+                  initial={false}
+                >
+                  <motion.div
+                    key={`${selectedColour}-${activeImage}`}
+                    initial={
+                      reduceMotion
+                        ? false
+                        : {
+                            opacity: 0,
+                            scale: 0.965,
+                          }
+                    }
+                    animate={{
+                      opacity: 1,
+                      scale: 1,
+                    }}
+                    exit={
+                      reduceMotion
+                        ? undefined
+                        : {
+                            opacity: 0,
+                            scale: 1.025,
+                          }
+                    }
+                    transition={{
+                      duration: reduceMotion
+                        ? 0
+                        : 0.32,
+                      ease: premiumEase,
+                    }}
+                    className="relative aspect-square w-full"
+                  >
+                    <Image
+                      src={activeImage}
+                      alt={`${product.name} ${selectedColour}`}
+                      draggable={false}
+                      fill
+                      sizes="(max-width: 1024px) 100vw, 50vw"
+                      className="object-contain transition duration-500 group-hover:scale-[1.02]"
+                    />
+                  </motion.div>
+                </AnimatePresence>
 
                 {productImages.length > 1 && (
                   <>
@@ -1359,7 +1441,7 @@ export default function GoogleFitbitAirPage() {
                     </button>
                   </>
                 )}
-              </div>
+              </motion.div>
 
               <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
                 {colours.map((colour) => {
@@ -1369,7 +1451,7 @@ export default function GoogleFitbitAirPage() {
                     ][0];
 
                   return (
-                    <button
+                    <motion.button
                       key={colour.name}
                       type="button"
                       onClick={() =>
@@ -1377,11 +1459,34 @@ export default function GoogleFitbitAirPage() {
                           colour.name
                         )
                       }
+                      animate={{
+                        opacity:
+                          selectedColour ===
+                          colour.name
+                            ? 1
+                            : 0.5,
+                        scale:
+                          selectedColour ===
+                          colour.name
+                            ? 1
+                            : 0.94,
+                      }}
+                      whileTap={
+                        reduceMotion
+                          ? undefined
+                          : {
+                              scale: 0.92,
+                            }
+                      }
+                      transition={{
+                        duration: 0.22,
+                        ease: premiumEase,
+                      }}
                       className={`h-20 w-20 shrink-0 overflow-hidden rounded-2xl border bg-white p-2 transition sm:h-24 sm:w-24 ${
                         selectedColour ===
                         colour.name
                           ? "border-white ring-2 ring-white/60"
-                          : "border-white/10 opacity-50"
+                          : "border-white/10"
                       }`}
                     >
                       <Image
@@ -1395,13 +1500,20 @@ export default function GoogleFitbitAirPage() {
                         height={160}
                         className="h-full w-full object-contain"
                       />
-                    </button>
+                    </motion.button>
                   );
                 })}
               </div>
             </div>
 
-            <div className="lg:sticky lg:top-28">
+            <motion.div
+              {...enterMotion(
+                reduceMotion,
+                0.12,
+                30
+              )}
+              className="lg:sticky lg:top-28"
+            >
               <div className="flex flex-wrap items-center gap-3">
                 <span
                   className={`rounded-full border px-4 py-2 text-[11px] font-black uppercase tracking-[0.22em] ${
@@ -1465,7 +1577,7 @@ export default function GoogleFitbitAirPage() {
                       colour.name;
 
                     return (
-                      <button
+                      <motion.button
                         key={colour.value}
                         type="button"
                         onClick={() =>
@@ -1473,6 +1585,23 @@ export default function GoogleFitbitAirPage() {
                             colour.name
                           )
                         }
+                        layout
+                        whileTap={
+                          reduceMotion
+                            ? undefined
+                            : {
+                                scale: 0.96,
+                              }
+                        }
+                        animate={{
+                          scale: selected
+                            ? 1.015
+                            : 1,
+                        }}
+                        transition={{
+                          duration: 0.22,
+                          ease: premiumEase,
+                        }}
                         className={`rounded-2xl border p-3 transition sm:p-4 ${
                           selected
                             ? "border-white bg-white text-black"
@@ -1490,7 +1619,7 @@ export default function GoogleFitbitAirPage() {
                             ]
                           }
                         </span>
-                      </button>
+                      </motion.button>
                     );
                   })}
                 </div>
@@ -1523,9 +1652,40 @@ export default function GoogleFitbitAirPage() {
                       −
                     </button>
 
-                    <span className="min-w-10 text-center text-lg font-black">
-                      {quantity}
-                    </span>
+                    <AnimatePresence
+                      mode="wait"
+                      initial={false}
+                    >
+                      <motion.span
+                        key={quantity}
+                        initial={
+                          reduceMotion
+                            ? false
+                            : {
+                                opacity: 0,
+                                y: -7,
+                              }
+                        }
+                        animate={{
+                          opacity: 1,
+                          y: 0,
+                        }}
+                        exit={
+                          reduceMotion
+                            ? undefined
+                            : {
+                                opacity: 0,
+                                y: 7,
+                              }
+                        }
+                        transition={{
+                          duration: 0.14,
+                        }}
+                        className="min-w-10 text-center text-lg font-black"
+                      >
+                        {quantity}
+                      </motion.span>
+                    </AnimatePresence>
 
                     <button
                       type="button"
@@ -1542,42 +1702,91 @@ export default function GoogleFitbitAirPage() {
                 </div>
               </div>
 
-              {message && (
-                <div
-                  className={`mt-5 rounded-2xl border p-4 text-sm font-bold ${
-                    messageType ===
-                    "success"
-                      ? "border-green-400/20 bg-green-400/10 text-green-300"
-                      : "border-red-400/20 bg-red-400/10 text-red-300"
-                  }`}
-                >
-                  {message}
-                </div>
-              )}
+              <AnimatePresence initial={false}>
+                {message && (
+                  <motion.div
+                    initial={
+                      reduceMotion
+                        ? false
+                        : {
+                            opacity: 0,
+                            y: 10,
+                            scale: 0.98,
+                          }
+                    }
+                    animate={{
+                      opacity: 1,
+                      y: 0,
+                      scale: 1,
+                    }}
+                    exit={
+                      reduceMotion
+                        ? undefined
+                        : {
+                            opacity: 0,
+                            y: -8,
+                          }
+                    }
+                    transition={{
+                      duration: 0.24,
+                      ease: premiumEase,
+                    }}
+                    className={`mt-5 rounded-2xl border p-4 text-sm font-bold ${
+                      messageType ===
+                      "success"
+                        ? "border-green-400/20 bg-green-400/10 text-green-300"
+                        : "border-red-400/20 bg-red-400/10 text-red-300"
+                    }`}
+                  >
+                    {message}
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-              <button
+              <motion.button
                 type="button"
                 onClick={addToCart}
                 disabled={!canPurchase}
-                className="mt-5 w-full rounded-full bg-white px-7 py-5 font-black text-black disabled:opacity-35"
+                animate={cartButtonControls}
+                whileTap={
+                  reduceMotion || !canPurchase
+                    ? undefined
+                    : {
+                        scale: 0.97,
+                      }
+                }
+                className="orvix-premium-button mt-5 w-full rounded-full bg-white px-7 py-5 font-black text-black disabled:opacity-35"
               >
                 {canPurchase
                   ? copy.addToCart
                   : copy.currentlyUnavailable}
-              </button>
+              </motion.button>
 
               {product.allowWishlist && (
-                <button
+                <motion.button
                   type="button"
                   onClick={toggleWishlist}
-                  className="mt-3 w-full rounded-full border border-white/10 px-7 py-5 font-black"
+                  whileTap={
+                    reduceMotion
+                      ? undefined
+                      : {
+                          scale: 0.97,
+                        }
+                  }
+                  animate={{
+                    borderColor:
+                      isInWishlist
+                        ? "rgba(255,255,255,0.45)"
+                        : "rgba(255,255,255,0.1)",
+                  }}
+                  className="mt-3 w-full rounded-full border px-7 py-5 font-black"
                 >
                   {isInWishlist
                     ? copy.removeWishlist
                     : copy.addWishlist}
-                </button>
+                </motion.button>
               )}
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -1605,13 +1814,34 @@ export default function GoogleFitbitAirPage() {
               onClick={() =>
                 scrollToSection(tab.key)
               }
-              className={`flex-1 rounded-full px-4 py-3 text-xs font-black ${
+              className={`relative flex-1 overflow-hidden rounded-full px-4 py-3 text-xs font-black transition-colors ${
                 activeSection === tab.key
-                  ? "bg-white text-black"
+                  ? "text-black"
                   : "text-white/45"
               }`}
             >
-              {tab.label}
+              {activeSection ===
+                tab.key && (
+                <motion.span
+                  layoutId="product-active-tab"
+                  className="absolute inset-0 rounded-full bg-white"
+                  transition={
+                    reduceMotion
+                      ? {
+                          duration: 0,
+                        }
+                      : {
+                          type: "spring",
+                          stiffness: 420,
+                          damping: 34,
+                        }
+                  }
+                />
+              )}
+
+              <span className="relative z-10">
+                {tab.label}
+              </span>
             </button>
           ))}
         </div>
@@ -1622,26 +1852,39 @@ export default function GoogleFitbitAirPage() {
         className="scroll-mt-40 border-b border-white/10 px-4 py-20 sm:px-6"
       >
         <div className="mx-auto max-w-7xl">
-          <p className="text-xs font-black uppercase tracking-[0.36em] text-white/30">
-            {copy.productDetails}
-          </p>
+          <motion.div
+            {...revealMotion(
+              reduceMotion,
+              0,
+              26
+            )}
+          >
+            <p className="text-xs font-black uppercase tracking-[0.36em] text-white/30">
+              {copy.productDetails}
+            </p>
 
-          <h2 className="mt-5 max-w-4xl text-4xl font-black sm:text-6xl">
-            {copy.overviewTitle}
-          </h2>
+            <h2 className="mt-5 max-w-4xl text-4xl font-black sm:text-6xl">
+              {copy.overviewTitle}
+            </h2>
 
-          <p className="mt-6 max-w-3xl text-lg leading-8 text-white/50">
-            {language === "ar"
-              ? copy.overviewDescription
-              : product.description ||
-                copy.overviewDescription}
-          </p>
+            <p className="mt-6 max-w-3xl text-lg leading-8 text-white/50">
+              {language === "ar"
+                ? copy.overviewDescription
+                : product.description ||
+                  copy.overviewDescription}
+            </p>
+          </motion.div>
 
           <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {features.map((feature) => (
-              <article
+            {features.map((feature, index) => (
+              <motion.article
                 key={feature.title}
-                className="rounded-[30px] border border-white/10 bg-white/[0.035] p-7"
+                {...revealMotion(
+                  reduceMotion,
+                  index * 0.055,
+                  22
+                )}
+                className="orvix-card-lift rounded-[30px] border border-white/10 bg-white/[0.035] p-7"
               >
                 <p className="text-xs font-black text-white/25">
                   {feature.number}
@@ -1654,7 +1897,7 @@ export default function GoogleFitbitAirPage() {
                 <p className="mt-4 leading-7 text-white/45">
                   {feature.description}
                 </p>
-              </article>
+              </motion.article>
             ))}
           </div>
         </div>
@@ -1665,7 +1908,14 @@ export default function GoogleFitbitAirPage() {
         className="scroll-mt-40 px-4 py-20 sm:px-6"
       >
         <div className="mx-auto max-w-7xl">
-          <div className="text-center">
+          <motion.div
+            {...revealMotion(
+              reduceMotion,
+              0,
+              24
+            )}
+            className="text-center"
+          >
             <p className="text-xs font-black uppercase tracking-[0.36em] text-white/30">
               {copy.technicalSpecifications}
             </p>
@@ -1673,14 +1923,22 @@ export default function GoogleFitbitAirPage() {
             <h2 className="mt-5 text-4xl font-black sm:text-6xl">
               {copy.specsTitle}
             </h2>
-          </div>
+          </motion.div>
 
           <div className="mt-12 grid items-start gap-5 md:grid-cols-2">
             {techCategories.map(
-              (category) => (
-                <article
+              (category, index) => (
+                <motion.article
                   key={category.title}
-                  className="rounded-[30px] border border-white/10 bg-white/[0.035] p-6 sm:p-8"
+                  {...revealMotion(
+                    reduceMotion,
+                    Math.min(
+                      index * 0.035,
+                      0.18
+                    ),
+                    22
+                  )}
+                  className="orvix-card-lift rounded-[30px] border border-white/10 bg-white/[0.035] p-6 sm:p-8"
                 >
                   <div className="flex items-start gap-4">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-xl">
@@ -1718,7 +1976,7 @@ export default function GoogleFitbitAirPage() {
                       )
                     )}
                   </div>
-                </article>
+                </motion.article>
               )
             )}
           </div>
@@ -1730,7 +1988,13 @@ export default function GoogleFitbitAirPage() {
         className="scroll-mt-40 border-t border-white/10 px-4 py-20 sm:px-6"
       >
         <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-2">
-          <div>
+          <motion.div
+            {...revealMotion(
+              reduceMotion,
+              0,
+              26
+            )}
+          >
             <p className="text-xs font-black uppercase tracking-[0.36em] text-white/30">
               {copy.customerReviews}
             </p>
@@ -1796,16 +2060,23 @@ export default function GoogleFitbitAirPage() {
               <button
                 type="submit"
                 disabled={submittingReview}
-                className="mt-5 w-full rounded-full bg-white px-6 py-4 font-black text-black"
+                className="orvix-premium-button mt-5 w-full rounded-full bg-white px-6 py-4 font-black text-black"
               >
                 {submittingReview
                   ? copy.submitting
                   : copy.submitReview}
               </button>
             </form>
-          </div>
+          </motion.div>
 
-          <div className="space-y-4">
+          <motion.div
+            {...revealMotion(
+              reduceMotion,
+              0.08,
+              26
+            )}
+            className="space-y-4"
+          >
             <div className="rounded-[30px] border border-white/10 bg-white/[0.035] p-8">
               <p className="text-6xl font-black">
                 {reviews.length > 0
@@ -1827,9 +2098,17 @@ export default function GoogleFitbitAirPage() {
                 {copy.noReviews}
               </div>
             ) : (
-              reviews.map((review) => (
-                <article
+              reviews.map((review, index) => (
+                <motion.article
                   key={review.id}
+                  {...revealMotion(
+                    reduceMotion,
+                    Math.min(
+                      index * 0.045,
+                      0.18
+                    ),
+                    18
+                  )}
                   className="rounded-[30px] border border-white/10 p-7"
                 >
                   <h3 className="font-black">
@@ -1856,14 +2135,33 @@ export default function GoogleFitbitAirPage() {
                   <p className="mt-5 text-white/55">
                     {getReviewComment(review)}
                   </p>
-                </article>
+                </motion.article>
               ))
             )}
-          </div>
+          </motion.div>
         </div>
       </section>
 
-      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-black/90 p-3 backdrop-blur-xl lg:hidden">
+      <motion.div
+        initial={
+          reduceMotion
+            ? false
+            : {
+                opacity: 0,
+                y: 72,
+              }
+        }
+        animate={{
+          opacity: 1,
+          y: 0,
+        }}
+        transition={{
+          duration: 0.55,
+          delay: 0.2,
+          ease: premiumEase,
+        }}
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-black/90 p-3 backdrop-blur-xl lg:hidden"
+      >
         <div className="mx-auto flex max-w-xl items-center gap-3">
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-black">
@@ -1878,16 +2176,23 @@ export default function GoogleFitbitAirPage() {
             </p>
           </div>
 
-          <button
+          <motion.button
             type="button"
             onClick={addToCart}
             disabled={!canPurchase}
-            className="rounded-full bg-white px-6 py-4 text-sm font-black text-black disabled:opacity-40"
+            whileTap={
+              reduceMotion || !canPurchase
+                ? undefined
+                : {
+                    scale: 0.96,
+                  }
+            }
+            className="orvix-premium-button rounded-full bg-white px-6 py-4 text-sm font-black text-black disabled:opacity-40"
           >
             {copy.addToCart}
-          </button>
+          </motion.button>
         </div>
-      </div>
+      </motion.div>
     </main>
   );
 }

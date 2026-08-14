@@ -7,11 +7,19 @@ import {
   useMemo,
   useState,
 } from "react";
+import {
+  motion,
+  useReducedMotion,
+} from "motion/react";
 import Navbar from "@/components/Navbar";
 import {
   Language,
   useLanguage,
 } from "@/components/LanguageProvider";
+import {
+  enterMotion,
+  revealMotion,
+} from "@/lib/motion-config";
 
 type ProductStatus =
   | "available"
@@ -477,6 +485,7 @@ function getButtonClasses(
 export default function Home() {
   const { language, isArabic } =
     useLanguage();
+  const reduceMotion = useReducedMotion();
   const copy = copyByLanguage[language];
   const benefits =
     benefitsByLanguage[language];
@@ -562,9 +571,33 @@ export default function Home() {
     <main
       lang={language}
       dir={isArabic ? "rtl" : "ltr"}
-      className="min-h-screen bg-[#070707] text-white"
+      className="relative min-h-screen bg-[#070707] text-white"
     >
       <Navbar />
+
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-[72px] h-[720px] overflow-hidden"
+      >
+        <div className="orvix-ambient-grid absolute inset-0" />
+
+        <motion.div
+          className="absolute left-1/2 top-12 h-[380px] w-[380px] -translate-x-1/2 rounded-full bg-blue-500/10 blur-[110px] sm:h-[540px] sm:w-[540px]"
+          animate={
+            reduceMotion
+              ? undefined
+              : {
+                  scale: [1, 1.12, 1],
+                  opacity: [0.45, 0.75, 0.45],
+                }
+          }
+          transition={{
+            duration: 7,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+      </div>
 
       {/* Products */}
       <section
@@ -572,7 +605,14 @@ export default function Home() {
         className="scroll-mt-24 px-4 py-16 sm:px-6 sm:py-24"
       >
         <div className="mx-auto max-w-7xl">
-          <div className="text-center">
+          <motion.div
+            {...enterMotion(
+              reduceMotion,
+              0.04,
+              20
+            )}
+            className="relative text-center"
+          >
             <p className="text-sm uppercase tracking-[0.45em] text-gray-500">
               {copy.collection}
             </p>
@@ -584,7 +624,7 @@ export default function Home() {
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-gray-400">
               {copy.productsSubtitle}
             </p>
-          </div>
+          </motion.div>
 
           {productsLoading ? (
             <div className="mt-14 rounded-[36px] border border-white/10 bg-white/5 p-12 text-center">
@@ -625,16 +665,21 @@ export default function Home() {
               </p>
             </div>
           ) : (
-            <div className="mt-14 grid gap-8 lg:grid-cols-2">
+            <div className="relative mt-14 grid gap-8 lg:grid-cols-2">
               {products.map(
                 (product, index) => {
                   const productHref =
                     getProductHref(product);
 
                   return (
-                    <article
+                    <motion.article
                       key={product.id}
-                      className="group overflow-hidden rounded-[40px] border border-white/10 bg-white/5 p-5 transition duration-300 hover:-translate-y-1 hover:border-white/25 sm:p-7"
+                      {...enterMotion(
+                        reduceMotion,
+                        index * 0.08,
+                        30
+                      )}
+                      className="orvix-card-lift group overflow-hidden rounded-[40px] border border-white/10 bg-white/5 p-5 sm:p-7"
                     >
                       <Link
                         href={productHref}
@@ -738,7 +783,7 @@ export default function Home() {
 
                           <Link
                             href={productHref}
-                            className={`mt-5 flex w-full items-center justify-center rounded-full px-6 py-4 text-center font-black transition ${getButtonClasses(
+                            className={`orvix-premium-button mt-5 flex w-full items-center justify-center rounded-full px-6 py-4 text-center font-black transition ${getButtonClasses(
                               product
                             )}`}
                           >
@@ -767,7 +812,7 @@ export default function Home() {
                             )}
                         </div>
                       </div>
-                    </article>
+                    </motion.article>
                   );
                 }
               )}
@@ -783,7 +828,13 @@ export default function Home() {
       >
         <div className="mx-auto max-w-7xl">
           <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
-            <div>
+            <motion.div
+              {...revealMotion(
+                reduceMotion,
+                0,
+                28
+              )}
+            >
               <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
                 {copy.aboutEyebrow}
               </p>
@@ -804,17 +855,22 @@ export default function Home() {
                       )
                     : "/#products"
                 }
-                className="mt-8 inline-flex items-center justify-center rounded-full bg-white px-7 py-4 font-black text-black transition hover:bg-gray-200"
+                className="orvix-premium-button mt-8 inline-flex items-center justify-center rounded-full bg-white px-7 py-4 font-black text-black transition hover:bg-gray-200"
               >
                 {copy.exploreProducts}
               </Link>
-            </div>
+            </motion.div>
 
             <div className="grid gap-4">
-              {benefits.map((benefit) => (
-                <article
+              {benefits.map((benefit, index) => (
+                <motion.article
                   key={benefit.number}
-                  className="rounded-[28px] border border-white/10 bg-black/30 p-6 sm:p-8"
+                  {...revealMotion(
+                    reduceMotion,
+                    index * 0.08,
+                    24
+                  )}
+                  className="orvix-card-lift rounded-[28px] border border-white/10 bg-black/30 p-6 sm:p-8"
                 >
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                     <span className="text-sm font-black tracking-[0.25em] text-gray-600">
@@ -833,7 +889,7 @@ export default function Home() {
                       </p>
                     </div>
                   </div>
-                </article>
+                </motion.article>
               ))}
             </div>
           </div>
@@ -843,7 +899,14 @@ export default function Home() {
       {/* Track Order */}
       <section className="px-4 py-20 sm:px-6 sm:py-24">
         <div className="mx-auto max-w-7xl">
-          <div className="overflow-hidden rounded-[36px] border border-white/10 bg-white/5 p-7 text-center sm:p-12">
+          <motion.div
+            {...revealMotion(
+              reduceMotion,
+              0,
+              26
+            )}
+            className="overflow-hidden rounded-[36px] border border-white/10 bg-white/5 p-7 text-center sm:p-12"
+          >
             <p className="text-sm uppercase tracking-[0.35em] text-gray-500">
               {copy.alreadyOrdered}
             </p>
@@ -858,11 +921,11 @@ export default function Home() {
 
             <Link
               href="/track-order"
-              className="mx-auto mt-8 flex w-full max-w-sm items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-black text-black transition hover:bg-gray-200"
+              className="orvix-premium-button mx-auto mt-8 flex w-full max-w-sm items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-black text-black transition hover:bg-gray-200"
             >
               {copy.trackButton}
             </Link>
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -872,8 +935,29 @@ export default function Home() {
           "coming_soon" && (
           <section className="px-4 pb-20 sm:px-6 sm:pb-24">
             <div className="mx-auto max-w-7xl">
-              <div className="grid overflow-hidden rounded-[36px] border border-white/10 bg-[#111111] lg:grid-cols-[0.8fr_1.2fr]">
-                <div className="flex items-center justify-center bg-white p-6 sm:p-10">
+              <motion.div
+                {...revealMotion(
+                  reduceMotion,
+                  0,
+                  30
+                )}
+                className="grid overflow-hidden rounded-[36px] border border-white/10 bg-[#111111] lg:grid-cols-[0.8fr_1.2fr]"
+              >
+                <motion.div
+                  className="flex items-center justify-center bg-white p-6 sm:p-10"
+                  animate={
+                    reduceMotion
+                      ? undefined
+                      : {
+                          y: [0, -7, 0],
+                        }
+                  }
+                  transition={{
+                    duration: 5.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                >
                   <Image
                     src={
                       garminProduct.image ||
@@ -884,7 +968,7 @@ export default function Home() {
                     height={700}
                     className="h-full w-full object-contain"
                   />
-                </div>
+                </motion.div>
 
                 <div className="flex flex-col justify-center p-7 sm:p-12">
                   <span className="w-fit rounded-full border border-yellow-500/30 bg-yellow-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-yellow-200">
@@ -906,12 +990,12 @@ export default function Home() {
                     href={getProductHref(
                       garminProduct
                     )}
-                    className="mt-8 inline-flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-center text-lg font-black text-black transition hover:bg-gray-200 sm:w-fit"
+                    className="orvix-premium-button mt-8 inline-flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-center text-lg font-black text-black transition hover:bg-gray-200 sm:w-fit"
                   >
                     {copy.notify}
                   </Link>
                 </div>
-              </div>
+              </motion.div>
             </div>
           </section>
         )}
@@ -922,7 +1006,14 @@ export default function Home() {
         className="scroll-mt-24 border-y border-white/10 bg-white/[0.03] px-4 py-20 sm:px-6 sm:py-28"
       >
         <div className="mx-auto max-w-4xl">
-          <div className="text-center">
+          <motion.div
+            {...revealMotion(
+              reduceMotion,
+              0,
+              24
+            )}
+            className="text-center"
+          >
             <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
               {copy.helpEyebrow}
             </p>
@@ -934,14 +1025,19 @@ export default function Home() {
             <p className="mx-auto mt-5 max-w-2xl leading-7 text-gray-400">
               {copy.faqSubtitle}
             </p>
-          </div>
+          </motion.div>
 
           <div className="mt-12 space-y-4">
             {frequentlyAskedQuestions.map(
               (item, index) => (
-                <details
+                <motion.details
                   key={`${language}-${item.question}`}
-                  className="group rounded-[24px] border border-white/10 bg-black/30 p-5 open:border-white/25 sm:p-6"
+                  {...revealMotion(
+                    reduceMotion,
+                    index * 0.035,
+                    18
+                  )}
+                  className="group rounded-[24px] border border-white/10 bg-black/30 p-5 transition-colors open:border-white/25 sm:p-6"
                 >
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-5 font-black">
                     <span>
@@ -957,7 +1053,7 @@ export default function Home() {
                   <p className="mt-5 border-t border-white/10 pt-5 leading-7 text-gray-400">
                     {item.answer}
                   </p>
-                </details>
+                </motion.details>
               )
             )}
           </div>
@@ -970,7 +1066,14 @@ export default function Home() {
         className="scroll-mt-24 px-4 py-20 sm:px-6 sm:py-28"
       >
         <div className="mx-auto max-w-7xl">
-          <div className="overflow-hidden rounded-[40px] border border-white/10 bg-white/5">
+          <motion.div
+            {...revealMotion(
+              reduceMotion,
+              0,
+              28
+            )}
+            className="overflow-hidden rounded-[40px] border border-white/10 bg-white/5"
+          >
             <div className="grid lg:grid-cols-2">
               <div className="p-7 sm:p-12">
                 <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
@@ -990,14 +1093,14 @@ export default function Home() {
                     href="https://www.instagram.com/orvix_tech/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center rounded-full bg-white px-7 py-4 font-black text-black transition hover:bg-gray-200"
+                    className="orvix-premium-button inline-flex items-center justify-center rounded-full bg-white px-7 py-4 font-black text-black transition hover:bg-gray-200"
                   >
                     {copy.instagramButton}
                   </a>
 
                   <Link
                     href="/track-order"
-                    className="inline-flex items-center justify-center rounded-full border border-white/15 px-7 py-4 font-black transition hover:bg-white/10"
+                    className="orvix-premium-button inline-flex items-center justify-center rounded-full border border-white/15 px-7 py-4 font-black transition hover:bg-white/10"
                   >
                     {copy.trackAnOrder}
                   </Link>
@@ -1033,7 +1136,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 

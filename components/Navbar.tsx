@@ -8,8 +8,14 @@ import {
   useMemo,
   useState,
 } from "react";
+import {
+  AnimatePresence,
+  motion,
+  useReducedMotion,
+} from "motion/react";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { useLanguage } from "./LanguageProvider";
+import { premiumEase } from "@/lib/motion-config";
 
 type CartItem = {
   id: string;
@@ -190,6 +196,7 @@ function readWishlistFromStorage(): WishlistItem[] {
 
 export default function Navbar() {
   const { language } = useLanguage();
+  const reduceMotion = useReducedMotion();
   const copy = copyByLanguage[language];
   const numberLocale =
     language === "ar" ? "ar-EG" : "en-GB";
@@ -500,7 +507,25 @@ export default function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-black/90 text-white backdrop-blur-xl">
+      <motion.header
+        initial={
+          reduceMotion
+            ? false
+            : {
+                opacity: 0,
+                y: -18,
+              }
+        }
+        animate={{
+          opacity: 1,
+          y: 0,
+        }}
+        transition={{
+          duration: 0.48,
+          ease: premiumEase,
+        }}
+        className="sticky top-0 z-50 border-b border-white/10 bg-black/90 text-white backdrop-blur-xl"
+      >
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <Link
             href="/"
@@ -584,13 +609,34 @@ export default function Navbar() {
                 />
               </svg>
 
-              {wishlistItems.length > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-black text-black">
-                  {wishlistItems.length > 99
-                    ? "99+"
-                    : wishlistItems.length}
-                </span>
-              )}
+              <AnimatePresence>
+                {wishlistItems.length > 0 && (
+                  <motion.span
+                    key={wishlistItems.length}
+                    initial={
+                      reduceMotion
+                        ? false
+                        : {
+                            opacity: 0,
+                            scale: 0.5,
+                          }
+                    }
+                    animate={{
+                      opacity: 1,
+                      scale: 1,
+                    }}
+                    exit={{
+                      opacity: 0,
+                      scale: 0.5,
+                    }}
+                    className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-black text-black"
+                  >
+                    {wishlistItems.length > 99
+                      ? "99+"
+                      : wishlistItems.length}
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </button>
 
             {/* Cart Button */}
@@ -627,13 +673,34 @@ export default function Navbar() {
                 />
               </svg>
 
-              {totalQuantity > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-black text-black">
-                  {totalQuantity > 99
-                    ? "99+"
-                    : totalQuantity}
-                </span>
-              )}
+              <AnimatePresence>
+                {totalQuantity > 0 && (
+                  <motion.span
+                    key={totalQuantity}
+                    initial={
+                      reduceMotion
+                        ? false
+                        : {
+                            opacity: 0,
+                            scale: 0.5,
+                          }
+                    }
+                    animate={{
+                      opacity: 1,
+                      scale: 1,
+                    }}
+                    exit={{
+                      opacity: 0,
+                      scale: 0.5,
+                    }}
+                    className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-black text-black"
+                  >
+                    {totalQuantity > 99
+                      ? "99+"
+                      : totalQuantity}
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </button>
 
             {/* Mobile Menu Button */}
@@ -659,8 +726,37 @@ export default function Navbar() {
           </div>
         </div>
 
-        {menuOpen && (
-          <nav className="border-t border-white/10 bg-black px-4 py-5 lg:hidden">
+        <AnimatePresence initial={false}>
+          {menuOpen && (
+          <motion.nav
+            initial={
+              reduceMotion
+                ? false
+                : {
+                    opacity: 0,
+                    height: 0,
+                  }
+            }
+            animate={{
+              opacity: 1,
+              height: "auto",
+            }}
+            exit={
+              reduceMotion
+                ? undefined
+                : {
+                    opacity: 0,
+                    height: 0,
+                  }
+            }
+            transition={{
+              duration: reduceMotion
+                ? 0
+                : 0.3,
+              ease: premiumEase,
+            }}
+            className="overflow-hidden border-t border-white/10 bg-black px-4 py-5 lg:hidden"
+          >
             <div className="mx-auto grid max-w-7xl gap-3">
               {navigationLinks.map((item) => (
                 <a
@@ -703,9 +799,10 @@ export default function Navbar() {
                 {copy.shopNow}
               </Link>
             </div>
-          </nav>
-        )}
-      </header>
+          </motion.nav>
+          )}
+        </AnimatePresence>
+      </motion.header>
 
       {/* Overlay */}
       <div
