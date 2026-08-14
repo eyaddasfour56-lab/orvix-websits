@@ -526,11 +526,11 @@ export default function Navbar() {
         }}
         className="sticky top-0 z-50 border-b border-white/10 bg-black/90 text-white backdrop-blur-xl"
       >
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-3 min-[380px]:gap-3 min-[380px]:px-4 sm:px-6 sm:py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <Link
             href="/"
             onClick={closeMenu}
-            className="flex shrink-0 items-center gap-2 min-[380px]:gap-3"
+            className="flex shrink-0 items-center gap-3"
           >
             <Image
               src="/logo.jpeg"
@@ -538,7 +538,7 @@ export default function Navbar() {
               width={44}
               height={44}
               priority
-              className="h-10 w-10 rounded-full object-cover min-[380px]:h-11 min-[380px]:w-11"
+              className="h-11 w-11 rounded-full object-cover"
             />
 
             <span className="hidden text-lg font-black tracking-[0.3em] sm:inline">
@@ -578,7 +578,7 @@ export default function Navbar() {
             </Link>
           </nav>
 
-          <div className="flex items-center gap-1.5 min-[380px]:gap-2">
+          <div className="flex items-center gap-2">
             <LanguageSwitcher />
 
             {/* Wishlist Button */}
@@ -588,7 +588,7 @@ export default function Navbar() {
               aria-label={copy.openWishlist(
                 wishlistItems.length
               )}
-              className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/5 transition hover:bg-white/10 sm:h-12 sm:w-12"
+              className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/5 transition hover:bg-white/10"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -598,7 +598,7 @@ export default function Navbar() {
                     : "none"
                 }
                 aria-hidden="true"
-                className="h-5 w-5 sm:h-6 sm:w-6"
+                className="h-6 w-6"
               >
                 <path
                   d="M20.8 4.6C18.9 2.7 15.8 2.7 13.9 4.6L12 6.5L10.1 4.6C8.2 2.7 5.1 2.7 3.2 4.6C1.3 6.5 1.3 9.6 3.2 11.5L12 20.3L20.8 11.5C22.7 9.6 22.7 6.5 20.8 4.6Z"
@@ -646,13 +646,13 @@ export default function Navbar() {
               aria-label={copy.openCartWithCount(
                 totalQuantity
               )}
-              className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/5 transition hover:bg-white/10 sm:h-12 sm:w-12"
+              className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/5 transition hover:bg-white/10"
             >
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
                 aria-hidden="true"
-                className="h-5 w-5 sm:h-6 sm:w-6"
+                className="h-6 w-6"
               >
                 <path
                   d="M3 4H5L7.2 14.2C7.4 15.2 8.3 16 9.4 16H17.7C18.7 16 19.6 15.3 19.9 14.3L21 8H6"
@@ -717,9 +717,9 @@ export default function Navbar() {
                   : copy.openMenu
               }
               aria-expanded={menuOpen}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 transition hover:bg-white/10 sm:h-12 sm:w-12 lg:hidden"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/15 transition hover:bg-white/10 lg:hidden"
             >
-              <span className="text-2xl leading-none sm:text-3xl">
+              <span className="text-3xl leading-none">
                 {menuOpen ? "×" : "☰"}
               </span>
             </button>
