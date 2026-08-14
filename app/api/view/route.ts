@@ -1,5 +1,9 @@
-import { NextResponse } from "next/server";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
+import { isAnalyticsExcluded } from "@/lib/admin-auth";
 import {
   SupabaseAdminError,
   supabaseAdminFetch,
@@ -89,7 +93,7 @@ function isPrivatePath(path: string) {
 }
 
 export async function POST(
-  request: Request
+  request: NextRequest
 ) {
   try {
     if (
@@ -104,6 +108,14 @@ export async function POST(
         },
         { status: 403 }
       );
+    }
+
+    if (isAnalyticsExcluded(request)) {
+      return NextResponse.json({
+        success: true,
+        tracked: false,
+        excluded: true,
+      });
     }
 
     const body = await request

@@ -1,11 +1,17 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 
-function createAdminSession(secret: string) {
-  return createHmac("sha256", secret)
-    .update("orvix-admin-session")
-    .digest("hex");
-}
+import {
+  ADMIN_SESSION_COOKIE,
+  ANALYTICS_EXCLUSION_COOKIE,
+  createAdminSession,
+  createAnalyticsExclusion,
+} from "@/lib/admin-auth";
+
+const ADMIN_SESSION_MAX_AGE =
+  60 * 60 * 24 * 7;
+const ANALYTICS_EXCLUSION_MAX_AGE =
+  60 * 60 * 24 * 365;
 
 export async function POST(request: Request) {
   try {
@@ -47,14 +53,29 @@ export async function POST(request: Request) {
     });
 
     response.cookies.set(
-      "orvix_admin_session",
+      ADMIN_SESSION_COOKIE,
       createAdminSession(sessionSecret),
       {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "strict",
         path: "/",
-        maxAge: 60 * 60 * 24 * 7,
+        maxAge: ADMIN_SESSION_MAX_AGE,
+      }
+    );
+
+    response.cookies.set(
+      ANALYTICS_EXCLUSION_COOKIE,
+      createAnalyticsExclusion(
+        sessionSecret
+      ),
+      {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        path: "/",
+        maxAge:
+          ANALYTICS_EXCLUSION_MAX_AGE,
       }
     );
 

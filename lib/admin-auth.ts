@@ -6,44 +6,57 @@ import {
 } from "crypto";
 import type { NextRequest } from "next/server";
 
-const ADMIN_SESSION_COOKIE =
+export const ADMIN_SESSION_COOKIE =
   "orvix_admin_session";
 
-function createAdminSession(
-  secret: string
+export const ANALYTICS_EXCLUSION_COOKIE =
+  "orvix_analytics_excluded";
+
+function createSignedToken(
+  secret: string,
+  purpose: string
 ) {
   return createHmac("sha256", secret)
-    .update("orvix-admin-session")
+    .update(purpose)
     .digest("hex");
 }
 
-export function isAdminAuthenticated(
-  request: NextRequest
+export function createAdminSession(
+  secret: string
 ) {
-  const sessionSecret =
-    process.env.ADMIN_SESSION_SECRET;
+  return createSignedToken(
+    secret,
+    "orvix-admin-session"
+  );
+}
 
-  const receivedSession =
-    request.cookies.get(
-      ADMIN_SESSION_COOKIE
-    )?.value;
+export function createAnalyticsExclusion(
+  secret: string
+) {
+  return createSignedToken(
+    secret,
+    "orvix-analytics-exclusion"
+  );
+}
 
-  if (
-    !sessionSecret ||
-    !receivedSession
-  ) {
+function hasValidSignedCookie(
+  request: NextRequest,
+  cookieName: string,
+  expectedValue: string
+) {
+  const receivedValue =
+    request.cookies.get(cookieName)?.value;
+
+  if (!receivedValue) {
     return false;
   }
 
-  const expectedSession =
-    createAdminSession(sessionSecret);
-
   const receivedBuffer = Buffer.from(
-    receivedSession
+    receivedValue
   );
 
   const expectedBuffer = Buffer.from(
-    expectedSession
+    expectedValue
   );
 
   return (
@@ -52,6 +65,45 @@ export function isAdminAuthenticated(
     timingSafeEqual(
       receivedBuffer,
       expectedBuffer
+    )
+  );
+}
+
+export function isAdminAuthenticated(
+  request: NextRequest
+) {
+  const sessionSecret =
+    process.env.ADMIN_SESSION_SECRET;
+
+  if (!sessionSecret) {
+    return false;
+  }
+
+  return hasValidSignedCookie(
+    request,
+    ADMIN_SESSION_COOKIE,
+    createAdminSession(sessionSecret)
+  );
+}
+
+export function isAnalyticsExcluded(
+  request: NextRequest
+) {
+  const sessionSecret =
+    process.env.ADMIN_SESSION_SECRET;
+
+  if (!sessionSecret) {
+    return false;
+  }
+
+  return (
+    isAdminAuthenticated(request) ||
+    hasValidSignedCookie(
+      request,
+      ANALYTICS_EXCLUSION_COOKIE,
+      createAnalyticsExclusion(
+        sessionSecret
+      )
     )
   );
 }
