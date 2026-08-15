@@ -56,7 +56,6 @@ function isAdminAuthenticated(
 }
 
 const allowedStatuses = [
-  "pending_contact",
   "new",
   "confirmed",
   "shipped",
@@ -145,29 +144,6 @@ export async function PATCH(
       );
     }
 
-    const updatePayload:
-      Record<string, unknown> = {
-        status,
-      };
-
-    if (status === "confirmed") {
-      updatePayload.shipping_status =
-        "ready_to_print";
-      updatePayload.label_created_at =
-        new Date().toISOString();
-      updatePayload.payment_method =
-        "instapay_on_delivery";
-    }
-
-    if (status === "pending_contact") {
-      updatePayload.shipping_status =
-        "pending_contact";
-      updatePayload.label_created_at =
-        null;
-      updatePayload.payment_method =
-        "pending_contact";
-    }
-
     const response = await fetch(
       `${supabaseUrl}/rest/v1/orders?id=eq.${encodeURIComponent(
         orderId
@@ -181,9 +157,9 @@ export async function PATCH(
             "application/json",
           Prefer: "return=representation",
         },
-        body: JSON.stringify(
-          updatePayload
-        ),
+        body: JSON.stringify({
+          status,
+        }),
       }
     );
 

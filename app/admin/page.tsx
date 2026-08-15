@@ -97,10 +97,6 @@ const PROFIT_PER_ORDER = 1000;
 
 const orderStatuses = [
   {
-    value: "pending_contact",
-    label: "Pending Contact",
-  },
-  {
     value: "new",
     label: "New",
   },
@@ -239,26 +235,6 @@ function createWhatsAppLink(
   const phoneNumber =
     formatWhatsAppNumber(order.phone);
 
-  if (order.status === "pending_contact") {
-    const requestMessage = `Hello ${order.customer_name} 👋
-
-We received your details for the ${
-      order.product_name ||
-      "ORVIX product"
-    }.
-
-Online ordering is temporarily unavailable, so no order has been confirmed and no payment is required.
-
-We will contact you when ordering becomes available.
-
-Thank you,
-ORVIX`;
-
-    return `https://wa.me/${phoneNumber}?text=${encodeURIComponent(
-      requestMessage
-    )}`;
-  }
-
   const orvixCollection =
     getOrvixCollection(order);
 
@@ -340,10 +316,6 @@ function getStatusLabel(
 function getStatusClasses(
   status: string
 ) {
-  if (status === "pending_contact") {
-    return "border-amber-500/20 bg-amber-500/10 text-amber-200";
-  }
-
   if (status === "delivered") {
     return "border-green-500/20 bg-green-500/10 text-green-300";
   }
@@ -372,10 +344,6 @@ function getStatusClasses(
 function getShippingStatusLabel(
   status?: string | null
 ) {
-  if (status === "pending_contact") {
-    return "Pending Contact";
-  }
-
   if (status === "pickup_requested") {
     return "Bosta Pickup Requested";
   }
@@ -1936,30 +1904,9 @@ export default function AdminPage() {
     مبيعات ORVIX تشمل المنتجات فقط.
     مصاريف الشحن ليست ضمن مبيعات ORVIX.
   */
-  const pendingContactRequests =
-    useMemo(
-      () =>
-        orders.filter(
-          (order) =>
-            order.status ===
-            "pending_contact"
-        ).length,
-      [orders]
-    );
-
-  const totalOrders =
-    orders.length -
-    pendingContactRequests;
-
   const totalSales = useMemo(
     () =>
-      orders
-        .filter(
-          (order) =>
-            order.status !==
-            "pending_contact"
-        )
-        .reduce(
+      orders.reduce(
         (sum, order) =>
           sum +
           getOrvixCollection(order),
@@ -1977,9 +1924,7 @@ export default function AdminPage() {
       orders.filter(
         (order) =>
           order.status !==
-            "cancelled" &&
-          order.status !==
-            "pending_contact"
+          "cancelled"
       );
 
     return (
@@ -1994,8 +1939,6 @@ export default function AdminPage() {
 
     return orders.filter(
       (order) =>
-        order.status !==
-          "pending_contact" &&
         new Date(
           order.created_at
         ).toDateString() === today
@@ -2006,8 +1949,6 @@ export default function AdminPage() {
     () =>
       orders.filter(
         (order) =>
-          order.status !==
-            "pending_contact" &&
           order.status !==
             "delivered" &&
           order.status !==
@@ -2021,11 +1962,9 @@ export default function AdminPage() {
       () =>
         orders.filter(
           (order) =>
-            order.status !==
-              "pending_contact" &&
-            (!order.shipping_status ||
-              order.shipping_status ===
-                "ready_to_print")
+            !order.shipping_status ||
+            order.shipping_status ===
+              "ready_to_print"
         ).length,
       [orders]
     );
@@ -2351,21 +2290,7 @@ export default function AdminPage() {
               </p>
 
               <p className="mt-3 text-4xl font-black">
-                {totalOrders}
-              </p>
-            </div>
-
-            <div className="rounded-3xl border border-amber-500/20 bg-amber-500/10 p-6">
-              <p className="text-amber-200">
-                Pending contacts
-              </p>
-
-              <p className="mt-3 text-4xl font-black text-amber-300">
-                {pendingContactRequests}
-              </p>
-
-              <p className="mt-2 text-xs text-amber-200/60">
-                Details received — not confirmed
+                {orders.length}
               </p>
             </div>
 
@@ -2431,7 +2356,7 @@ export default function AdminPage() {
 
               <p className="mt-2 text-xs text-emerald-200/60">
                 1,000 EGP per order —
-                cancelled and pending contacts excluded
+                cancelled orders excluded
               </p>
             </div>
 

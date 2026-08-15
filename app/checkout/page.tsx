@@ -14,7 +14,6 @@ import {
 import Navbar from "@/components/Navbar";
 import { useLanguage } from "@/components/LanguageProvider";
 import { checkoutCopy } from "@/lib/checkout-copy";
-import { ORDER_CAPTURE_ONLY } from "@/lib/order-mode";
 import {
   getDeliveryAreaForBostaCity,
 } from "@/lib/shipping-pricing";
@@ -1429,9 +1428,7 @@ export default function CheckoutPage() {
       ) {
         throw new Error(
           result.message ||
-            (ORDER_CAPTURE_ONLY
-              ? copy.requestError
-              : "Could not place your order.")
+            "Could not place your order."
         );
       }
 
@@ -1471,13 +1468,8 @@ export default function CheckoutPage() {
         )
       );
 
-      const destination =
-        result.orderConfirmed === false
-          ? "/order-requested"
-          : "/order-success";
-
       router.push(
-        `${destination}/${encodeURIComponent(
+        `/order-success/${encodeURIComponent(
           createdOrderNumber
         )}`
       );
@@ -1485,13 +1477,9 @@ export default function CheckoutPage() {
       setOrderError(
         error instanceof Error
           ? language === "ar"
-            ? ORDER_CAPTURE_ONLY
-              ? copy.requestError
-              : copy.orderError
+            ? copy.orderError
             : error.message
-          : ORDER_CAPTURE_ONLY
-            ? copy.requestError
-            : copy.orderError
+          : copy.orderError
       );
 
       setIsSending(false);
@@ -1510,21 +1498,15 @@ export default function CheckoutPage() {
         <div className="mx-auto max-w-7xl">
           <div className="mb-12">
             <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
-              {ORDER_CAPTURE_ONLY
-                ? copy.requestEyebrow
-                : copy.eyebrow}
+              {copy.eyebrow}
             </p>
 
             <h1 className="mt-4 text-4xl font-black sm:text-6xl">
-              {ORDER_CAPTURE_ONLY
-                ? copy.requestTitle
-                : copy.title}
+              {copy.title}
             </h1>
 
             <p className="mt-5 max-w-2xl leading-7 text-gray-400">
-              {ORDER_CAPTURE_ONLY
-                ? copy.requestIntro
-                : copy.intro}
+              {copy.intro}
             </p>
           </div>
 
@@ -2098,18 +2080,7 @@ export default function CheckoutPage() {
                 </strong>
               </div>
 
-              {ORDER_CAPTURE_ONLY ? (
-                <div className="mt-7 rounded-3xl border border-violet-500/25 bg-violet-500/10 p-5">
-                  <p className="text-sm font-black uppercase tracking-[0.2em] text-violet-200">
-                    {copy.requestNoPaymentTitle}
-                  </p>
-
-                  <p className="mt-3 text-sm leading-6 text-violet-100/80">
-                    {copy.requestNoPaymentBody}
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-7 rounded-3xl border border-violet-500/25 bg-violet-500/10 p-5">
+              <div className="mt-7 rounded-3xl border border-violet-500/25 bg-violet-500/10 p-5">
                 <div className="flex items-start gap-4">
                   <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black p-1">
                     <Image
@@ -2182,8 +2153,7 @@ export default function CheckoutPage() {
                     {copy.paymentSafety}
                   </p>
                 </div>
-                </div>
-              )}
+              </div>
 
               {orderError && (
                 <p
@@ -2205,24 +2175,16 @@ export default function CheckoutPage() {
                 className="mt-8 flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-bold text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSending
-                  ? ORDER_CAPTURE_ONLY
-                    ? copy.sendingRequest
-                    : copy.placing
+                  ? copy.placing
                   : checkingDiscount
                     ? copy.checkingDiscount
-                    : ORDER_CAPTURE_ONLY
-                      ? copy.requestOrder(
-                          formatNumber(finalTotal)
-                        )
-                      : copy.placeOrder(
-                          formatNumber(finalTotal)
-                        )}
+                    : copy.placeOrder(
+                        formatNumber(finalTotal)
+                      )}
               </button>
 
               <p className="mt-4 text-center text-xs leading-5 text-gray-500">
-                {ORDER_CAPTURE_ONLY
-                  ? copy.requestConfirmation
-                  : copy.confirmation}
+                {copy.confirmation}
               </p>
 
               {isSending && (

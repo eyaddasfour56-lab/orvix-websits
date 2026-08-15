@@ -105,10 +105,6 @@ function formatMoney(
 function getPaymentName(
   paymentMethod: string | null
 ) {
-  if (paymentMethod === "pending_contact") {
-    return "بانتظار التواصل — لا يوجد دفع";
-  }
-
   if (
     paymentMethod ===
     "instapay_on_delivery"
@@ -131,9 +127,6 @@ function getStatusName(
   shippingStatus: string | null
 ) {
   switch (shippingStatus) {
-    case "pending_contact":
-      return "بانتظار التواصل";
-
     case "ready_to_print":
       return "جاهزة للطباعة";
 
@@ -247,7 +240,7 @@ export default function AdminOrdersPage() {
 
       try {
         const response = await fetch(
-          "/api/admin/orders",
+          "/api/order",
           {
             method: "GET",
             cache: "no-store",

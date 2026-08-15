@@ -7,7 +7,6 @@ import {
 import {
   getDeliveryAreaForBostaCity,
 } from "@/lib/shipping-pricing";
-import { ORDER_CAPTURE_ONLY } from "@/lib/order-mode";
 
 const resendApiKey =
   process.env.RESEND_API_KEY;
@@ -795,19 +794,7 @@ export async function POST(
       createShippingNumber();
 
     const labelCreatedAt =
-      ORDER_CAPTURE_ONLY
-        ? null
-        : new Date().toISOString();
-
-    const initialOrderStatus =
-      ORDER_CAPTURE_ONLY
-        ? "pending_contact"
-        : "new";
-
-    const initialShippingStatus =
-      ORDER_CAPTURE_ONLY
-        ? "pending_contact"
-        : "ready_to_print";
+      new Date().toISOString();
 
     const supabaseResponse =
       await fetch(
@@ -837,7 +824,7 @@ export async function POST(
               shippingNumber,
 
             shipping_status:
-              initialShippingStatus,
+              "ready_to_print",
 
             label_created_at:
               labelCreatedAt,
@@ -846,9 +833,7 @@ export async function POST(
               null,
 
             payment_method:
-              ORDER_CAPTURE_ONLY
-                ? "pending_contact"
-                : "instapay_on_delivery",
+              "instapay_on_delivery",
 
             product_name:
               productName,
@@ -925,8 +910,7 @@ export async function POST(
             total_price:
               verifiedTotalPrice,
 
-            status:
-              initialOrderStatus,
+            status: "new",
           }),
         }
       );
@@ -978,10 +962,7 @@ export async function POST(
       }
     );
 
-    if (
-      verifiedDiscount &&
-      !ORDER_CAPTURE_ONLY
-    ) {
+    if (verifiedDiscount) {
       try {
         await increaseDiscountUsage(
           verifiedDiscount
@@ -1060,168 +1041,6 @@ export async function POST(
     let adminEmailSent = false;
 
     let customerEmailSent = false;
-
-    if (ORDER_CAPTURE_ONLY) {
-      if (resend) {
-        if (notificationEmail) {
-          try {
-            const adminEmailResult =
-              await resend.emails.send({
-                from: senderEmail,
-                to: notificationEmail,
-                subject:
-                  `New ORVIX order attempt — ${orderNumber}`,
-                html: `
-                  <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;padding:24px;color:#111;">
-                    <h1>Order could not be confirmed</h1>
-
-                    <p style="background:#fff7ed;border:1px solid #fdba74;border-radius:14px;padding:16px;line-height:1.6;">
-                      <strong>This is not a confirmed order.</strong><br />
-                      The customer details were saved for contact only. Do not send this request to Bosta until the customer is contacted and the status is changed to Confirmed.
-                    </p>
-
-                    <div style="background:#111;color:#fff;border-radius:16px;padding:20px;margin-top:18px;">
-                      <p><strong>Reference:</strong> ${orderNumber}</p>
-                      <p><strong>Status:</strong> Pending contact</p>
-                    </div>
-
-                    <div style="background:#f4f4f4;border-radius:16px;padding:20px;margin-top:16px;">
-                      <p><strong>Customer:</strong> ${safeFullName}</p>
-                      <p><strong>Phone:</strong> ${safePhone}</p>
-                      <p><strong>Email:</strong> ${safeCustomerEmail}</p>
-                      <p><strong>Governorate:</strong> ${safeGovernorate}</p>
-                      <p><strong>Address:</strong> ${safeAddress}</p>
-                      <p><strong>Notes:</strong> ${safeNotes}</p>
-                    </div>
-
-                    <div style="background:#f4f4f4;border-radius:16px;padding:20px;margin-top:16px;">
-                      <p><strong>Product:</strong> ${safeProductName}</p>
-                      <p><strong>Colour:</strong> ${safeColour}</p>
-                      <p><strong>Quantity:</strong> ${quantity}</p>
-                      <p><strong>Discount code:</strong> ${safeDiscountCode}</p>
-                      <p><strong>Products total:</strong> ${formatMoney(
-                        verifiedProductsTotal
-                      )} EGP</p>
-                      <p><strong>Delivery:</strong> ${formatMoney(
-                        verifiedDeliveryFee
-                      )} EGP</p>
-                      <p style="font-size:20px;"><strong>Reference total:</strong> ${formatMoney(
-                        verifiedTotalPrice
-                      )} EGP</p>
-                    </div>
-                  </div>
-                `,
-              });
-
-            if (adminEmailResult.error) {
-              console.error(
-                "Admin request email error:",
-                adminEmailResult.error
-              );
-            } else {
-              adminEmailSent = true;
-            }
-          } catch (adminEmailError) {
-            console.error(
-              "Admin request email error:",
-              adminEmailError
-            );
-          }
-        }
-
-        if (customerEmail) {
-          try {
-            const customerEmailResult =
-              await resend.emails.send({
-                from: senderEmail,
-                to: customerEmail,
-                subject:
-                  `ORVIX order not confirmed — ${orderNumber}`,
-                html: `
-                  <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:24px;color:#111;background:#fff;">
-                    <p style="letter-spacing:5px;font-weight:700;text-align:center;">ORVIX</p>
-
-                    <h1 style="text-align:center;margin-top:24px;">Your order couldn't be placed right now</h1>
-
-                    <p style="color:#555;line-height:1.7;text-align:center;">
-                      Thank you, ${safeFullName}. We couldn't confirm your order right now. Your details were sent to ORVIX and the team will contact you about availability.
-                    </p>
-
-                    <div style="background:#111;color:#fff;border-radius:18px;padding:22px;text-align:center;margin-top:24px;">
-                      <p style="color:#aaa;margin:0;font-size:13px;">REQUEST REFERENCE</p>
-                      <p style="font-size:21px;font-weight:700;margin:10px 0 0;word-break:break-word;">${orderNumber}</p>
-                    </div>
-
-                    <p style="background:#fff7ed;border:1px solid #fdba74;border-radius:14px;padding:16px;line-height:1.6;margin-top:18px;">
-                      <strong>No order has been confirmed and no payment is required.</strong><br />
-                      Please wait for ORVIX to contact you before sending any money.
-                    </p>
-                  </div>
-                `,
-              });
-
-            if (customerEmailResult.error) {
-              console.error(
-                "Customer request email error:",
-                customerEmailResult.error
-              );
-            } else {
-              customerEmailSent = true;
-            }
-          } catch (customerEmailError) {
-            console.error(
-              "Customer request email error:",
-              customerEmailError
-            );
-          }
-        }
-      } else {
-        console.warn(
-          "Availability request saved, but email was not sent because RESEND_API_KEY is missing."
-        );
-      }
-
-      return NextResponse.json({
-        success: true,
-        orderConfirmed: false,
-        message:
-          "Your order can't be placed right now. Your details were sent to ORVIX and the team will contact you.",
-        orderNumber,
-        referenceNumber: orderNumber,
-        orderStatus:
-          initialOrderStatus,
-        shippingStatus:
-          initialShippingStatus,
-        order: savedOrder,
-        pricing: {
-          productPrice,
-          originalProductsTotal,
-          productsTotal:
-            verifiedProductsTotal,
-          originalDeliveryFee,
-          productDiscount:
-            verifiedProductDiscount,
-          deliveryDiscount:
-            verifiedDeliveryDiscount,
-          totalDiscount:
-            verifiedTotalDiscount,
-          deliveryFee:
-            verifiedDeliveryFee,
-          totalPrice:
-            verifiedTotalPrice,
-          discountCode:
-            verifiedDiscountCode || null,
-        },
-        email: {
-          provided:
-            customerEmail.length > 0,
-          adminSent:
-            adminEmailSent,
-          customerSent:
-            customerEmailSent,
-        },
-      });
-    }
 
     if (resend) {
       if (notificationEmail) {
@@ -1661,7 +1480,6 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      orderConfirmed: true,
 
       message:
         "Order placed successfully.",
@@ -1756,6 +1574,91 @@ export async function POST(
           error instanceof Error
             ? error.message
             : "Could not place your order.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+export async function GET() {
+  try {
+    if (
+      !supabaseUrl ||
+      !supabaseSecretKey
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Supabase environment variables are missing.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/orders?select=*&order=label_created_at.desc`,
+      {
+        method: "GET",
+
+        headers: {
+          apikey:
+            supabaseSecretKey,
+
+          Authorization:
+            `Bearer ${supabaseSecretKey}`,
+        },
+
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      const errorText =
+        await response.text();
+
+      console.error(
+        "Could not load orders:",
+        errorText
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Could not load orders.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    const orders =
+      await response.json();
+
+    return NextResponse.json({
+      success: true,
+      orders,
+    });
+  } catch (error) {
+    console.error(
+      "Orders GET error:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+
+        message:
+          error instanceof Error
+            ? error.message
+            : "Could not load orders.",
       },
       {
         status: 500,
