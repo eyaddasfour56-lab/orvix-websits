@@ -9,6 +9,7 @@ export default function ConversionMount() {
   const pathname = usePathname();
   const [host, setHost] = useState<HTMLElement | null>(null);
   const isHome = pathname === "/";
+  const isCheckout = pathname === "/checkout";
   const isAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
 
   useEffect(() => {
@@ -26,14 +27,25 @@ export default function ConversionMount() {
 
     const mount = document.createElement("div");
     mount.dataset.orvixConversionMount = "true";
+
+    let checkoutStyle: HTMLStyleElement | null = null;
+
+    if (isCheckout) {
+      checkoutStyle = document.createElement("style");
+      checkoutStyle.textContent =
+        '[data-orvix-conversion-mount="true"] > section { display: none !important; }';
+      document.head.appendChild(checkoutStyle);
+    }
+
     header.insertAdjacentElement("afterend", mount);
     setHost(mount);
 
     return () => {
       setHost(null);
+      checkoutStyle?.remove();
       mount.remove();
     };
-  }, [isAdmin, isHome, pathname]);
+  }, [isAdmin, isCheckout, isHome, pathname]);
 
   if (isHome) {
     return null;
