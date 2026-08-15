@@ -5,6 +5,7 @@ import { LanguageProvider } from "@/components/LanguageProvider";
 import PromoBanner from "@/components/PromoBanner";
 import SiteAnalytics from "@/components/SiteAnalytics";
 import ConversionMount from "@/components/ConversionMount";
+import HomepageQuickOrder from "@/components/HomepageQuickOrder";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -64,6 +65,7 @@ export default function RootLayout({
           </Suspense>
 
           <PromoBanner />
+          <HomepageQuickOrder />
           <ConversionMount />
           {children}
         </LanguageProvider>
