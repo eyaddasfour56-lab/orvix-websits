@@ -8,10 +8,11 @@ import ConversionBoost from "@/components/ConversionBoost";
 export default function ConversionMount() {
   const pathname = usePathname();
   const [host, setHost] = useState<HTMLElement | null>(null);
+  const isHome = pathname === "/";
   const isAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isHome || isAdmin) {
       setHost(null);
       return;
     }
@@ -32,7 +33,11 @@ export default function ConversionMount() {
       setHost(null);
       mount.remove();
     };
-  }, [isAdmin, pathname]);
+  }, [isAdmin, isHome, pathname]);
+
+  if (isHome) {
+    return null;
+  }
 
   if (isAdmin) {
     return <ConversionBoost />;
