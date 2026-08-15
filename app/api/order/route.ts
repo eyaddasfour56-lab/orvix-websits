@@ -27,7 +27,7 @@ const PRODUCT_NAME =
 const PRODUCT_SLUG =
   "google-fitbit-air";
 
-const PRODUCT_PRICE = 7900;
+const PRODUCT_PRICE = 8500;
 
 type DiscountType =
   | "free_delivery"

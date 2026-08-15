@@ -20,7 +20,7 @@ import {
 
 const PRODUCT_NAME = "Google Fitbit Air";
 const PRODUCT_SLUG = "google-fitbit-air";
-const PRODUCT_PRICE = 7900;
+const PRODUCT_PRICE = 8500;
 const CART_STORAGE_KEY = "orvixCart";
 
 const INSTAPAY_LOGO =
