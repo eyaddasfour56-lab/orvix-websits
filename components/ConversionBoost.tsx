@@ -20,19 +20,17 @@ const INSTAGRAM_URL = "https://www.instagram.com/orvix_tech/";
 const copy = {
   en: {
     badge: "LIMITED PRICE DROP",
-    eyebrow: "SMART FITNESS, SIMPLIFIED",
     title: "Google Fitbit Air",
-    description:
-      "Screen-free health and fitness tracking in a lightweight design, with a cleaner ordering experience from ORVIX.",
-    shopNow: "Shop Google Fitbit Air",
-    explore: "See Product Details",
-    code: `Use code ${PROMO_CODE}`,
+    subtitle: "Smarter tracking. Cleaner design.",
+    shopNow: "Order now",
+    explore: "View details",
+    code: `Use ${PROMO_CODE}`,
     saving: "Save 1,100 EGP",
     available: "Available now",
-    lowStock: "Limited stock available",
+    lowStock: "Limited stock",
     unavailable: "Temporarily unavailable",
     battery: "Up to 7-day battery",
-    colours: "3 colour options",
+    colours: "3 colours",
     compatibility: "iOS & Android",
     trust1: "Simple ordering",
     trust1Sub: "Clear checkout, no hidden steps",
@@ -42,7 +40,6 @@ const copy = {
     trust3Sub: "Official ORVIX support channel",
     trust4: "Delivery pricing",
     trust4Sub: "Shown before you confirm",
-    checkout: "CHECKOUT",
     step1: "Your details",
     step2: "Delivery",
     step3: "Review & confirm",
@@ -58,19 +55,17 @@ const copy = {
   },
   ar: {
     badge: "خفض سعر لفترة محدودة",
-    eyebrow: "لياقة ذكية ببساطة",
     title: "Google Fitbit Air",
-    description:
-      "تتبّع للصحة واللياقة بدون شاشة مشتتة، بتصميم خفيف وتجربة طلب أوضح من ORVIX.",
-    shopNow: "اطلب Google Fitbit Air",
-    explore: "شاهد تفاصيل المنتج",
-    code: `استخدم الكود ${PROMO_CODE}`,
+    subtitle: "تتبّع أذكى. تصميم أبسط.",
+    shopNow: "اطلب الآن",
+    explore: "شاهد التفاصيل",
+    code: `استخدم ${PROMO_CODE}`,
     saving: "وفّر 1,100 ج.م",
     available: "متوفر الآن",
-    lowStock: "الكمية المتاحة محدودة",
+    lowStock: "الكمية محدودة",
     unavailable: "غير متوفر مؤقتًا",
     battery: "بطارية حتى 7 أيام",
-    colours: "3 اختيارات ألوان",
+    colours: "3 ألوان",
     compatibility: "iOS و Android",
     trust1: "طلب بسيط",
     trust1Sub: "خطوات واضحة بدون تعقيد",
@@ -80,7 +75,6 @@ const copy = {
     trust3Sub: "عبر قناة ORVIX الرسمية",
     trust4: "سعر التوصيل",
     trust4Sub: "يظهر قبل تأكيد الطلب",
-    checkout: "إتمام الطلب",
     step1: "بياناتك",
     step2: "التوصيل",
     step3: "المراجعة والتأكيد",
@@ -148,7 +142,11 @@ export default function ConversionBoost() {
     if (product.status !== "available" || product.allowPurchase === false) {
       return t.unavailable;
     }
-    if (typeof product.stockQuantity === "number" && product.stockQuantity > 0 && product.stockQuantity <= 5) {
+    if (
+      typeof product.stockQuantity === "number" &&
+      product.stockQuantity > 0 &&
+      product.stockQuantity <= 5
+    ) {
       return t.lowStock;
     }
     return t.available;
@@ -185,100 +183,90 @@ export default function ConversionBoost() {
   return (
     <>
       {isHome && (
-        <section className="relative overflow-hidden border-b border-white/10 bg-[#050505] px-4 py-10 text-white sm:px-6 sm:py-16">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_72%_35%,rgba(43,103,255,0.18),transparent_34%),radial-gradient(circle_at_15%_20%,rgba(255,255,255,0.07),transparent_26%)]" />
+        <section className="border-b border-white/10 bg-[#050505] px-4 py-5 text-white sm:px-6 sm:py-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="relative overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_86%_38%,rgba(37,99,235,0.28),transparent_34%),linear-gradient(120deg,#0a0a0a_0%,#0a0d16_58%,#07152f_100%)] shadow-[0_24px_70px_rgba(0,0,0,0.35)]">
+              <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(255,255,255,.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.035)_1px,transparent_1px)] [background-size:36px_36px]" />
 
-          <div className="relative mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
-            <div className={isArabic ? "text-right" : "text-left"}>
-              <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/25 bg-blue-500/10 px-4 py-2 text-xs font-black tracking-[0.16em] text-blue-100">
-                <span className="h-2 w-2 rounded-full bg-blue-300 shadow-[0_0_16px_rgba(147,197,253,0.8)]" />
-                {t.badge}
-              </div>
+              <div className="relative grid min-h-[390px] grid-cols-[1.15fr_0.85fr] items-center sm:min-h-[430px] lg:grid-cols-[0.9fr_1.1fr]">
+                <div className={`z-10 px-5 py-7 sm:px-8 sm:py-10 lg:px-12 ${isArabic ? "text-right" : "text-left"}`}>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-blue-300/20 bg-blue-400/10 px-3 py-2 text-[10px] font-black tracking-[0.15em] text-blue-100 sm:text-xs">
+                    <span className="h-1.5 w-1.5 rounded-full bg-blue-300 shadow-[0_0_12px_rgba(147,197,253,0.9)]" />
+                    {t.badge}
+                  </div>
 
-              <p className="mt-7 text-xs font-black uppercase tracking-[0.35em] text-white/45">
-                {t.eyebrow}
-              </p>
+                  <h1 className="mt-5 max-w-xl text-3xl font-black leading-[0.94] tracking-[-0.045em] sm:text-5xl lg:text-6xl">
+                    {t.title}
+                  </h1>
 
-              <h1 className="mt-4 max-w-3xl text-5xl font-black leading-[0.95] tracking-[-0.045em] sm:text-7xl lg:text-8xl">
-                {t.title}
-              </h1>
+                  <p className="mt-3 text-sm font-semibold text-white/50 sm:text-base">
+                    {t.subtitle}
+                  </p>
 
-              <p className="mt-6 max-w-2xl text-base leading-7 text-white/60 sm:text-lg sm:leading-8">
-                {t.description}
-              </p>
+                  <div className="mt-6 flex flex-wrap items-end gap-x-3 gap-y-1">
+                    <span className="text-sm font-bold text-white/30 line-through sm:text-base">
+                      <Money value={LIST_PRICE} />
+                    </span>
+                    <span className="text-3xl font-black tracking-tight sm:text-4xl lg:text-5xl">
+                      <Money value={PROMO_PRICE} />
+                    </span>
+                  </div>
 
-              <div className="mt-7 flex flex-wrap items-end gap-x-4 gap-y-2">
-                <span className="text-lg font-bold text-white/35 line-through">
-                  <Money value={LIST_PRICE} />
-                </span>
-                <span className="text-4xl font-black tracking-tight sm:text-5xl">
-                  <Money value={PROMO_PRICE} />
-                </span>
-                <span className="mb-1 rounded-full bg-emerald-400/10 px-3 py-1.5 text-xs font-black text-emerald-200">
-                  {t.saving}
-                </span>
-              </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-emerald-300/15 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-black text-emerald-200 sm:text-xs">
+                      {t.saving}
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-black text-white/70 sm:text-xs">
+                      {t.code}
+                    </span>
+                  </div>
 
-              <div className="mt-4 flex flex-wrap items-center gap-3 text-sm font-bold text-white/55">
-                <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-2">
-                  {t.code}
-                </span>
-                <span>{availabilityLabel}</span>
-              </div>
-
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Link
-                  href={canOrder ? "/checkout?colour=Black&quantity=1" : "/products/google-fitbit-air"}
-                  className="inline-flex min-h-14 items-center justify-center rounded-full bg-white px-7 py-4 text-base font-black text-black transition hover:scale-[1.015] hover:bg-blue-50 active:scale-95"
-                >
-                  {canOrder ? t.shopNow : t.explore}
-                </Link>
-
-                <Link
-                  href="/products/google-fitbit-air"
-                  className="inline-flex min-h-14 items-center justify-center rounded-full border border-white/15 bg-white/[0.04] px-7 py-4 text-base font-black text-white transition hover:bg-white/[0.09]"
-                >
-                  {t.explore}
-                </Link>
-              </div>
-
-              <div className="mt-7 flex flex-wrap gap-2 text-xs font-bold text-white/45 sm:text-sm">
-                {[t.battery, t.colours, t.compatibility].map((item) => (
-                  <span key={item} className="rounded-full border border-white/10 px-3 py-2">
-                    {item}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="relative mx-auto w-full max-w-xl">
-              <div className="absolute inset-10 rounded-full bg-blue-500/20 blur-3xl" />
-              <div className="relative overflow-hidden rounded-[38px] border border-white/10 bg-gradient-to-b from-white to-[#e9eefc] p-6 shadow-[0_32px_100px_rgba(0,0,0,0.42)] sm:p-10">
-                <Image
-                  src="/black.png"
-                  alt="Google Fitbit Air in Black"
-                  width={900}
-                  height={900}
-                  priority
-                  sizes="(max-width: 1024px) 90vw, 42vw"
-                  className="mx-auto aspect-square w-full object-contain drop-shadow-[0_22px_35px_rgba(0,0,0,0.28)]"
-                />
-
-                <div className="mt-4 grid grid-cols-3 gap-2">
-                  {[
-                    ["Black", "bg-[#151515]"],
-                    ["Lavender", "bg-[#b7a7d8]"],
-                    ["Berry", "bg-[#8c3157]"],
-                  ].map(([name, colourClass]) => (
-                    <div
-                      key={name}
-                      className="flex items-center justify-center gap-2 rounded-2xl border border-black/10 bg-white/75 px-2 py-3 text-xs font-black text-black"
+                  <div className="mt-6 flex items-center gap-3">
+                    <Link
+                      href={canOrder ? "/checkout?colour=Black&quantity=1" : "/products/google-fitbit-air"}
+                      className="inline-flex min-h-12 items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-black text-black transition hover:scale-[1.015] hover:bg-blue-50 active:scale-95 sm:px-7"
                     >
-                      <span className={`h-3 w-3 rounded-full ${colourClass}`} />
-                      {name}
-                    </div>
-                  ))}
+                      {canOrder ? t.shopNow : t.explore}
+                    </Link>
+
+                    <Link
+                      href="/products/google-fitbit-air"
+                      className="hidden text-sm font-black text-white/60 underline-offset-4 transition hover:text-white hover:underline sm:inline"
+                    >
+                      {t.explore} →
+                    </Link>
+                  </div>
+
+                  <div className="mt-5 flex items-center gap-2 text-[10px] font-bold text-white/40 sm:text-xs">
+                    <span>{availabilityLabel}</span>
+                    <span>•</span>
+                    <span>{t.battery}</span>
+                  </div>
                 </div>
+
+                <div className="relative flex h-full items-center justify-center overflow-hidden pr-2 sm:pr-6 lg:pr-10">
+                  <div className="absolute right-[-15%] top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-blue-500/25 blur-3xl sm:h-96 sm:w-96" />
+                  <Image
+                    src="/black.png"
+                    alt="Google Fitbit Air in Black"
+                    width={760}
+                    height={760}
+                    priority
+                    sizes="(max-width: 640px) 42vw, (max-width: 1024px) 44vw, 42vw"
+                    className="relative z-10 w-[155%] max-w-none object-contain drop-shadow-[0_24px_34px_rgba(0,0,0,0.48)] sm:w-[115%] lg:w-full"
+                  />
+                </div>
+              </div>
+
+              <div className="relative grid grid-cols-3 border-t border-white/10 bg-black/20 px-3 py-3 text-center text-[10px] font-bold text-white/55 sm:px-6 sm:text-xs">
+                {[t.battery, t.colours, t.compatibility].map((item, index) => (
+                  <div
+                    key={item}
+                    className={`px-2 ${index > 0 ? "border-l border-white/10" : ""}`}
+                  >
+                    {item}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -289,7 +277,10 @@ export default function ConversionBoost() {
         <section className="border-b border-white/10 bg-[#090909] px-4 py-4 text-white sm:px-6">
           <div className="mx-auto grid max-w-7xl gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {trustItems.map(([icon, title, description]) => (
-              <div key={title} className="flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] px-4 py-3">
+              <div
+                key={title}
+                className="flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] px-4 py-3"
+              >
                 <TrustIcon>{icon}</TrustIcon>
                 <div>
                   <p className="text-sm font-black">{title}</p>
@@ -323,7 +314,10 @@ export default function ConversionBoost() {
               <p className="font-black">{t.successTitle}</p>
               <p className="mt-1 text-sm leading-6 text-white/50">{t.successText}</p>
             </div>
-            <Link href="/track-order" className="shrink-0 rounded-full bg-white px-5 py-3 text-sm font-black text-black">
+            <Link
+              href="/track-order"
+              className="shrink-0 rounded-full bg-white px-5 py-3 text-sm font-black text-black"
+            >
               {t.track}
             </Link>
           </div>
@@ -334,10 +328,16 @@ export default function ConversionBoost() {
         <div className="fixed inset-x-0 bottom-0 z-[85] border-t border-white/10 bg-black/90 px-3 py-3 text-white shadow-[0_-16px_50px_rgba(0,0,0,0.36)] backdrop-blur-xl sm:hidden">
           <div className="mx-auto flex max-w-xl items-center gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-200">{t.stickyLabel}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-200">
+                {t.stickyLabel}
+              </p>
               <div className="mt-0.5 flex items-center gap-2">
-                <span className="text-xs font-bold text-white/35 line-through"><Money value={LIST_PRICE} /></span>
-                <span className="text-lg font-black"><Money value={PROMO_PRICE} /></span>
+                <span className="text-xs font-bold text-white/35 line-through">
+                  <Money value={LIST_PRICE} />
+                </span>
+                <span className="text-lg font-black">
+                  <Money value={PROMO_PRICE} />
+                </span>
               </div>
             </div>
             <Link
