@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import { LanguageProvider } from "@/components/LanguageProvider";
+import PromoBanner from "@/components/PromoBanner";
 import SiteAnalytics from "@/components/SiteAnalytics";
 import "./globals.css";
 
@@ -61,6 +62,7 @@ export default function RootLayout({
             <SiteAnalytics />
           </Suspense>
 
+          <PromoBanner />
           {children}
         </LanguageProvider>
       </body>
