@@ -80,51 +80,51 @@ export default function PromoBanner() {
   }
 
   return (
-    <div className="relative z-[60] overflow-hidden border-b border-yellow-300/35 bg-[radial-gradient(circle_at_top,#123e86_0%,#071a3f_42%,#02060f_100%)] text-white shadow-[0_12px_45px_rgba(0,0,0,0.38)]">
-      <div className="relative mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="relative z-[60] overflow-hidden border-b border-yellow-300/35 bg-[radial-gradient(circle_at_top,#123e86_0%,#071a3f_42%,#02060f_100%)] text-white shadow-[0_10px_34px_rgba(0,0,0,0.34)]">
+      <div className="relative mx-auto max-w-7xl px-3 py-2.5 sm:px-6 sm:py-3.5">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
               <motion.span
                 animate={
                   reduceMotion
                     ? undefined
-                    : { scale: [1, 1.07, 1] }
+                    : { scale: [1, 1.05, 1] }
                 }
                 transition={
                   reduceMotion
                     ? undefined
                     : {
-                        duration: 1.35,
+                        duration: 1.5,
                         repeat: Infinity,
                         ease: "easeInOut",
                       }
                 }
-                className="rounded-full bg-yellow-300 px-3 py-1.5 text-[10px] font-black tracking-[0.18em] text-black shadow-[0_0_25px_rgba(253,224,71,0.35)] sm:text-xs"
+                className="rounded-full bg-yellow-300 px-2.5 py-1 text-[9px] font-black tracking-[0.15em] text-black shadow-[0_0_18px_rgba(253,224,71,0.3)] sm:px-3 sm:text-[10px]"
               >
                 {copy.badge}
               </motion.span>
 
-              <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[10px] font-black tracking-[0.14em] text-blue-100 sm:text-xs">
+              <span className="rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[9px] font-black tracking-[0.11em] text-blue-100 sm:text-[10px]">
                 {copy.product}
               </span>
             </div>
 
-            <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-1">
-              <h2 className="text-2xl font-black leading-none tracking-tight sm:text-3xl md:text-4xl">
+            <div className="mt-2 flex flex-wrap items-end gap-x-2 gap-y-1">
+              <h2 className="text-lg font-black leading-none tracking-tight sm:text-2xl md:text-3xl">
                 {copy.headline}
               </h2>
 
-              <span className="rounded-full bg-emerald-400/15 px-2.5 py-1 text-[10px] font-black tracking-[0.12em] text-emerald-300 sm:text-xs">
+              <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[9px] font-black tracking-[0.1em] text-emerald-300 sm:text-[10px]">
                 {copy.save}
               </span>
             </div>
 
-            <div className="mt-3 flex items-center gap-3">
-              <span className="text-base font-bold text-white/45 line-through sm:text-lg">
+            <div className="mt-2 flex items-center gap-2.5">
+              <span className="text-sm font-bold text-white/45 line-through sm:text-base">
                 8,500 EGP
               </span>
-              <span className="text-3xl font-black leading-none text-yellow-300 drop-shadow-[0_0_18px_rgba(253,224,71,0.35)] sm:text-4xl">
+              <span className="text-2xl font-black leading-none text-yellow-300 drop-shadow-[0_0_12px_rgba(253,224,71,0.32)] sm:text-3xl">
                 7,400 EGP
               </span>
             </div>
@@ -134,10 +134,10 @@ export default function PromoBanner() {
             <button
               type="button"
               onClick={copyCode}
-              className="flex-1 rounded-2xl border border-white/20 bg-white px-4 py-3 text-center text-[11px] font-black tracking-[0.14em] text-[#0b2454] shadow-lg transition hover:scale-[1.02] hover:bg-blue-50 active:scale-95 sm:flex-none sm:rounded-full sm:px-5 sm:text-xs"
+              className="flex-1 rounded-xl border border-white/20 bg-white px-3 py-2 text-center text-[10px] font-black tracking-[0.12em] text-[#0b2454] shadow-md transition hover:scale-[1.02] hover:bg-blue-50 active:scale-95 sm:flex-none sm:rounded-full sm:px-4 sm:text-[11px]"
               aria-label={`${copy.codeLabel}: ${PROMO_CODE}`}
             >
-              <span className="block text-[8px] font-black tracking-[0.16em] text-[#54709f] sm:text-[9px]">
+              <span className="block text-[7px] font-black tracking-[0.14em] text-[#54709f] sm:text-[8px]">
                 {copy.codeLabel}
               </span>
               <span className="mt-0.5 block">
@@ -147,7 +147,7 @@ export default function PromoBanner() {
 
             <Link
               href="/products/google-fitbit-air"
-              className="flex-1 rounded-2xl bg-yellow-300 px-4 py-3 text-center text-[11px] font-black tracking-[0.12em] text-black shadow-[0_0_24px_rgba(253,224,71,0.28)] transition hover:scale-[1.02] hover:bg-yellow-200 active:scale-95 sm:flex-none sm:rounded-full sm:px-6 sm:text-xs"
+              className="flex-1 rounded-xl bg-yellow-300 px-3 py-2 text-center text-[10px] font-black tracking-[0.1em] text-black shadow-[0_0_18px_rgba(253,224,71,0.24)] transition hover:scale-[1.02] hover:bg-yellow-200 active:scale-95 sm:flex-none sm:rounded-full sm:px-5 sm:text-[11px]"
             >
               {copy.shopNow}
             </Link>
@@ -158,13 +158,13 @@ export default function PromoBanner() {
       {!reduceMotion && (
         <motion.div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 w-32 bg-gradient-to-r from-transparent via-white/12 to-transparent blur-sm"
+          className="pointer-events-none absolute inset-y-0 w-28 bg-gradient-to-r from-transparent via-white/10 to-transparent blur-sm"
           initial={{ x: "-180%" }}
           animate={{ x: "1500%" }}
           transition={{
-            duration: 4.5,
+            duration: 4.8,
             repeat: Infinity,
-            repeatDelay: 1.2,
+            repeatDelay: 1.4,
             ease: "linear",
           }}
         />
