@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import PromoBanner from "@/components/PromoBanner";
 import SiteAnalytics from "@/components/SiteAnalytics";
+import ConversionMount from "@/components/ConversionMount";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -63,6 +64,7 @@ export default function RootLayout({
           </Suspense>
 
           <PromoBanner />
+          <ConversionMount />
           {children}
         </LanguageProvider>
       </body>
