@@ -9,11 +9,11 @@ import { useLanguage } from "@/components/LanguageProvider";
 
 const copyByLanguage = {
   en: {
-    received: "Details received",
+    received: "Order not confirmed",
     title:
-      "Ordering is not available right now",
+      "Your order can't be placed right now",
     description:
-      "No order has been confirmed. We saved your details and ORVIX will contact you when ordering becomes available.",
+      "We couldn't confirm your order right now. Your details were sent to ORVIX and the team will contact you about availability.",
     reference: "Your request reference",
     copied: "Copied ✓",
     copyReference: "Copy Reference",
@@ -22,10 +22,10 @@ const copyByLanguage = {
     backHome: "Back to ORVIX",
   },
   ar: {
-    received: "تم استلام البيانات",
-    title: "الطلب غير متاح حاليًا",
+    received: "لم يتم تأكيد الطلب",
+    title: "تعذر تنفيذ طلبك حاليًا",
     description:
-      "لم يتم تأكيد أي طلب. حفظنا بياناتك وسيتواصل معك فريق ORVIX عندما يصبح الطلب متاحًا.",
+      "تعذر تأكيد طلبك حاليًا. وصلت بياناتك إلى ORVIX وسيتواصل معك الفريق بخصوص التوافر.",
     reference: "الرقم المرجعي لطلب التواصل",
     copied: "تم النسخ ✓",
     copyReference: "نسخ الرقم المرجعي",

@@ -44,21 +44,21 @@ export const checkoutCopy = {
       "Please press Apply to verify your discount code before placing the order.",
     orderError: "Could not place your order.",
     requestError:
-      "Could not send your details. Please try again.",
+      "Could not submit your order. Please try again.",
     orderNumberError:
       "Your order was saved, but the order number was not returned.",
     eyebrow: "Secure checkout",
     title: "Complete your order",
     intro:
       "Review your product, enter your delivery information, then pay the products total to ORVIX through InstaPay when your order arrives. The courier collects only the delivery fee.",
-    requestEyebrow: "Availability request",
-    requestTitle: "Leave your order details",
+    requestEyebrow: "Secure checkout",
+    requestTitle: "Complete your order",
     requestIntro:
-      "Online ordering is temporarily unavailable. Enter your details and ORVIX will contact you when your order can be confirmed.",
+      "Review your product and enter your delivery details, then press Confirm order. ORVIX will check availability immediately.",
     requestNoPaymentTitle:
-      "No payment or confirmed order",
+      "Availability check",
     requestNoPaymentBody:
-      "The total is shown for reference only. Do not send any money. ORVIX will contact you before an order is confirmed.",
+      "No payment is taken now. Your details will be sent to ORVIX, and the order is only confirmed after ORVIX contacts you.",
     yourProduct: "Your product",
     fitnessTracker: "Fitness tracker",
     each: "each",
@@ -130,16 +130,16 @@ export const checkoutCopy = {
     paymentSafety:
       "No advance payment is required. ORVIX's verified InstaPay details will be provided when your order is confirmed. Never send the products total to the courier.",
     placing: "Placing order...",
-    sendingRequest: "Sending your details...",
+    sendingRequest: "Confirming order...",
     checkingDiscount: "Checking discount...",
     placeOrder: (total: string) =>
       `Place order — ${total} EGP`,
     requestOrder: (total: string) =>
-      `Send details — ${total} EGP`,
+      `Confirm order — ${total} EGP`,
     confirmation:
       "By placing your order, you confirm that the provided information is correct.",
     requestConfirmation:
-      "By sending your details, you agree that ORVIX may contact you about availability. This does not confirm an order and no payment is required.",
+      "By pressing Confirm order, you agree that ORVIX receives your details to check availability. The order is not final until ORVIX contacts you.",
     keepPageOpen:
       "Please do not close or refresh this page.",
     rights: "All rights reserved.",
@@ -188,21 +188,21 @@ export const checkoutCopy = {
       "اضغط تطبيق للتحقق من كود الخصم قبل تأكيد الطلب.",
     orderError: "تعذر إنشاء طلبك.",
     requestError:
-      "تعذر إرسال بياناتك. حاول مرة أخرى.",
+      "تعذر إرسال طلبك. حاول مرة أخرى.",
     orderNumberError:
       "تم حفظ طلبك، لكن لم يصلنا رقم الطلب.",
     eyebrow: "إتمام آمن للطلب",
     title: "أكمل طلبك",
     intro:
       "راجع المنتج وأدخل بيانات التوصيل، ثم ادفع إجمالي المنتجات إلى ORVIX عبر InstaPay عند وصول الطلب. يحصل مندوب الشحن على رسوم التوصيل فقط.",
-    requestEyebrow: "طلب توافر المنتج",
-    requestTitle: "اترك بيانات طلبك",
+    requestEyebrow: "إتمام آمن للطلب",
+    requestTitle: "أكمل طلبك",
     requestIntro:
-      "الطلب أونلاين غير متاح مؤقتًا. أدخل بياناتك وسيتواصل معك فريق ORVIX عندما يصبح تأكيد الطلب متاحًا.",
+      "راجع المنتج وأدخل بيانات التوصيل ثم اضغط تأكيد الطلب. سيتحقق فريق ORVIX من التوافر فورًا.",
     requestNoPaymentTitle:
-      "لا يوجد دفع أو طلب مؤكد",
+      "التحقق من التوافر",
     requestNoPaymentBody:
-      "الإجمالي ظاهر للعلم فقط. لا ترسل أي مبلغ؛ سيتواصل معك فريق ORVIX قبل تأكيد أي طلب.",
+      "لن يتم تحصيل أي مبلغ الآن. ستصل بياناتك إلى ORVIX، ولا يصبح الطلب نهائيًا إلا بعد تواصل الفريق معك.",
     yourProduct: "منتجك",
     fitnessTracker: "جهاز تتبّع اللياقة",
     each: "للقطعة",
@@ -271,16 +271,16 @@ export const checkoutCopy = {
     paymentSafety:
       "لا يلزم دفع أي مبلغ مقدمًا. ستحصل على بيانات InstaPay الموثقة من ORVIX بعد تأكيد الطلب. لا ترسل قيمة المنتجات إلى مندوب الشحن.",
     placing: "جارٍ إنشاء الطلب...",
-    sendingRequest: "جارٍ إرسال بياناتك...",
+    sendingRequest: "جارٍ تأكيد الطلب...",
     checkingDiscount: "جارٍ التحقق من الخصم...",
     placeOrder: (total: string) =>
       `تأكيد الطلب — ${total} ج.م`,
     requestOrder: (total: string) =>
-      `إرسال البيانات — ${total} ج.م`,
+      `تأكيد الطلب — ${total} ج.م`,
     confirmation:
       "بتأكيد الطلب، تقر بأن البيانات التي أدخلتها صحيحة.",
     requestConfirmation:
-      "بإرسال بياناتك، توافق على تواصل ORVIX معك بخصوص التوافر. هذا لا يؤكد الطلب ولا يتطلب أي دفع.",
+      "بالضغط على تأكيد الطلب، توافق على وصول بياناتك إلى ORVIX للتحقق من التوافر. الطلب لا يصبح نهائيًا إلا بعد تواصل ORVIX معك.",
     keepPageOpen:
       "من فضلك لا تغلق هذه الصفحة أو تحدّثها.",
     rights: "جميع الحقوق محفوظة.",

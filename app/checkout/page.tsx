@@ -2099,12 +2099,12 @@ export default function CheckoutPage() {
               </div>
 
               {ORDER_CAPTURE_ONLY ? (
-                <div className="mt-7 rounded-3xl border border-amber-400/25 bg-amber-400/10 p-5">
-                  <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-200">
+                <div className="mt-7 rounded-3xl border border-violet-500/25 bg-violet-500/10 p-5">
+                  <p className="text-sm font-black uppercase tracking-[0.2em] text-violet-200">
                     {copy.requestNoPaymentTitle}
                   </p>
 
-                  <p className="mt-3 text-sm leading-6 text-amber-100/80">
+                  <p className="mt-3 text-sm leading-6 text-violet-100/80">
                     {copy.requestNoPaymentBody}
                   </p>
                 </div>

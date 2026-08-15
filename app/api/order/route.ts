@@ -1070,10 +1070,10 @@ export async function POST(
                 from: senderEmail,
                 to: notificationEmail,
                 subject:
-                  `New ORVIX availability request — ${orderNumber}`,
+                  `New ORVIX order attempt — ${orderNumber}`,
                 html: `
                   <div style="font-family:Arial,sans-serif;max-width:650px;margin:0 auto;padding:24px;color:#111;">
-                    <h1>New availability request</h1>
+                    <h1>Order could not be confirmed</h1>
 
                     <p style="background:#fff7ed;border:1px solid #fdba74;border-radius:14px;padding:16px;line-height:1.6;">
                       <strong>This is not a confirmed order.</strong><br />
@@ -1136,15 +1136,15 @@ export async function POST(
                 from: senderEmail,
                 to: customerEmail,
                 subject:
-                  `ORVIX details received — ${orderNumber}`,
+                  `ORVIX order not confirmed — ${orderNumber}`,
                 html: `
                   <div style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;padding:24px;color:#111;background:#fff;">
                     <p style="letter-spacing:5px;font-weight:700;text-align:center;">ORVIX</p>
 
-                    <h1 style="text-align:center;margin-top:24px;">Your details were received</h1>
+                    <h1 style="text-align:center;margin-top:24px;">Your order couldn't be placed right now</h1>
 
                     <p style="color:#555;line-height:1.7;text-align:center;">
-                      Thank you, ${safeFullName}. Online ordering is temporarily unavailable. Your details have been saved and ORVIX will contact you when your order can be confirmed.
+                      Thank you, ${safeFullName}. We couldn't confirm your order right now. Your details were sent to ORVIX and the team will contact you about availability.
                     </p>
 
                     <div style="background:#111;color:#fff;border-radius:18px;padding:22px;text-align:center;margin-top:24px;">
@@ -1185,7 +1185,7 @@ export async function POST(
         success: true,
         orderConfirmed: false,
         message:
-          "Ordering is temporarily unavailable. Your details were received and ORVIX will contact you.",
+          "Your order can't be placed right now. Your details were sent to ORVIX and the team will contact you.",
         orderNumber,
         referenceNumber: orderNumber,
         orderStatus:
