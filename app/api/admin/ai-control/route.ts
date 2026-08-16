@@ -30,10 +30,19 @@ function headers(key: string, extra?: Record<string, string>) {
 
 function aiConfigured() {
   return Boolean(
-    process.env.AI_GATEWAY_API_KEY ||
+    process.env.VERCEL ||
+      process.env.AI_GATEWAY_API_KEY ||
       process.env.VERCEL_OIDC_TOKEN ||
       process.env.OPENAI_API_KEY
   );
+}
+
+function aiProvider() {
+  if (process.env.VERCEL || process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN) {
+    return "Vercel AI Gateway";
+  }
+  if (process.env.OPENAI_API_KEY) return "OpenAI API";
+  return "Unavailable";
 }
 
 export async function GET(request: NextRequest) {
@@ -60,11 +69,7 @@ export async function GET(request: NextRequest) {
     success: true,
     enabled: Boolean(rows[0]?.ai_auto_reply),
     configured: aiConfigured(),
-    provider: process.env.VERCEL_OIDC_TOKEN || process.env.AI_GATEWAY_API_KEY
-      ? "Vercel AI Gateway"
-      : process.env.OPENAI_API_KEY
-        ? "OpenAI API"
-        : "Unavailable",
+    provider: aiProvider(),
   });
 }
 
@@ -100,5 +105,6 @@ export async function POST(request: NextRequest) {
     success: true,
     enabled,
     configured: aiConfigured(),
+    provider: aiProvider(),
   });
 }
