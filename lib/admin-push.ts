@@ -2,7 +2,7 @@ import { createPrivateKey, sign } from "crypto";
 
 type PushConfig = {
   vapid_public_key: string;
-  vapid_private_jwk: JsonWebKey;
+  vapid_private_jwk: Record<string, string>;
   webhook_token: string;
   subject: string;
 };
@@ -127,7 +127,7 @@ function createVapidJwt(endpoint: string, config: PushConfig) {
   );
   const unsigned = `${jwtHeader}.${jwtPayload}`;
   const privateKey = createPrivateKey({
-    key: config.vapid_private_jwk,
+    key: config.vapid_private_jwk as never,
     format: "jwk",
   });
   const signature = sign("sha256", Buffer.from(unsigned), {
