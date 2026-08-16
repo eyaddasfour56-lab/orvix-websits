@@ -2,6 +2,9 @@
   "name": "orvix-website",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "predev": "node scripts/sync-product-price.mjs",
     "dev": "next dev",
@@ -11,6 +14,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "ai": "7.0.44",
     "motion": "^13.1.0",
     "next": "16.2.12",
     "react": "19.2.4",
