@@ -9,6 +9,7 @@ import HomepageQuickOrder from "@/components/HomepageQuickOrder";
 import CheckoutCompactPolish from "@/components/CheckoutCompactPolish";
 import PaymentMethodSelector from "@/components/PaymentMethodSelector";
 import CustomerServiceLink from "@/components/CustomerServiceLink";
+import CustomerAiTrigger from "@/components/CustomerAiTrigger";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -72,6 +73,7 @@ export default function RootLayout({
           <CheckoutCompactPolish />
           <PaymentMethodSelector />
           <ConversionMount />
+          <CustomerAiTrigger />
           {children}
           <CustomerServiceLink />
         </LanguageProvider>
