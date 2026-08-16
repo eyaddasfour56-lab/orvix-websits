@@ -7,6 +7,7 @@ import SiteAnalytics from "@/components/SiteAnalytics";
 import ConversionMount from "@/components/ConversionMount";
 import HomepageQuickOrder from "@/components/HomepageQuickOrder";
 import CheckoutCompactPolish from "@/components/CheckoutCompactPolish";
+import PaymentMethodSelector from "@/components/PaymentMethodSelector";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -68,6 +69,7 @@ export default function RootLayout({
           <PromoBanner />
           <HomepageQuickOrder />
           <CheckoutCompactPolish />
+          <PaymentMethodSelector />
           <ConversionMount />
           {children}
         </LanguageProvider>
