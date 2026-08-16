@@ -58,8 +58,8 @@ export async function POST(request: NextRequest) {
       const total = money(order.total_price);
       const result = await notifyAdmin({
         kind: "order",
-        title: `🛍️ Order placed · ${total} EGP`,
-        body: `${clean(order.customer_name, 70)} · ${clean(order.order_number, 80)} · ${Number(order.quantity || 1)}× ${clean(order.product_name || "ORVIX product", 80)}`,
+        title: `Order placed · ${total} EGP`,
+        body: `${clean(order.customer_name, 70)} · ${clean(order.order_number, 80)} · ${Number(order.quantity || 1)}× ${clean(order.product_name || "Product", 80)}`,
         targetUrl: `/admin?order=${encodeURIComponent(String(order.order_number || ""))}`,
         eventKey: `order:${order.id}`,
       });
@@ -87,12 +87,13 @@ export async function POST(request: NextRequest) {
       if (!session) return NextResponse.json({ success: false }, { status: 404 });
 
       const human = session.support_mode === "human" || Boolean(session.human_requested);
+      const customerName = clean(session.customer_name, 70) || "Customer";
+      const messageText = clean(message.body, 180) || "New message";
+
       const result = await notifyAdmin({
         kind: human ? "human" : "chat",
-        title: human
-          ? `💬 Human Support · ${clean(session.customer_name, 70)}`
-          : `💬 New customer message · ${clean(session.customer_name, 70)}`,
-        body: clean(message.body, 220) || "New customer message",
+        title: human ? "Human support message" : "New customer message",
+        body: `${customerName}: ${messageText}`,
         targetUrl: `/admin/chats?conversation=${encodeURIComponent(String(session.id))}`,
         eventKey: `chat:${message.id}`,
       });
@@ -111,8 +112,8 @@ export async function POST(request: NextRequest) {
 
       const result = await notifyAdmin({
         kind: "human",
-        title: "🧑‍💬 Human support requested",
-        body: `${clean(session.customer_name, 80)} wants to speak with Customer Service now.`,
+        title: "Human support requested",
+        body: `${clean(session.customer_name, 80) || "Customer"} wants Customer Service.`,
         targetUrl: `/admin/chats?conversation=${encodeURIComponent(String(session.id))}`,
         eventKey: `human:${session.id}`,
       });
