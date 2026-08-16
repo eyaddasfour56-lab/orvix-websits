@@ -1618,14 +1618,22 @@ export default function AdminPage() {
   function saveOrderAsPng(
     order: Order
   ) {
-    const orvixCollection =
-      getOrvixCollection(order);
-
-    const courierCollection =
-      getCourierCollection(order);
+    const isCashOnDelivery =
+      order.payment_method ===
+      "cash_on_delivery";
 
     const calculatedTotal =
       getCalculatedOrderTotal(order);
+
+    const orvixCollection =
+      isCashOnDelivery
+        ? 0
+        : getOrvixCollection(order);
+
+    const courierCollection =
+      isCashOnDelivery
+        ? calculatedTotal
+        : getCourierCollection(order);
 
     const canvas =
       document.createElement(
@@ -1761,15 +1769,21 @@ export default function AdminPage() {
       },
       {
         title: "تحصيل ORVIX",
-        value: `${formatMoney(
-          orvixCollection
-        )} جنيه عبر InstaPay`,
+        value: isCashOnDelivery
+          ? "لا يوجد - الدفع كاش للمندوب"
+          : `${formatMoney(
+              orvixCollection
+            )} جنيه عبر InstaPay`,
       },
       {
         title: "تحصيل المندوب",
-        value: `${formatMoney(
-          courierCollection
-        )} جنيه - الشحن فقط`,
+        value: isCashOnDelivery
+          ? `${formatMoney(
+              courierCollection
+            )} جنيه - إجمالي الأوردر كاش`
+          : `${formatMoney(
+              courierCollection
+            )} جنيه - الشحن فقط`,
       },
       {
         title: "ملاحظات",
@@ -1856,9 +1870,11 @@ export default function AdminPage() {
       "bold 27px Arial";
 
     context.fillText(
-      `تحويل إلى ORVIX عبر InstaPay: ${formatMoney(
-        orvixCollection
-      )} جنيه`,
+      isCashOnDelivery
+        ? "الدفع: كاش عند الاستلام للمندوب"
+        : `تحويل إلى ORVIX عبر InstaPay: ${formatMoney(
+            orvixCollection
+          )} جنيه`,
       canvas.width / 2,
       totalBoxY + 75,
       canvas.width - 150
@@ -1868,9 +1884,13 @@ export default function AdminPage() {
       "bold 29px Arial";
 
     context.fillText(
-      `تحصيل المندوب: ${formatMoney(
-        courierCollection
-      )} جنيه - مصاريف الشحن فقط`,
+      isCashOnDelivery
+        ? `تحصيل المندوب: ${formatMoney(
+            courierCollection
+          )} جنيه - إجمالي الأوردر`
+        : `تحصيل المندوب: ${formatMoney(
+            courierCollection
+          )} جنيه - مصاريف الشحن فقط`,
       canvas.width / 2,
       totalBoxY + 115,
       canvas.width - 150
@@ -3346,14 +3366,22 @@ function ShippingLabel({
 }: {
   order: Order;
 }) {
-  const orvixCollection =
-    getOrvixCollection(order);
-
-  const courierCollection =
-    getCourierCollection(order);
+  const isCashOnDelivery =
+    order.payment_method ===
+    "cash_on_delivery";
 
   const calculatedTotal =
     getCalculatedOrderTotal(order);
+
+  const orvixCollection =
+    isCashOnDelivery
+      ? 0
+      : getOrvixCollection(order);
+
+  const courierCollection =
+    isCashOnDelivery
+      ? calculatedTotal
+      : getCourierCollection(order);
 
   return (
     <article
@@ -3423,17 +3451,27 @@ function ShippingLabel({
         />
 
         <LabelInformation
-          title="قيمة منتجات ORVIX"
-          value={`${formatMoney(
-            orvixCollection
-          )} جنيه`}
+          title="تحصيل ORVIX"
+          value={
+            isCashOnDelivery
+              ? "لا يوجد - الدفع كاش للمندوب"
+              : `${formatMoney(
+                  orvixCollection
+                )} جنيه عبر InstaPay`
+          }
         />
 
         <LabelInformation
           title="تحصيل المندوب"
-          value={`${formatMoney(
-            courierCollection
-          )} جنيه - مصاريف الشحن فقط`}
+          value={
+            isCashOnDelivery
+              ? `${formatMoney(
+                  courierCollection
+                )} جنيه - إجمالي الأوردر كاش`
+              : `${formatMoney(
+                  courierCollection
+                )} جنيه - مصاريف الشحن فقط`
+          }
         />
 
         <LabelInformation
@@ -3453,12 +3491,18 @@ function ShippingLabel({
           </span>
 
           <span className="orvixAmount">
-            قيمة المنتجات عبر InstaPay
-            إلى ORVIX:{" "}
-            {formatMoney(
-              orvixCollection
-            )}{" "}
-            جنيه
+            {isCashOnDelivery ? (
+              <>الدفع كاش عند الاستلام للمندوب</>
+            ) : (
+              <>
+                قيمة المنتجات عبر InstaPay
+                إلى ORVIX:{" "}
+                {formatMoney(
+                  orvixCollection
+                )}{" "}
+                جنيه
+              </>
+            )}
           </span>
 
           <strong>
@@ -3470,8 +3514,9 @@ function ShippingLabel({
           </strong>
 
           <span>
-            المندوب يحصل مصاريف الشحن
-            فقط ولا يحصل قيمة المنتجات
+            {isCashOnDelivery
+              ? "المندوب يحصل إجمالي الأوردر كاش عند الاستلام"
+              : "المندوب يحصل مصاريف الشحن فقط ولا يحصل قيمة المنتجات"}
           </span>
         </div>
       </footer>
