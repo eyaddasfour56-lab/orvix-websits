@@ -8,6 +8,9 @@ type Conversation = {
   lastMessagePreview: string;
   lastSender?: "customer" | "admin" | "system" | null;
   lastMessageAt: string;
+  humanRequested?: boolean;
+  humanRequestedAt?: string | null;
+  humanRequestReason?: string;
 };
 
 type InboxResult = {
@@ -17,9 +20,11 @@ type InboxResult = {
 
 type Toast = {
   id: string;
+  eyebrow: string;
   title: string;
   body: string;
   conversationId: string;
+  urgent?: boolean;
 };
 
 export default function AdminChatNotifier() {
@@ -28,6 +33,7 @@ export default function AdminChatNotifier() {
   );
   const [toasts, setToasts] = useState<Toast[]>([]);
   const lastSeenRef = useRef<Record<string, number>>({});
+  const humanSeenRef = useRef<Record<string, number>>({});
   const initializedRef = useRef(false);
 
   useEffect(() => {
@@ -56,28 +62,50 @@ export default function AdminChatNotifier() {
         if (!result.success || !result.conversations || cancelled) return;
 
         const currentMap: Record<string, number> = {};
+        const currentHumanMap: Record<string, number> = {};
 
         for (const item of result.conversations) {
           const timestamp = new Date(item.lastMessageAt).getTime();
           if (!Number.isFinite(timestamp)) continue;
 
+          const humanTimestamp = item.humanRequestedAt
+            ? new Date(item.humanRequestedAt).getTime()
+            : 0;
+
           currentMap[item.id] = timestamp;
+          currentHumanMap[item.id] = Number.isFinite(humanTimestamp) ? humanTimestamp : 0;
 
           if (!initializedRef.current) continue;
 
           const previous = lastSeenRef.current[item.id] || 0;
+          const previousHuman = humanSeenRef.current[item.id] || 0;
           const isNewCustomerMessage =
             item.lastSender === "customer" && timestamp > previous;
+          const isNewHumanRequest =
+            Boolean(item.humanRequested) && humanTimestamp > previousHuman;
 
-          if (!isNewCustomerMessage) continue;
+          if (!isNewCustomerMessage && !isNewHumanRequest) continue;
 
-          const toastId = `${item.id}-${timestamp}`;
-          const toast: Toast = {
-            id: toastId,
-            title: `New message from ${item.customerName}`,
-            body: item.lastMessagePreview || "New customer message",
-            conversationId: item.id,
-          };
+          const toastId = `${item.id}-${Math.max(timestamp, humanTimestamp)}`;
+          const toast: Toast = isNewHumanRequest
+            ? {
+                id: toastId,
+                eyebrow: "WANTS CUSTOMER SERVICE",
+                title: `${item.customerName} wants to speak with you`,
+                body:
+                  item.humanRequestReason ||
+                  item.lastMessagePreview ||
+                  "Customer requested a human support agent.",
+                conversationId: item.id,
+                urgent: true,
+              }
+            : {
+                id: toastId,
+                eyebrow: "NEW CUSTOMER MESSAGE",
+                title: `New message from ${item.customerName}`,
+                body: item.lastMessagePreview || "New customer message",
+                conversationId: item.id,
+              };
 
           setToasts((current) => {
             if (current.some((existing) => existing.id === toastId)) return current;
@@ -86,12 +114,14 @@ export default function AdminChatNotifier() {
 
           window.setTimeout(() => {
             setToasts((current) => current.filter((entry) => entry.id !== toastId));
-          }, 7000);
+          }, 9000);
 
           if ("Notification" in window && Notification.permission === "granted") {
             const notification = new Notification(toast.title, {
               body: toast.body,
-              tag: `orvix-chat-${item.id}`,
+              tag: isNewHumanRequest
+                ? `orvix-human-${item.id}`
+                : `orvix-chat-${item.id}`,
             });
 
             notification.onclick = () => {
@@ -105,6 +135,7 @@ export default function AdminChatNotifier() {
         }
 
         lastSeenRef.current = currentMap;
+        humanSeenRef.current = currentHumanMap;
         initializedRef.current = true;
       } catch {
         // Keep the admin usable even if notification polling briefly fails.
@@ -112,7 +143,7 @@ export default function AdminChatNotifier() {
     }
 
     void poll();
-    const interval = window.setInterval(poll, 4000);
+    const interval = window.setInterval(poll, 3500);
 
     return () => {
       cancelled = true;
@@ -161,19 +192,27 @@ export default function AdminChatNotifier() {
               : "Enable Notifications"}
       </button>
 
-      <div className="pointer-events-none fixed right-4 top-20 z-[150] flex w-[min(92vw,360px)] flex-col gap-2 print:hidden">
+      <div className="pointer-events-none fixed right-4 top-20 z-[150] flex w-[min(92vw,380px)] flex-col gap-2 print:hidden">
         {toasts.map((toast) => (
           <button
             key={toast.id}
             type="button"
             onClick={() => openConversation(toast.conversationId)}
-            className="pointer-events-auto rounded-2xl border border-blue-400/20 bg-[#10141d] p-4 text-left shadow-[0_18px_45px_rgba(0,0,0,0.4)] transition hover:border-blue-400/35 hover:bg-[#141a25]"
+            className={`pointer-events-auto rounded-2xl border p-4 text-left shadow-[0_18px_45px_rgba(0,0,0,0.45)] transition ${
+              toast.urgent
+                ? "border-amber-400/30 bg-[#21180a] hover:border-amber-300/45 hover:bg-[#291e0c]"
+                : "border-blue-400/20 bg-[#10141d] hover:border-blue-400/35 hover:bg-[#141a25]"
+            }`}
           >
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-300/70">
-              New Customer Message
+            <p
+              className={`text-xs font-black uppercase tracking-[0.14em] ${
+                toast.urgent ? "text-amber-300" : "text-blue-300/70"
+              }`}
+            >
+              {toast.eyebrow}
             </p>
             <p className="mt-1 font-black text-white">{toast.title}</p>
-            <p className="mt-1 line-clamp-2 text-sm leading-5 text-white/55">
+            <p className="mt-1 line-clamp-3 text-sm leading-5 text-white/60">
               {toast.body}
             </p>
           </button>
