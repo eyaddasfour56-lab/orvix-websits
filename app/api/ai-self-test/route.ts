@@ -1,6 +1,8 @@
+import { generateText } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 
 const VERIFY_KEY = "orvix-ai-verify-20260817-x7q9";
+const MODEL = "openai/gpt-5.6-sol";
 
 function dbSettings() {
   const url = process.env.SUPABASE_URL;
@@ -12,14 +14,57 @@ function headers(key: string, extra?: Record<string, string>) {
   return { apikey: key, "Content-Type": "application/json", ...extra };
 }
 
+function errorInfo(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message.slice(0, 1000),
+      cause:
+        error.cause instanceof Error
+          ? error.cause.message.slice(0, 1000)
+          : error.cause
+            ? String(error.cause).slice(0, 1000)
+            : null,
+    };
+  }
+  return { name: "Unknown", message: String(error).slice(0, 1000), cause: null };
+}
+
 export async function GET(request: NextRequest) {
   if (request.nextUrl.searchParams.get("key") !== VERIFY_KEY) {
     return NextResponse.json({ success: false }, { status: 404 });
   }
 
+  const runtime = {
+    vercel: Boolean(process.env.VERCEL),
+    oidcToken: Boolean(process.env.VERCEL_OIDC_TOKEN),
+    gatewayKey: Boolean(process.env.AI_GATEWAY_API_KEY),
+    openAiKey: Boolean(process.env.OPENAI_API_KEY),
+    model: process.env.AI_GATEWAY_CHAT_MODEL || MODEL,
+  };
+
+  let directText = "";
+  let directError: ReturnType<typeof errorInfo> | null = null;
+
+  try {
+    const result = await generateText({
+      model: process.env.AI_GATEWAY_CHAT_MODEL || MODEL,
+      prompt: "Reply with exactly ORVIX_AI_OK and nothing else.",
+    });
+    directText = result.text.trim();
+  } catch (error) {
+    directError = errorInfo(error);
+  }
+
   const settings = dbSettings();
   if (!settings) {
-    return NextResponse.json({ success: false, stage: "database_settings" }, { status: 500 });
+    return NextResponse.json({
+      success: false,
+      stage: "database_settings",
+      runtime,
+      directText,
+      directError,
+    }, { status: 500 });
   }
 
   let sessionId = "";
@@ -70,6 +115,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: false,
         stage: "create_session",
+        runtime,
+        directText,
+        directError,
         detail: await createSessionResponse.text(),
       }, { status: 500 });
     }
@@ -80,7 +128,7 @@ export async function GET(request: NextRequest) {
     }>;
     const session = sessionRows[0];
     if (!session) {
-      return NextResponse.json({ success: false, stage: "create_session_empty" }, { status: 500 });
+      return NextResponse.json({ success: false, stage: "create_session_empty", runtime, directText, directError }, { status: 500 });
     }
     sessionId = session.id;
 
@@ -99,7 +147,7 @@ export async function GET(request: NextRequest) {
     );
 
     if (!customerMessageResponse.ok) {
-      return NextResponse.json({ success: false, stage: "insert_customer_message" }, { status: 500 });
+      return NextResponse.json({ success: false, stage: "insert_customer_message", runtime, directText, directError }, { status: 500 });
     }
 
     const workerResponse = await fetch(`${request.nextUrl.origin}/api/chat-ai`, {
@@ -120,7 +168,14 @@ export async function GET(request: NextRequest) {
     const aiMessage = [...messages].reverse().find((item) => item.sender === "admin");
 
     return NextResponse.json({
-      success: workerResponse.ok && workerPayload?.action === "replied" && Boolean(aiMessage?.body),
+      success:
+        directText === "ORVIX_AI_OK" &&
+        workerResponse.ok &&
+        workerPayload?.action === "replied" &&
+        Boolean(aiMessage?.body),
+      runtime,
+      directText,
+      directError,
       workerStatus: workerResponse.status,
       workerAction: workerPayload?.action || null,
       aiReply: aiMessage?.body || null,
@@ -129,7 +184,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: false,
       stage: "exception",
-      detail: error instanceof Error ? error.message : "Unknown error",
+      runtime,
+      directText,
+      directError,
+      detail: errorInfo(error),
     }, { status: 500 });
   } finally {
     if (sessionId) {
