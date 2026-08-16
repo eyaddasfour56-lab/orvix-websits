@@ -3,10 +3,12 @@ import { ReactNode } from "react";
 import AdminChatNotifier from "@/components/AdminChatNotifier";
 import AdminUiPolish from "@/components/AdminUiPolish";
 import AdminAiToggle from "@/components/AdminAiToggle";
+import AdminPwaRefresh from "@/components/AdminPwaRefresh";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#050505] text-white">
+      <AdminPwaRefresh />
       <AdminUiPolish />
 
       <div className="sticky top-0 z-[120] border-b border-white/10 bg-[#070707]/95 backdrop-blur print:hidden">
