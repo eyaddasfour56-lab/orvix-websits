@@ -181,7 +181,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const messages = (await messagesResponse.json()) as Omit<ChatMessage, "session_id">[];
+    const messages = (await messagesResponse.json()) as Omit<
+      ChatMessage,
+      "session_id"
+    >[];
     const readAt = new Date().toISOString();
 
     const readResponse = await fetch(
@@ -349,6 +352,78 @@ export async function POST(request: NextRequest) {
     console.error("Admin chat POST error:", error);
     return NextResponse.json(
       { success: false, message: "Could not update customer chat." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    if (!isAdminAuthenticated(request)) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized." },
+        { status: 401 }
+      );
+    }
+
+    const settings = getSupabaseSettings();
+    if (!settings) {
+      return NextResponse.json(
+        { success: false, message: "Supabase settings are missing." },
+        { status: 500 }
+      );
+    }
+
+    const body = await request.json();
+    const rawIds = Array.isArray(body?.sessionIds) ? body.sessionIds : [];
+    const sessionIds = Array.from(
+      new Set(rawIds.map((value: unknown) => cleanText(value, 50)))
+    ).filter((value) => UUID_PATTERN.test(value));
+
+    if (sessionIds.length === 0) {
+      return NextResponse.json(
+        { success: false, message: "Select at least one conversation to delete." },
+        { status: 400 }
+      );
+    }
+
+    if (sessionIds.length > 50 || sessionIds.length !== rawIds.length) {
+      return NextResponse.json(
+        { success: false, message: "Invalid conversation selection." },
+        { status: 400 }
+      );
+    }
+
+    const filter = `(${sessionIds.join(",")})`;
+    const response = await fetch(
+      `${settings.url}/rest/v1/customer_chat_sessions?id=in.${filter}`,
+      {
+        method: "DELETE",
+        headers: headers(settings.key, { Prefer: "return=representation" }),
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      console.error("Admin chat delete failed:", await response.text());
+      return NextResponse.json(
+        { success: false, message: "Could not delete selected conversations." },
+        { status: 500 }
+      );
+    }
+
+    const deleted = (await response.json()) as ChatSession[];
+    const deletedIds = deleted.map((item) => item.id);
+
+    return NextResponse.json({
+      success: true,
+      deletedIds,
+      deletedCount: deletedIds.length,
+    });
+  } catch (error) {
+    console.error("Admin chat DELETE error:", error);
+    return NextResponse.json(
+      { success: false, message: "Could not delete selected conversations." },
       { status: 500 }
     );
   }
