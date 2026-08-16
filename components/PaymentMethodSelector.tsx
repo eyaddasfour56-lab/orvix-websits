@@ -65,7 +65,9 @@ export default function PaymentMethodSelector() {
       const submitButton = aside.querySelector('button[type="submit"]');
       const submitContainer = submitButton?.parentElement;
 
-      if (submitContainer) {
+      if (submitButton && submitContainer === aside) {
+        aside.insertBefore(mount, submitButton);
+      } else if (submitContainer && submitContainer.parentElement === aside) {
         aside.insertBefore(mount, submitContainer);
       } else {
         aside.appendChild(mount);
@@ -102,10 +104,6 @@ export default function PaymentMethodSelector() {
       }
 
       setHost(mount);
-
-      return () => {
-        mount.remove();
-      };
     }, 80);
 
     return () => {
