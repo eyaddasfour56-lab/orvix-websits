@@ -31,6 +31,28 @@ export async function proxy(
   const { pathname } =
     request.nextUrl;
 
+  // Keep the public checkout endpoint stable while routing POSTs through
+  // the payment-aware wrapper that stores the selected payment method.
+  if (
+    request.method === "POST" &&
+    pathname === "/api/order"
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/api/order-v2";
+    return NextResponse.rewrite(url);
+  }
+
+  // Keep the admin UI endpoint stable while allowing Bosta COD amounts to
+  // follow each order's selected payment method.
+  if (
+    request.method === "POST" &&
+    pathname === "/api/admin/bosta/dispatch"
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/api/admin/bosta/dispatch-v2";
+    return NextResponse.rewrite(url);
+  }
+
   if (isAlwaysAvailable(pathname)) {
     return NextResponse.next();
   }
