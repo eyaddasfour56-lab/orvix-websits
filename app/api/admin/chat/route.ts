@@ -11,6 +11,10 @@ type ChatSession = {
   last_sender?: "customer" | "admin" | "system" | null;
   last_message_at: string;
   admin_last_read_at?: string | null;
+  human_requested?: boolean;
+  human_requested_at?: string | null;
+  human_request_reason?: string | null;
+  ai_paused?: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -21,6 +25,10 @@ type ChatMessage = {
   sender: "customer" | "admin" | "system";
   body: string;
   created_at: string;
+};
+
+type SupportSettings = {
+  ai_auto_reply: boolean;
 };
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -80,6 +88,10 @@ function withUnread(session: ChatSession) {
     lastMessageAt: session.last_message_at,
     createdAt: session.created_at,
     unread: session.last_sender === "customer" && lastMessageAt > lastReadAt,
+    humanRequested: Boolean(session.human_requested),
+    humanRequestedAt: session.human_requested_at || null,
+    humanRequestReason: session.human_request_reason || "",
+    aiPaused: Boolean(session.ai_paused),
   };
 }
 
@@ -101,6 +113,21 @@ async function getSessionById(
   return rows[0] || null;
 }
 
+async function getSupportSettings(settings: { url: string; key: string }) {
+  const response = await fetch(
+    `${settings.url}/rest/v1/customer_support_settings?id=eq.default&select=ai_auto_reply&limit=1`,
+    { headers: headers(settings.key), cache: "no-store" }
+  );
+
+  if (!response.ok) {
+    console.error("Admin support settings failed:", await response.text());
+    return { ai_auto_reply: false } as SupportSettings;
+  }
+
+  const rows = (await response.json()) as SupportSettings[];
+  return rows[0] || ({ ai_auto_reply: false } as SupportSettings);
+}
+
 export async function GET(request: NextRequest) {
   try {
     if (!isAdminAuthenticated(request)) {
@@ -118,10 +145,13 @@ export async function GET(request: NextRequest) {
     const sessionId = request.nextUrl.searchParams.get("sessionId") || "";
 
     if (!sessionId) {
-      const response = await fetch(
-        `${settings.url}/rest/v1/customer_chat_sessions?select=*&order=last_message_at.desc&limit=200`,
-        { headers: headers(settings.key), cache: "no-store" }
-      );
+      const [response, supportSettings] = await Promise.all([
+        fetch(
+          `${settings.url}/rest/v1/customer_chat_sessions?select=*&order=last_message_at.desc&limit=200`,
+          { headers: headers(settings.key), cache: "no-store" }
+        ),
+        getSupportSettings(settings),
+      ]);
 
       if (!response.ok) {
         console.error("Admin chat inbox failed:", await response.text());
@@ -135,6 +165,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         conversations: sessions.map(withUnread),
+        settings: {
+          aiAutoReply: supportSettings.ai_auto_reply,
+          aiConfigured: Boolean(process.env.OPENAI_API_KEY),
+          aiModel: process.env.OPENAI_CHAT_MODEL || "gpt-5.6",
+        },
       });
     }
 
@@ -166,10 +201,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const messages = (await messagesResponse.json()) as Omit<
-      ChatMessage,
-      "session_id"
-    >[];
+    const messages = (await messagesResponse.json()) as Omit<ChatMessage, "session_id">[];
     const readAt = new Date().toISOString();
 
     const readResponse = await fetch(
@@ -218,9 +250,40 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const action = cleanText(body?.action, 20);
-    const sessionId = cleanText(body?.sessionId, 50);
+    const action = cleanText(body?.action, 30);
 
+    if (action === "ai_settings") {
+      const enabled = Boolean(body?.enabled);
+      const now = new Date().toISOString();
+      const response = await fetch(
+        `${settings.url}/rest/v1/customer_support_settings?id=eq.default`,
+        {
+          method: "PATCH",
+          headers: headers(settings.key, { Prefer: "return=representation" }),
+          body: JSON.stringify({ ai_auto_reply: enabled, updated_at: now }),
+          cache: "no-store",
+        }
+      );
+
+      if (!response.ok) {
+        console.error("AI support settings update failed:", await response.text());
+        return NextResponse.json(
+          { success: false, message: "Could not update AI auto reply." },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        settings: {
+          aiAutoReply: enabled,
+          aiConfigured: Boolean(process.env.OPENAI_API_KEY),
+          aiModel: process.env.OPENAI_CHAT_MODEL || "gpt-5.6",
+        },
+      });
+    }
+
+    const sessionId = cleanText(body?.sessionId, 50);
     if (!UUID_PATTERN.test(sessionId)) {
       return NextResponse.json(
         { success: false, message: "Invalid conversation." },
@@ -278,6 +341,10 @@ export async function POST(request: NextRequest) {
             last_sender: "admin",
             last_message_at: now,
             admin_last_read_at: now,
+            human_requested: false,
+            human_requested_at: null,
+            human_request_reason: null,
+            ai_paused: true,
             updated_at: now,
           }),
           cache: "no-store",
@@ -314,6 +381,48 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json({ success: true, status });
+    }
+
+    if (action === "ai_mode") {
+      const mode = body?.mode === "ai" ? "ai" : "human";
+      const now = new Date().toISOString();
+      const patch =
+        mode === "ai"
+          ? {
+              ai_paused: false,
+              human_requested: false,
+              human_requested_at: null,
+              human_request_reason: null,
+              updated_at: now,
+            }
+          : {
+              ai_paused: true,
+              updated_at: now,
+            };
+
+      const response = await fetch(
+        `${settings.url}/rest/v1/customer_chat_sessions?id=eq.${encodeURIComponent(session.id)}`,
+        {
+          method: "PATCH",
+          headers: headers(settings.key),
+          body: JSON.stringify(patch),
+          cache: "no-store",
+        }
+      );
+
+      if (!response.ok) {
+        console.error("Conversation AI mode update failed:", await response.text());
+        return NextResponse.json(
+          { success: false, message: "Could not update AI mode." },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        aiPaused: mode !== "ai",
+        humanRequested: mode === "ai" ? false : Boolean(session.human_requested),
+      });
     }
 
     return NextResponse.json(
