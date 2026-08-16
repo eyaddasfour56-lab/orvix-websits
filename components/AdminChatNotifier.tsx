@@ -152,27 +152,32 @@ export default function AdminChatNotifier() {
           const isNewHumanRequest = Boolean(item.humanRequested) && humanTimestamp > (humanSeenRef.current[item.id] || 0);
           if (!isNewCustomerMessage && !isNewHumanRequest) continue;
 
+          const customerName = item.customerName || "Customer";
           const toast: Toast = isNewHumanRequest
             ? {
                 id: `human-${item.id}-${humanTimestamp}`,
-                eyebrow: "HUMAN SUPPORT REQUESTED",
-                title: `${item.customerName} wants Customer Service`,
-                body: item.humanRequestReason || item.lastMessagePreview || "Customer requested a human agent.",
+                eyebrow: "HUMAN SUPPORT",
+                title: "Human support requested",
+                body: `${customerName}: ${item.humanRequestReason || item.lastMessagePreview || "Wants Customer Service."}`,
                 url: `/admin/chats?conversation=${encodeURIComponent(item.id)}`,
                 urgent: true,
               }
             : {
                 id: `chat-${item.id}-${timestamp}`,
-                eyebrow: "NEW CUSTOMER MESSAGE",
-                title: `Message from ${item.customerName}`,
-                body: item.lastMessagePreview || "New customer message",
+                eyebrow: "CUSTOMER MESSAGE",
+                title: "New customer message",
+                body: `${customerName}: ${item.lastMessagePreview || "New message"}`,
                 url: `/admin/chats?conversation=${encodeURIComponent(item.id)}`,
               };
 
           addToast(toast);
 
           if (!pushReady && "Notification" in window && Notification.permission === "granted") {
-            const notification = new Notification(toast.title, { body: toast.body, tag: toast.id, icon: "/logo.jpeg" });
+            const notification = new Notification(toast.title, {
+              body: toast.body,
+              tag: toast.id,
+              icon: "/logo.jpeg",
+            });
             notification.onclick = () => {
               window.focus();
               window.location.assign(toast.url);
@@ -209,15 +214,19 @@ export default function AdminChatNotifier() {
           const toast: Toast = {
             id: `order-${order.id}-${timestamp}`,
             eyebrow: "ORDER PLACED",
-            title: `🛍️ ${money(order.total_price)} EGP · ${orderNumber}`,
-            body: `${order.customer_name || "Customer"} placed ${Number(order.quantity || 1)}× ${order.product_name || "ORVIX product"}.`,
+            title: `Order placed · ${money(order.total_price)} EGP`,
+            body: `${order.customer_name || "Customer"} · ${orderNumber} · ${Number(order.quantity || 1)}× ${order.product_name || "Product"}`,
             url: `/admin?order=${encodeURIComponent(orderNumber)}`,
             order: true,
           };
           addToast(toast);
 
           if (!pushReady && "Notification" in window && Notification.permission === "granted") {
-            const notification = new Notification(toast.title, { body: toast.body, tag: toast.id, icon: "/logo.jpeg" });
+            const notification = new Notification(toast.title, {
+              body: toast.body,
+              tag: toast.id,
+              icon: "/logo.jpeg",
+            });
             notification.onclick = () => {
               window.focus();
               window.location.assign(toast.url);
