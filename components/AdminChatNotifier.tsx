@@ -13,9 +13,14 @@ type Conversation = {
   humanRequestReason?: string;
 };
 
-type InboxResult = {
-  success?: boolean;
-  conversations?: Conversation[];
+type Order = {
+  id: string;
+  order_number?: string;
+  customer_name?: string;
+  total_price?: number | string;
+  quantity?: number;
+  product_name?: string;
+  created_at?: string;
 };
 
 type Toast = {
@@ -23,112 +28,154 @@ type Toast = {
   eyebrow: string;
   title: string;
   body: string;
-  conversationId: string;
+  url: string;
   urgent?: boolean;
+  order?: boolean;
 };
 
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map((character) => character.charCodeAt(0)));
+}
+
+function money(value: unknown) {
+  const amount = Number(value || 0);
+  return Number.isFinite(amount) ? amount.toLocaleString("en-GB") : "0";
+}
+
 export default function AdminChatNotifier() {
-  const [permission, setPermission] = useState<NotificationPermission | "unsupported">(
-    "unsupported"
-  );
+  const [permission, setPermission] = useState<NotificationPermission | "unsupported">("unsupported");
+  const [pushReady, setPushReady] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const lastSeenRef = useRef<Record<string, number>>({});
   const humanSeenRef = useRef<Record<string, number>>({});
+  const orderSeenRef = useRef<Record<string, number>>({});
   const initializedRef = useRef(false);
+  const ordersInitializedRef = useRef(false);
+
+  function addToast(toast: Toast) {
+    setToasts((current) => {
+      if (current.some((existing) => existing.id === toast.id)) return current;
+      return [...current.slice(-2), toast];
+    });
+    window.setTimeout(() => {
+      setToasts((current) => current.filter((entry) => entry.id !== toast.id));
+    }, 9000);
+  }
+
+  async function setupPush() {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
+
+    try {
+      const keyResponse = await fetch("/api/admin/push", {
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+      const keyResult = await keyResponse.json();
+      if (!keyResponse.ok || !keyResult?.publicKey) return false;
+
+      const registration = await navigator.serviceWorker.register("/orvix-admin-sw.js", {
+        scope: "/",
+      });
+      await navigator.serviceWorker.ready;
+
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(String(keyResult.publicKey)),
+        });
+      }
+
+      const json = subscription.toJSON();
+      const saveResponse = await fetch("/api/admin/push", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          endpoint: subscription.endpoint,
+          keys: json.keys || {},
+        }),
+      });
+
+      const ready = saveResponse.ok;
+      setPushReady(ready);
+      return ready;
+    } catch (error) {
+      console.error("ORVIX push setup failed:", error);
+      setPushReady(false);
+      return false;
+    }
+  }
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-
-    if ("Notification" in window) {
-      setPermission(Notification.permission);
-    } else {
+    if (!("Notification" in window)) {
       setPermission("unsupported");
+      return;
+    }
+
+    setPermission(Notification.permission);
+    if (Notification.permission === "granted") {
+      void setupPush();
     }
   }, []);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function poll() {
+    async function pollChats() {
       try {
         const response = await fetch("/api/admin/chat", {
           cache: "no-store",
           credentials: "same-origin",
         });
-
         if (!response.ok) return;
-
-        const result = (await response.json()) as InboxResult;
-        if (!result.success || !result.conversations || cancelled) return;
+        const result = await response.json();
+        const conversations = (result?.conversations || []) as Conversation[];
+        if (cancelled) return;
 
         const currentMap: Record<string, number> = {};
         const currentHumanMap: Record<string, number> = {};
 
-        for (const item of result.conversations) {
+        for (const item of conversations) {
           const timestamp = new Date(item.lastMessageAt).getTime();
           if (!Number.isFinite(timestamp)) continue;
-
-          const humanTimestamp = item.humanRequestedAt
-            ? new Date(item.humanRequestedAt).getTime()
-            : 0;
-
+          const humanTimestamp = item.humanRequestedAt ? new Date(item.humanRequestedAt).getTime() : 0;
           currentMap[item.id] = timestamp;
           currentHumanMap[item.id] = Number.isFinite(humanTimestamp) ? humanTimestamp : 0;
 
           if (!initializedRef.current) continue;
-
-          const previous = lastSeenRef.current[item.id] || 0;
-          const previousHuman = humanSeenRef.current[item.id] || 0;
-          const isNewCustomerMessage =
-            item.lastSender === "customer" && timestamp > previous;
-          const isNewHumanRequest =
-            Boolean(item.humanRequested) && humanTimestamp > previousHuman;
-
+          const isNewCustomerMessage = item.lastSender === "customer" && timestamp > (lastSeenRef.current[item.id] || 0);
+          const isNewHumanRequest = Boolean(item.humanRequested) && humanTimestamp > (humanSeenRef.current[item.id] || 0);
           if (!isNewCustomerMessage && !isNewHumanRequest) continue;
 
-          const toastId = `${item.id}-${Math.max(timestamp, humanTimestamp)}`;
           const toast: Toast = isNewHumanRequest
             ? {
-                id: toastId,
-                eyebrow: "WANTS CUSTOMER SERVICE",
-                title: `${item.customerName} wants to speak with you`,
-                body:
-                  item.humanRequestReason ||
-                  item.lastMessagePreview ||
-                  "Customer requested a human support agent.",
-                conversationId: item.id,
+                id: `human-${item.id}-${humanTimestamp}`,
+                eyebrow: "HUMAN SUPPORT REQUESTED",
+                title: `${item.customerName} wants Customer Service`,
+                body: item.humanRequestReason || item.lastMessagePreview || "Customer requested a human agent.",
+                url: `/admin/chats?conversation=${encodeURIComponent(item.id)}`,
                 urgent: true,
               }
             : {
-                id: toastId,
+                id: `chat-${item.id}-${timestamp}`,
                 eyebrow: "NEW CUSTOMER MESSAGE",
-                title: `New message from ${item.customerName}`,
+                title: `Message from ${item.customerName}`,
                 body: item.lastMessagePreview || "New customer message",
-                conversationId: item.id,
+                url: `/admin/chats?conversation=${encodeURIComponent(item.id)}`,
               };
 
-          setToasts((current) => {
-            if (current.some((existing) => existing.id === toastId)) return current;
-            return [...current.slice(-2), toast];
-          });
+          addToast(toast);
 
-          window.setTimeout(() => {
-            setToasts((current) => current.filter((entry) => entry.id !== toastId));
-          }, 9000);
-
-          if ("Notification" in window && Notification.permission === "granted") {
-            const notification = new Notification(toast.title, {
-              body: toast.body,
-              tag: isNewHumanRequest
-                ? `orvix-human-${item.id}`
-                : `orvix-chat-${item.id}`,
-            });
-
+          if (!pushReady && "Notification" in window && Notification.permission === "granted") {
+            const notification = new Notification(toast.title, { body: toast.body, tag: toast.id, icon: "/logo.jpeg" });
             notification.onclick = () => {
               window.focus();
-              window.location.assign(
-                `/admin/chats?conversation=${encodeURIComponent(item.id)}`
-              );
+              window.location.assign(toast.url);
               notification.close();
             };
           }
@@ -137,34 +184,73 @@ export default function AdminChatNotifier() {
         lastSeenRef.current = currentMap;
         humanSeenRef.current = currentHumanMap;
         initializedRef.current = true;
-      } catch {
-        // Keep the admin usable even if notification polling briefly fails.
-      }
+      } catch {}
     }
 
-    void poll();
-    const interval = window.setInterval(poll, 3500);
+    async function pollOrders() {
+      try {
+        const response = await fetch("/api/admin/orders", {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+        if (!response.ok) return;
+        const result = await response.json();
+        const orders = (result?.orders || []) as Order[];
+        if (cancelled) return;
+
+        const currentMap: Record<string, number> = {};
+        for (const order of orders.slice(0, 60)) {
+          const timestamp = new Date(order.created_at || "").getTime();
+          if (!order.id || !Number.isFinite(timestamp)) continue;
+          currentMap[order.id] = timestamp;
+          if (!ordersInitializedRef.current || timestamp <= (orderSeenRef.current[order.id] || 0)) continue;
+
+          const orderNumber = order.order_number || "New order";
+          const toast: Toast = {
+            id: `order-${order.id}-${timestamp}`,
+            eyebrow: "ORDER PLACED",
+            title: `🛍️ ${money(order.total_price)} EGP · ${orderNumber}`,
+            body: `${order.customer_name || "Customer"} placed ${Number(order.quantity || 1)}× ${order.product_name || "ORVIX product"}.`,
+            url: `/admin?order=${encodeURIComponent(orderNumber)}`,
+            order: true,
+          };
+          addToast(toast);
+
+          if (!pushReady && "Notification" in window && Notification.permission === "granted") {
+            const notification = new Notification(toast.title, { body: toast.body, tag: toast.id, icon: "/logo.jpeg" });
+            notification.onclick = () => {
+              window.focus();
+              window.location.assign(toast.url);
+              notification.close();
+            };
+          }
+        }
+        orderSeenRef.current = currentMap;
+        ordersInitializedRef.current = true;
+      } catch {}
+    }
+
+    void pollChats();
+    void pollOrders();
+    const interval = window.setInterval(() => {
+      void pollChats();
+      void pollOrders();
+    }, 3500);
 
     return () => {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, []);
+  }, [pushReady]);
 
   async function enableNotifications() {
     if (!("Notification" in window)) {
       setPermission("unsupported");
       return;
     }
-
     const next = await Notification.requestPermission();
     setPermission(next);
-  }
-
-  function openConversation(conversationId: string) {
-    window.location.assign(
-      `/admin/chats?conversation=${encodeURIComponent(conversationId)}`
-    );
+    if (next === "granted") await setupPush();
   }
 
   return (
@@ -172,49 +258,45 @@ export default function AdminChatNotifier() {
       <button
         type="button"
         onClick={() => void enableNotifications()}
-        disabled={permission === "granted" || permission === "unsupported"}
-        className={`rounded-xl border px-3 py-2 text-xs font-black transition disabled:cursor-default ${
-          permission === "granted"
+        disabled={permission === "unsupported"}
+        className={`rounded-xl border px-3 py-2 text-xs font-black transition ${
+          permission === "granted" && pushReady
             ? "border-emerald-400/20 bg-emerald-500/[0.08] text-emerald-200"
             : permission === "denied"
               ? "border-red-400/20 bg-red-500/[0.08] text-red-200"
-              : permission === "unsupported"
-                ? "border-white/10 bg-white/[0.04] text-white/30"
-                : "border-blue-400/20 bg-blue-500/[0.08] text-blue-200 hover:bg-blue-500/[0.14]"
+              : "border-blue-400/20 bg-blue-500/[0.08] text-blue-200 hover:bg-blue-500/[0.14]"
         }`}
       >
-        {permission === "granted"
-          ? "Notifications On"
+        {permission === "granted" && pushReady
+          ? "Push Notifications On"
           : permission === "denied"
             ? "Notifications Blocked"
             : permission === "unsupported"
               ? "Notifications Unavailable"
-              : "Enable Notifications"}
+              : permission === "granted"
+                ? "Connect Push"
+                : "Enable Notifications"}
       </button>
 
-      <div className="pointer-events-none fixed right-4 top-20 z-[150] flex w-[min(92vw,380px)] flex-col gap-2 print:hidden">
+      <div className="pointer-events-none fixed right-4 top-20 z-[150] flex w-[min(92vw,390px)] flex-col gap-2 print:hidden">
         {toasts.map((toast) => (
           <button
             key={toast.id}
             type="button"
-            onClick={() => openConversation(toast.conversationId)}
+            onClick={() => window.location.assign(toast.url)}
             className={`pointer-events-auto rounded-2xl border p-4 text-left shadow-[0_18px_45px_rgba(0,0,0,0.45)] transition ${
               toast.urgent
-                ? "border-amber-400/30 bg-[#21180a] hover:border-amber-300/45 hover:bg-[#291e0c]"
-                : "border-blue-400/20 bg-[#10141d] hover:border-blue-400/35 hover:bg-[#141a25]"
+                ? "border-amber-400/30 bg-[#21180a]"
+                : toast.order
+                  ? "border-emerald-400/25 bg-[#0b1d16]"
+                  : "border-blue-400/20 bg-[#10141d]"
             }`}
           >
-            <p
-              className={`text-xs font-black uppercase tracking-[0.14em] ${
-                toast.urgent ? "text-amber-300" : "text-blue-300/70"
-              }`}
-            >
+            <p className={`text-xs font-black uppercase tracking-[0.14em] ${toast.urgent ? "text-amber-300" : toast.order ? "text-emerald-300" : "text-blue-300/70"}`}>
               {toast.eyebrow}
             </p>
             <p className="mt-1 font-black text-white">{toast.title}</p>
-            <p className="mt-1 line-clamp-3 text-sm leading-5 text-white/60">
-              {toast.body}
-            </p>
+            <p className="mt-1 line-clamp-3 text-sm leading-5 text-white/60">{toast.body}</p>
           </button>
         ))}
       </div>
