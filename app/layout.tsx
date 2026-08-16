@@ -23,6 +23,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const BRAND_VERSION = "orvix-20260817-v3";
+
 export const metadata: Metadata = {
   title: {
     default: "ORVIX",
@@ -31,11 +33,14 @@ export const metadata: Metadata = {
   applicationName: "ORVIX",
   description:
     "Shop ORVIX smart fitness technology, manage your order and contact ORVIX Customer Service.",
-  manifest: "/manifest.webmanifest",
+  manifest: "/manifest.webmanifest?v=orvix-20260817-v3",
   icons: {
-    icon: [{ url: "/logo.jpeg", type: "image/jpeg" }],
-    shortcut: ["/logo.jpeg"],
-    apple: [{ url: "/logo.jpeg", type: "image/jpeg" }],
+    icon: [
+      { url: `/icon.svg?v=${BRAND_VERSION}`, type: "image/svg+xml" },
+      { url: `/logo.jpeg?v=${BRAND_VERSION}`, type: "image/jpeg" },
+    ],
+    shortcut: [`/icon.svg?v=${BRAND_VERSION}`],
+    apple: [{ url: `/logo.jpeg?v=${BRAND_VERSION}`, type: "image/jpeg" }],
   },
   appleWebApp: {
     capable: true,
@@ -44,6 +49,8 @@ export const metadata: Metadata = {
   },
   other: {
     "mobile-web-app-capable": "yes",
+    "application-name": "ORVIX",
+    "apple-mobile-web-app-title": "ORVIX",
   },
 };
 
@@ -74,6 +81,10 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
+        <meta name="application-name" content="ORVIX" />
+        <meta name="apple-mobile-web-app-title" content="ORVIX" />
+        <link rel="icon" href={`/icon.svg?v=${BRAND_VERSION}`} type="image/svg+xml" />
+        <link rel="shortcut icon" href={`/icon.svg?v=${BRAND_VERSION}`} type="image/svg+xml" />
         <script
           dangerouslySetInnerHTML={{
             __html: languageBootstrapScript,
