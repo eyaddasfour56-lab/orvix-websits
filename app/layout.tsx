@@ -24,9 +24,27 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ORVIX | Smart Fitness Technology",
+  title: {
+    default: "ORVIX",
+    template: "%s | ORVIX",
+  },
+  applicationName: "ORVIX",
   description:
-    "Shop ORVIX smart fitness technology, manage your order and track delivery in Arabic or English.",
+    "Shop ORVIX smart fitness technology, manage your order and contact ORVIX Customer Service.",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [{ url: "/logo.jpeg", type: "image/jpeg" }],
+    shortcut: ["/logo.jpeg"],
+    apple: [{ url: "/logo.jpeg", type: "image/jpeg" }],
+  },
+  appleWebApp: {
+    capable: true,
+    title: "ORVIX",
+    statusBarStyle: "black-translucent",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 const languageBootstrapScript = `
