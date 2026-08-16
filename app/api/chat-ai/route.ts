@@ -27,6 +27,11 @@ type ProductContext = {
   allow_purchase?: boolean | null;
 };
 
+type SmartDecision =
+  | { kind: "reply"; text: string }
+  | { kind: "escalate"; reason: string }
+  | { kind: "unknown" };
+
 const TOKEN_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const HUMAN_ACK_MESSAGE =
   "I’ve notified ORVIX Customer Service. A team member will reply to you here as soon as possible.";
@@ -34,6 +39,25 @@ const DEFAULT_AI_MODEL = "openai/gpt-5.6-sol";
 
 function cleanText(value: unknown, maxLength: number) {
   return String(value ?? "").trim().slice(0, maxLength);
+}
+
+function normalizeText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/[^a-z0-9\u0600-\u06ff\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function includesAny(text: string, phrases: string[]) {
+  return phrases.some((phrase) => text.includes(normalizeText(phrase)));
+}
+
+function isArabicText(value: string) {
+  return /[\u0600-\u06ff]/.test(value);
 }
 
 function dbSettings() {
@@ -97,7 +121,7 @@ async function insertMessage(
     cache: "no-store",
   });
   if (!response.ok) {
-    console.error("ORVIX AI message insert failed:", await response.text());
+    console.error("ORVIX support message insert failed:", await response.text());
     return null;
   }
   const rows = (await response.json()) as Array<{ created_at?: string }>;
@@ -119,9 +143,158 @@ async function updateSession(
     }
   );
   if (!response.ok) {
-    console.error("ORVIX AI session update failed:", await response.text());
+    console.error("ORVIX support session update failed:", await response.text());
   }
   return response.ok;
+}
+
+function productAliases(product: ProductContext) {
+  const aliases = [normalizeText(product.name), normalizeText(product.slug.replace(/-/g, " "))];
+  const slug = product.slug.toLowerCase();
+  if (slug.includes("fitbit")) aliases.push("fitbit", "fitbit air", "google fitbit", "google fitbit air");
+  if (slug.includes("garmin")) aliases.push("garmin", "cirqa", "garmin cirqa");
+  return aliases;
+}
+
+function findMentionedProduct(message: string, products: ProductContext[]) {
+  const normalized = normalizeText(message);
+  return products.find((product) =>
+    productAliases(product).some((alias) => alias.length >= 4 && normalized.includes(alias))
+  );
+}
+
+function productAvailability(product: ProductContext, arabic: boolean) {
+  const status = String(product.status || "").toLowerCase();
+  const stock = Number(product.stock_quantity || 0);
+  const available = product.allow_purchase && stock > 0 && status !== "out_of_stock";
+
+  if (status === "coming_soon") {
+    return arabic ? "قريبًا ولسه الشراء مش متاح." : "coming soon and purchasing is not available yet.";
+  }
+  if (available) {
+    return arabic ? `متاح حاليًا (${stock} في المخزون).` : `currently available (${stock} in stock).`;
+  }
+  return arabic ? "غير متاح للشراء حاليًا." : "currently unavailable for purchase.";
+}
+
+function smartSupportDecision(message: string, products: ProductContext[]): SmartDecision {
+  const text = normalizeText(message);
+  const arabic = isArabicText(message);
+
+  const humanRequest = [
+    "customer service", "customer support", "human", "real person", "live agent", "representative",
+    "خدمه العملاء", "خدمة العملاء", "عايز اكلم حد", "عاوز اكلم حد", "عايز موظف", "عاوز موظف",
+    "اكلم حد", "اتكلم مع حد", "موظف"
+  ];
+  if (includesAny(text, humanRequest)) {
+    return { kind: "escalate", reason: "Customer asked to speak with Customer Service" };
+  }
+
+  const sensitiveOrderActions = [
+    "cancel", "cancellation", "refund", "return my order", "change my order", "edit my order",
+    "payment failed", "payment problem", "payment issue", "charged", "complaint",
+    "الغاء", "الغي الطلب", "ارجاع", "استرجاع", "ريفاند", "تعديل الطلب", "غير الطلب",
+    "مشكله دفع", "مشكلة دفع", "الدفع فشل", "شكوي", "شكوى"
+  ];
+  if (includesAny(text, sensitiveOrderActions)) {
+    return { kind: "escalate", reason: "Customer request needs a human support action" };
+  }
+
+  const product = findMentionedProduct(message, products);
+  const asksPrice = includesAny(text, ["price", "cost", "how much", "سعر", "بكام", "كام"]);
+  const asksStock = includesAny(text, ["stock", "available", "availability", "متاح", "موجود", "ستوك"]);
+
+  if (product && (asksPrice || asksStock)) {
+    const price = Number(product.price || 0).toLocaleString("en-GB");
+    const availability = productAvailability(product, arabic);
+    if (arabic) {
+      return {
+        kind: "reply",
+        text: asksPrice
+          ? `سعر ${product.name} الحالي على الموقع هو ${price} جنيه، وهو ${availability}`
+          : `${product.name} ${availability}`,
+      };
+    }
+    return {
+      kind: "reply",
+      text: asksPrice
+        ? `The current website price for ${product.name} is ${price} EGP, and it is ${availability}`
+        : `${product.name} is ${availability}`,
+    };
+  }
+
+  if (includesAny(text, ["discount", "promo", "coupon", "discount code", "promo code", "كود خصم", "خصم", "كوبون"])) {
+    return {
+      kind: "reply",
+      text: arabic
+        ? "اكتب كود الخصم في خانة الكود داخل ملخص الطلب في الـCheckout. لو الكود ساري، الخصم هيظهر قبل ما تأكد الطلب."
+        : "Enter the discount code in the order summary during checkout. If the code is active, the discount will appear before you place the order.",
+    };
+  }
+
+  if (includesAny(text, ["track", "tracking", "order status", "where is my order", "تتبع", "تتبع الطلب", "حاله الطلب", "حالة الطلب", "طلبي فين"])) {
+    return {
+      kind: "reply",
+      text: arabic
+        ? "افتح صفحة Track Order واكتب رقم الطلب ورقم الموبايل اللي استخدمته وقت الطلب، وهتظهرلك أحدث حالة للطلب."
+        : "Open the Track Order page and enter your order number plus the phone number used at checkout to see the latest status.",
+    };
+  }
+
+  if (includesAny(text, ["delivery fee", "shipping fee", "delivery cost", "shipping cost", "سعر الشحن", "رسوم الشحن", "التوصيل بكام", "رسوم التوصيل"])) {
+    return {
+      kind: "reply",
+      text: arabic
+        ? "رسوم التوصيل بتختلف حسب المنطقة وبتتحسب تلقائيًا في الـCheckout قبل تأكيد الطلب."
+        : "Delivery fees depend on your area and are calculated automatically at checkout before you confirm the order.",
+    };
+  }
+
+  if (includesAny(text, ["how to order", "place an order", "how can i order", "buy", "checkout", "ازاي اطلب", "ازاي اشتري", "اعمل اوردر", "اطلب ازاي"])) {
+    return {
+      kind: "reply",
+      text: arabic
+        ? "افتح المنتج، اختار اللون والكمية، ضيفه للسلة وبعدها كمل بياناتك من الـCheckout لتأكيد الطلب."
+        : "Open the product, choose your options and quantity, add it to the cart, then complete the checkout form to place the order.",
+    };
+  }
+
+  if (includesAny(text, ["available products", "what products", "products available", "منتجاتكم", "ايه المنتجات", "المنتجات المتاحه", "المنتجات المتاحة"])) {
+    const available = products.filter(
+      (item) => item.allow_purchase && Number(item.stock_quantity || 0) > 0 && item.status !== "out_of_stock"
+    );
+    if (!available.length) {
+      return {
+        kind: "reply",
+        text: arabic ? "مفيش منتجات متاحة للشراء حاليًا." : "There are no products available for purchase right now.",
+      };
+    }
+    const names = available.map((item) => item.name).join(", ");
+    return {
+      kind: "reply",
+      text: arabic ? `المنتجات المتاحة حاليًا: ${names}.` : `Currently available: ${names}.`,
+    };
+  }
+
+  if (includesAny(text, ["payment", "pay", "instapay", "دفع", "الدفع", "انستاباي"])) {
+    return {
+      kind: "reply",
+      text: arabic
+        ? "طريقة الدفع المتاحة بتظهرلك بوضوح أثناء الـCheckout. لو عندك مشكلة في دفع طلب موجود، أقدر أحولك مباشرة لخدمة العملاء."
+        : "The available payment method is shown during checkout. If you have a payment problem with an existing order, I can hand you directly to Customer Service.",
+    };
+  }
+
+  if (includesAny(text, ["hello", "hi", "hey", "good morning", "good evening", "اهلا", "اهلا وسهلا", "السلام عليكم", "هاي", "مرحبا"])) {
+    return {
+      kind: "reply",
+      text: arabic
+        ? "أهلًا بيك في ORVIX 👋 اسألني عن المنتجات، السعر، التوفر، الخصومات، التوصيل أو تتبع الطلب."
+        : "Hi! Welcome to ORVIX 👋 Ask me about products, prices, availability, discount codes, delivery, or order tracking.",
+    };
+  }
+
+  return { kind: "unknown" };
 }
 
 async function generateReply(
@@ -165,9 +338,30 @@ LIVE PRODUCT DATA:\n${productContext}`;
 
     return cleanText(text, 1200) || null;
   } catch (error) {
-    console.error("ORVIX AI SDK generation failed:", error);
+    console.error("ORVIX external AI generation failed; using smart fallback:", error);
     return null;
   }
+}
+
+async function escalateToHuman(
+  settings: { url: string; key: string },
+  session: ChatSession,
+  latest: ChatMessage,
+  reason: string
+) {
+  const now = new Date().toISOString();
+  await updateSession(settings, session.id, {
+    status: "open",
+    human_requested: true,
+    human_requested_at: now,
+    human_request_reason: cleanText(reason, 300),
+    ai_paused: true,
+    last_message_preview: latest.body.slice(0, 180),
+    last_sender: "customer",
+    last_message_at: latest.created_at,
+    updated_at: now,
+  });
+  await insertMessage(settings, session.id, "system", HUMAN_ACK_MESSAGE);
 }
 
 export async function POST(request: NextRequest) {
@@ -209,33 +403,41 @@ export async function POST(request: NextRequest) {
     }
 
     const products = await getProducts(settings);
-    const text = await generateReply(session, messages, products);
-    if (!text) {
-      return NextResponse.json({ success: true, action: "unavailable" });
+    const smartDecision = smartSupportDecision(latest.body, products);
+
+    if (smartDecision.kind === "escalate") {
+      await escalateToHuman(settings, session, latest, smartDecision.reason);
+      return NextResponse.json({ success: true, action: "escalated", source: "smart" });
     }
 
-    if (text.toUpperCase().startsWith("ESCALATE:")) {
-      const reason = cleanText(text.slice(text.indexOf(":") + 1), 300) || "AI requested human support";
-      const now = new Date().toISOString();
-      await updateSession(settings, session.id, {
-        status: "open",
-        human_requested: true,
-        human_requested_at: now,
-        human_request_reason: reason,
-        ai_paused: true,
-        last_message_preview: latest.body.slice(0, 180),
-        last_sender: "customer",
-        last_message_at: latest.created_at,
-        updated_at: now,
-      });
-      await insertMessage(settings, session.id, "system", HUMAN_ACK_MESSAGE);
-      return NextResponse.json({ success: true, action: "escalated" });
+    let reply = smartDecision.kind === "reply" ? smartDecision.text : "";
+    let source = smartDecision.kind === "reply" ? "smart" : "external-ai";
+
+    if (!reply) {
+      const generated = await generateReply(session, messages, products);
+
+      if (generated?.toUpperCase().startsWith("ESCALATE:")) {
+        const reason = cleanText(generated.slice(generated.indexOf(":") + 1), 300) || "AI requested human support";
+        await escalateToHuman(settings, session, latest, reason);
+        return NextResponse.json({ success: true, action: "escalated", source: "external-ai" });
+      }
+
+      if (generated) {
+        reply = generated.toUpperCase().startsWith("REPLY:")
+          ? cleanText(generated.slice(generated.indexOf(":") + 1), 1000)
+          : cleanText(generated, 1000);
+      }
     }
 
-    const reply = text.toUpperCase().startsWith("REPLY:")
-      ? cleanText(text.slice(text.indexOf(":") + 1), 1000)
-      : cleanText(text, 1000);
-    if (!reply) return NextResponse.json({ success: true, action: "unavailable" });
+    if (!reply) {
+      await escalateToHuman(
+        settings,
+        session,
+        latest,
+        "Automatic support could not answer this question confidently"
+      );
+      return NextResponse.json({ success: true, action: "escalated", source: "fallback" });
+    }
 
     const saved = await insertMessage(settings, session.id, "admin", reply);
     const replyAt = saved?.created_at || new Date().toISOString();
@@ -247,9 +449,9 @@ export async function POST(request: NextRequest) {
       updated_at: replyAt,
     });
 
-    return NextResponse.json({ success: true, action: "replied", reply });
+    return NextResponse.json({ success: true, action: "replied", reply, source });
   } catch (error) {
-    console.error("ORVIX AI worker error:", error);
+    console.error("ORVIX auto reply worker error:", error);
     return NextResponse.json({ success: false, reason: "worker_error" }, { status: 500 });
   }
 }
