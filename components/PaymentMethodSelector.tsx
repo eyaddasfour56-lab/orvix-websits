@@ -59,6 +59,26 @@ export default function PaymentMethodSelector() {
       const aside = document.querySelector("main form aside");
       if (!(aside instanceof HTMLElement)) return;
 
+      // Remove the entire legacy purple payment explanation from view.
+      // It is a direct child of the order summary aside, so selecting only
+      // direct children avoids hiding parts of the new payment selector.
+      const oldBlock = Array.from(aside.children).find((element) => {
+        const text = element.textContent || "";
+        const englishLegacy =
+          text.includes("InstaPay to ORVIX") &&
+          text.includes("Cash to Bosta courier");
+        const arabicLegacy =
+          text.includes("InstaPay إلى ORVIX") &&
+          text.includes("كاش لمندوب بوسطة");
+
+        return englishLegacy || arabicLegacy;
+      });
+
+      if (oldBlock instanceof HTMLElement) {
+        oldBlock.dataset.orvixHiddenPaymentInfo = "true";
+        oldBlock.style.display = "none";
+      }
+
       const mount = document.createElement("div");
       mount.dataset.orvixPaymentMount = "true";
 
@@ -71,25 +91,6 @@ export default function PaymentMethodSelector() {
         aside.insertBefore(mount, submitContainer);
       } else {
         aside.appendChild(mount);
-      }
-
-      // Hide the old single-method explanation so the checkout stays clean.
-      const blocks = Array.from(aside.querySelectorAll("div"))
-        .filter((element) => {
-          const text = element.textContent || "";
-          return (
-            text.includes("How payment works") ||
-            text.includes("Two separate payments on delivery") ||
-            text.includes("طريقة الدفع") ||
-            text.includes("دفعتان منفصلتان عند الاستلام")
-          );
-        })
-        .sort((a, b) => (a.textContent?.length || 0) - (b.textContent?.length || 0));
-
-      const oldBlock = blocks[0];
-      if (oldBlock instanceof HTMLElement && oldBlock !== aside) {
-        oldBlock.dataset.orvixHiddenPaymentInfo = "true";
-        oldBlock.style.display = "none";
       }
 
       // Replace the old InstaPay-only intro with neutral wording.
