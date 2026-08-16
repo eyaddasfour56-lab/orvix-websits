@@ -59,9 +59,6 @@ export default function PaymentMethodSelector() {
       const aside = document.querySelector("main form aside");
       if (!(aside instanceof HTMLElement)) return;
 
-      // Remove the entire legacy purple payment explanation from view.
-      // It is a direct child of the order summary aside, so selecting only
-      // direct children avoids hiding parts of the new payment selector.
       const oldBlock = Array.from(aside.children).find((element) => {
         const text = element.textContent || "";
         const englishLegacy =
@@ -93,7 +90,6 @@ export default function PaymentMethodSelector() {
         aside.appendChild(mount);
       }
 
-      // Replace the old InstaPay-only intro with neutral wording.
       const heading = Array.from(document.querySelectorAll("main h1")).find((node) => {
         const text = node.textContent || "";
         return text.includes("Complete your order") || text.includes("أكمل طلبك");
@@ -155,23 +151,42 @@ export default function PaymentMethodSelector() {
       <div className="mt-4 grid gap-3">
         {options.map((option) => {
           const selected = method === option.value;
+          const isCash = option.value === "cash_on_delivery";
+
+          const cardClass = isCash
+            ? selected
+              ? "border-emerald-300/80 bg-emerald-400/20 text-white shadow-[0_0_0_1px_rgba(110,231,183,0.18)]"
+              : "border-emerald-400/30 bg-emerald-500/[0.07] text-white hover:border-emerald-300/55 hover:bg-emerald-500/[0.11]"
+            : selected
+              ? "border-violet-300/80 bg-violet-400/20 text-white shadow-[0_0_0_1px_rgba(196,181,253,0.18)]"
+              : "border-violet-400/30 bg-violet-500/[0.07] text-white hover:border-violet-300/55 hover:bg-violet-500/[0.11]";
+
+          const iconClass = isCash
+            ? selected
+              ? "bg-emerald-300 text-black"
+              : "bg-emerald-400/20 text-emerald-200 ring-1 ring-emerald-300/20"
+            : selected
+              ? "bg-violet-300 text-black"
+              : "bg-violet-400/20 text-violet-200 ring-1 ring-violet-300/20";
+
+          const badgeClass = isCash
+            ? "bg-emerald-300 text-emerald-950"
+            : "bg-violet-300 text-violet-950";
+
+          const descriptionClass = isCash
+            ? "text-emerald-50/65"
+            : "text-violet-50/65";
 
           return (
             <button
               key={option.value}
               type="button"
               onClick={() => setMethod(option.value)}
-              className={`flex w-full items-start gap-3 rounded-2xl border p-4 text-start transition ${
-                selected
-                  ? "border-white bg-white text-black"
-                  : "border-white/10 bg-white/[0.025] text-white hover:border-white/25"
-              }`}
+              className={`flex w-full items-start gap-3 rounded-2xl border p-4 text-start transition-all duration-200 ${cardClass}`}
               aria-pressed={selected}
             >
               <span
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg font-black ${
-                  selected ? "bg-black text-white" : "bg-white/10 text-white"
-                }`}
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg font-black ${iconClass}`}
               >
                 {option.icon}
               </span>
@@ -180,12 +195,12 @@ export default function PaymentMethodSelector() {
                 <span className="flex items-center justify-between gap-3">
                   <strong className="font-black">{option.title}</strong>
                   {selected && (
-                    <span className="rounded-full bg-black/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider">
+                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${badgeClass}`}>
                       {t.selected}
                     </span>
                   )}
                 </span>
-                <span className={`mt-1 block text-xs leading-5 ${selected ? "text-black/60" : "text-white/45"}`}>
+                <span className={`mt-1 block text-xs leading-5 ${descriptionClass}`}>
                   {option.text}
                 </span>
               </span>
