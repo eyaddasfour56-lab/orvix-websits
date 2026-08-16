@@ -32,14 +32,13 @@ function createAdminSession(secret: string) {
 }
 
 function isAdminAuthenticated(request: NextRequest) {
-  const sessionSecret = process.env.ADMIN_SESSION_SECRET;
-  const receivedSession = request.cookies.get("orvix_admin_session")?.value;
+  const secret = process.env.ADMIN_SESSION_SECRET;
+  const received = request.cookies.get("orvix_admin_session")?.value;
+  if (!secret || !received) return false;
 
-  if (!sessionSecret || !receivedSession) return false;
-
-  const expectedSession = createAdminSession(sessionSecret);
-  const receivedBuffer = Buffer.from(receivedSession);
-  const expectedBuffer = Buffer.from(expectedSession);
+  const expected = createAdminSession(secret);
+  const receivedBuffer = Buffer.from(received);
+  const expectedBuffer = Buffer.from(expected);
 
   return (
     receivedBuffer.length === expectedBuffer.length &&
@@ -50,9 +49,7 @@ function isAdminAuthenticated(request: NextRequest) {
 function getSupabaseSettings() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SECRET_KEY;
-
-  if (!url || !key) return null;
-  return { url, key };
+  return url && key ? { url, key } : null;
 }
 
 function headers(key: string, extra?: Record<string, string>) {
@@ -92,10 +89,7 @@ async function getSessionById(
 ) {
   const response = await fetch(
     `${settings.url}/rest/v1/customer_chat_sessions?id=eq.${encodeURIComponent(sessionId)}&select=*&limit=1`,
-    {
-      headers: headers(settings.key),
-      cache: "no-store",
-    }
+    { headers: headers(settings.key), cache: "no-store" }
   );
 
   if (!response.ok) {
@@ -110,10 +104,7 @@ async function getSessionById(
 export async function GET(request: NextRequest) {
   try {
     if (!isAdminAuthenticated(request)) {
-      return NextResponse.json(
-        { success: false, message: "Unauthorized." },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
     }
 
     const settings = getSupabaseSettings();
@@ -129,10 +120,7 @@ export async function GET(request: NextRequest) {
     if (!sessionId) {
       const response = await fetch(
         `${settings.url}/rest/v1/customer_chat_sessions?select=*&order=last_message_at.desc&limit=200`,
-        {
-          headers: headers(settings.key),
-          cache: "no-store",
-        }
+        { headers: headers(settings.key), cache: "no-store" }
       );
 
       if (!response.ok) {
@@ -167,10 +155,7 @@ export async function GET(request: NextRequest) {
 
     const messagesResponse = await fetch(
       `${settings.url}/rest/v1/customer_chat_messages?session_id=eq.${encodeURIComponent(sessionId)}&select=id,sender,body,created_at&order=created_at.asc`,
-      {
-        headers: headers(settings.key),
-        cache: "no-store",
-      }
+      { headers: headers(settings.key), cache: "no-store" }
     );
 
     if (!messagesResponse.ok) {
@@ -192,10 +177,7 @@ export async function GET(request: NextRequest) {
       {
         method: "PATCH",
         headers: headers(settings.key),
-        body: JSON.stringify({
-          admin_last_read_at: readAt,
-          updated_at: readAt,
-        }),
+        body: JSON.stringify({ admin_last_read_at: readAt, updated_at: readAt }),
         cache: "no-store",
       }
     );
@@ -224,10 +206,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     if (!isAdminAuthenticated(request)) {
-      return NextResponse.json(
-        { success: false, message: "Unauthorized." },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
     }
 
     const settings = getSupabaseSettings();
@@ -271,11 +250,7 @@ export async function POST(request: NextRequest) {
         {
           method: "POST",
           headers: headers(settings.key, { Prefer: "return=representation" }),
-          body: JSON.stringify({
-            session_id: session.id,
-            sender: "admin",
-            body: message,
-          }),
+          body: JSON.stringify({ session_id: session.id, sender: "admin", body: message }),
           cache: "no-store",
         }
       );
@@ -325,10 +300,7 @@ export async function POST(request: NextRequest) {
         {
           method: "PATCH",
           headers: headers(settings.key),
-          body: JSON.stringify({
-            status,
-            updated_at: now,
-          }),
+          body: JSON.stringify({ status, updated_at: now }),
           cache: "no-store",
         }
       );
@@ -360,10 +332,7 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     if (!isAdminAuthenticated(request)) {
-      return NextResponse.json(
-        { success: false, message: "Unauthorized." },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
     }
 
     const settings = getSupabaseSettings();
@@ -375,10 +344,11 @@ export async function DELETE(request: NextRequest) {
     }
 
     const body = await request.json();
-    const rawIds = Array.isArray(body?.sessionIds) ? body.sessionIds : [];
-    const sessionIds = Array.from(
-      new Set(rawIds.map((value: unknown) => cleanText(value, 50)))
-    ).filter((value) => UUID_PATTERN.test(value));
+    const rawIds: unknown[] = Array.isArray(body?.sessionIds) ? body.sessionIds : [];
+    const cleanedIds: string[] = rawIds.map((value: unknown) => cleanText(value, 50));
+    const sessionIds: string[] = Array.from(new Set<string>(cleanedIds)).filter(
+      (value: string) => UUID_PATTERN.test(value)
+    );
 
     if (sessionIds.length === 0) {
       return NextResponse.json(
