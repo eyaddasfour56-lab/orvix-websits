@@ -327,8 +327,12 @@ export default function CustomerServicePage() {
           <section className="mt-5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[#090909]">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[#0c0c0c] px-4 py-4 sm:px-6">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-blue-500/15 text-sm font-black text-blue-200">
-                  OR
+                <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#111]">
+                  <img
+                    src="/logo.jpeg"
+                    alt="ORVIX"
+                    className="h-full w-full object-cover"
+                  />
                 </div>
                 <div className="min-w-0">
                   <p className="truncate font-black">ORVIX Customer Service</p>
