@@ -1,24 +1,38 @@
 import Link from "next/link";
 import { ReactNode } from "react";
+import AdminChatNotifier from "@/components/AdminChatNotifier";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
-    <>
-      {children}
-      <div className="fixed bottom-5 right-5 z-[100] flex flex-col items-end gap-2 print:hidden">
-        <Link
-          href="/admin/chats"
-          className="rounded-full border border-blue-300/25 bg-blue-500 px-5 py-3 text-sm font-black text-white shadow-[0_18px_45px_rgba(59,130,246,0.22)] transition hover:-translate-y-0.5 hover:bg-blue-400"
-        >
-          Customer Chats
-        </Link>
-        <Link
-          href="/admin/cashflow"
-          className="rounded-full border border-emerald-300/25 bg-emerald-400 px-5 py-3 text-sm font-black text-black shadow-[0_18px_45px_rgba(16,185,129,0.28)] transition hover:-translate-y-0.5 hover:bg-emerald-300"
-        >
-          Cash Flow
-        </Link>
+    <div className="min-h-screen bg-[#050505] text-white">
+      <div className="sticky top-0 z-[120] border-b border-white/10 bg-[#070707]/95 backdrop-blur print:hidden">
+        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-5">
+          <Link
+            href="/admin"
+            className="rounded-xl border border-white/10 bg-[#111] px-3 py-2 text-xs font-black tracking-[0.08em] text-white/80 transition hover:bg-[#171717] hover:text-white"
+          >
+            ORVIX ADMIN
+          </Link>
+
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Link
+              href="/admin/chats"
+              className="rounded-xl border border-blue-400/20 bg-blue-500/[0.08] px-3 py-2 text-xs font-black text-blue-200 transition hover:bg-blue-500/[0.14]"
+            >
+              Customer Chats
+            </Link>
+            <Link
+              href="/admin/cashflow"
+              className="rounded-xl border border-emerald-400/20 bg-emerald-500/[0.08] px-3 py-2 text-xs font-black text-emerald-200 transition hover:bg-emerald-500/[0.14]"
+            >
+              Cash Flow
+            </Link>
+            <AdminChatNotifier />
+          </div>
+        </div>
       </div>
-    </>
+
+      {children}
+    </div>
   );
 }
