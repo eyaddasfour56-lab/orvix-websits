@@ -9,6 +9,12 @@ export default function AdminUiPolish() {
 
   return (
     <style>{`
+      /* The old page-level AI card expected OPENAI_API_KEY only. The working
+         Vercel AI Gateway toggle now lives in the admin top bar. */
+      main > div > header > div:last-child > div:first-child {
+        display: none !important;
+      }
+
       @media (max-width: 639px) {
         main {
           padding-left: 14px !important;
@@ -30,12 +36,6 @@ export default function AdminUiPolish() {
           grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
           width: 100% !important;
           gap: 8px !important;
-        }
-
-        main > div > header > div:last-child > div:first-child {
-          grid-column: 1 / -1 !important;
-          width: 100% !important;
-          justify-content: space-between !important;
         }
 
         main > div > header > div:last-child > button,
