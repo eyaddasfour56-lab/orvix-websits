@@ -19,8 +19,8 @@ self.addEventListener('push', function(event) {
 
       await self.registration.showNotification(item.title || 'ORVIX', {
         body: item.body || 'New update',
-        icon: '/logo.jpeg?v=orvix-20260817-v3',
-        badge: '/icon.svg?v=orvix-20260817-v3',
+        icon: '/icon.svg?v=orvix-20260817-v4',
+        badge: '/orvix-notification-icon.svg?v=orvix-20260817-v4',
         tag: 'orvix-' + (item.id || Date.now()),
         renotify: true,
         silent: false,
@@ -29,8 +29,8 @@ self.addEventListener('push', function(event) {
     } catch (error) {
       await self.registration.showNotification('ORVIX', {
         body: 'You have a new update.',
-        icon: '/logo.jpeg?v=orvix-20260817-v3',
-        badge: '/icon.svg?v=orvix-20260817-v3',
+        icon: '/icon.svg?v=orvix-20260817-v4',
+        badge: '/orvix-notification-icon.svg?v=orvix-20260817-v4',
         tag: 'orvix-fallback',
         data: { url: '/admin' }
       });
