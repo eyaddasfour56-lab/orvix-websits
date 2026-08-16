@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ReactNode } from "react";
 import AdminChatNotifier from "@/components/AdminChatNotifier";
 import AdminUiPolish from "@/components/AdminUiPolish";
+import AdminAiToggle from "@/components/AdminAiToggle";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
@@ -31,6 +32,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             >
               Cash Flow
             </Link>
+
+            <AdminAiToggle />
 
             <div className="min-w-0 sm:ml-auto">
               <AdminChatNotifier />
