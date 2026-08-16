@@ -23,7 +23,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const BRAND_VERSION = "orvix-20260817-v3";
+const BRAND_VERSION = "orvix-20260817-v4";
 
 export const metadata: Metadata = {
   title: {
@@ -33,14 +33,11 @@ export const metadata: Metadata = {
   applicationName: "ORVIX",
   description:
     "Shop ORVIX smart fitness technology, manage your order and contact ORVIX Customer Service.",
-  manifest: "/manifest.webmanifest?v=orvix-20260817-v3",
+  manifest: `/manifest.webmanifest?v=${BRAND_VERSION}`,
   icons: {
-    icon: [
-      { url: `/icon.svg?v=${BRAND_VERSION}`, type: "image/svg+xml" },
-      { url: `/logo.jpeg?v=${BRAND_VERSION}`, type: "image/jpeg" },
-    ],
+    icon: [{ url: `/icon.svg?v=${BRAND_VERSION}`, type: "image/svg+xml" }],
     shortcut: [`/icon.svg?v=${BRAND_VERSION}`],
-    apple: [{ url: `/logo.jpeg?v=${BRAND_VERSION}`, type: "image/jpeg" }],
+    apple: [{ url: `/icon.svg?v=${BRAND_VERSION}`, type: "image/svg+xml" }],
   },
   appleWebApp: {
     capable: true,
