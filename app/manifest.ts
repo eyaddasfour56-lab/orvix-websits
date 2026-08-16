@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    id: "/orvix-app",
+    id: "/orvix-app-v4",
     name: "ORVIX",
     short_name: "ORVIX",
     description: "ORVIX smart fitness technology and customer support.",
@@ -15,15 +15,15 @@ export default function manifest(): MetadataRoute.Manifest {
     categories: ["shopping", "business"],
     icons: [
       {
-        src: "/icon.svg?v=orvix-20260817-v3",
+        src: "/icon.svg?v=orvix-20260817-v4",
         sizes: "any",
         type: "image/svg+xml",
         purpose: "any",
       },
       {
-        src: "/logo.jpeg?v=orvix-20260817-v3",
-        sizes: "512x512",
-        type: "image/jpeg",
+        src: "/icon.svg?v=orvix-20260817-v4",
+        sizes: "any",
+        type: "image/svg+xml",
         purpose: "maskable",
       },
     ],
