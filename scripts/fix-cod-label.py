@@ -42,7 +42,12 @@ new_collection_vars = """    const isCashOnDelivery =
 
 replace_exact(old_collection_vars, new_collection_vars)
 
-old_print_collection_vars = """  const orvixCollection =
+old_shipping_header = """function ShippingLabel({
+  order,
+}: {
+  order: Order;
+}) {
+  const orvixCollection =
     getOrvixCollection(order);
 
   const courierCollection =
@@ -51,7 +56,12 @@ old_print_collection_vars = """  const orvixCollection =
   const calculatedTotal =
     getCalculatedOrderTotal(order);"""
 
-new_print_collection_vars = """  const isCashOnDelivery =
+new_shipping_header = """function ShippingLabel({
+  order,
+}: {
+  order: Order;
+}) {
+  const isCashOnDelivery =
     order.payment_method ===
     \"cash_on_delivery\";
 
@@ -68,7 +78,7 @@ new_print_collection_vars = """  const isCashOnDelivery =
       ? calculatedTotal
       : getCourierCollection(order);"""
 
-replace_exact(old_print_collection_vars, new_print_collection_vars)
+replace_exact(old_shipping_header, new_shipping_header)
 
 old_png_orvix = """      {
         title: \"تحصيل ORVIX\",
