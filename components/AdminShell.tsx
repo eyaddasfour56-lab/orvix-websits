@@ -26,6 +26,7 @@ const groups: NavGroup[] = [
       { label: "Overview", href: "/admin/command-center", keywords: "home dashboard overview summary" },
       { label: "Orders", href: "/admin", keywords: "orders customers shipping bosta operations" },
       { label: "Products & Stock", href: "/admin/products", keywords: "products price catalog fitbit garmin stock inventory quantity availability sale" },
+      { label: "Commerce Control", href: "/admin/commerce", keywords: "health system checkout queue variants scheduled pricing rate limit reliability stock alerts kill switch" },
     ],
   },
   {
