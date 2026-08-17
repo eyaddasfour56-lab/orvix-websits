@@ -1,0 +1,36 @@
+name: ORVIX Commerce Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Preview or production URL to test"
+        required: true
+        default: "https://orvix-websits.vercel.app"
+      concurrency:
+        description: "Concurrent read requests (max 50)"
+        required: true
+        default: "15"
+      rounds:
+        description: "Number of batches (max 10)"
+        required: true
+        default: "4"
+
+permissions:
+  contents: read
+
+jobs:
+  safe-read-load-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run non-mutating commerce smoke test
+        env:
+          LOAD_TEST_BASE_URL: ${{ inputs.base_url }}
+          LOAD_TEST_CONCURRENCY: ${{ inputs.concurrency }}
+          LOAD_TEST_ROUNDS: ${{ inputs.rounds }}
+        run: node scripts/commerce-smoke.mjs
