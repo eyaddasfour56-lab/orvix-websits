@@ -4,12 +4,17 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 
 type AssistantAction = {
-  type?: "order_status_update";
+  type?: "order_status_update" | "commerce_update" | "confirmation_required";
   orderNumber?: string;
   previousStatus?: string;
   status?: string;
   statusLabel?: string;
   changed?: boolean;
+  target?: string;
+  productSlug?: string;
+  variantKey?: string;
+  value?: string | number | boolean;
+  command?: string;
 };
 
 type AssistantResult = {
@@ -38,7 +43,7 @@ export default function OrvixAiPage() {
     setLastAction(null);
 
     try {
-      const response = await fetch("/api/admin/os/assistant", {
+      const response = await fetch("/api/admin/os/assistant-router", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -53,10 +58,13 @@ export default function OrvixAiPage() {
       setAnswer(result.answer || "No answer available.");
       setLastAction(result.action || null);
 
-      if (result.action?.type === "order_status_update") {
+      if (
+        result.action?.type === "order_status_update" ||
+        result.action?.type === "commerce_update"
+      ) {
         setMode("action");
         window.dispatchEvent(
-          new CustomEvent("orvix-order-status-updated", {
+          new CustomEvent("orvix-admin-action-updated", {
             detail: result.action,
           })
         );
@@ -81,7 +89,7 @@ export default function OrvixAiPage() {
           <p className="text-[11px] font-black uppercase tracking-[0.34em] text-violet-200/50">ORVIX ADMIN</p>
           <h1 className="mt-3 text-4xl font-black tracking-tight text-white sm:text-5xl">ORVIX AI</h1>
           <p className="mt-3 max-w-2xl text-sm font-medium leading-6 text-white/38 sm:text-base">
-            Ask about live ORVIX data or run supported admin actions from a full dedicated page.
+            Ask about live ORVIX data or run supported admin actions. Sensitive commerce changes require an explicit confirm.
           </p>
         </div>
 
@@ -99,7 +107,7 @@ export default function OrvixAiPage() {
             <span className="grid h-10 w-10 place-items-center rounded-2xl border border-violet-300/20 bg-violet-500/[0.12] text-lg text-violet-100">✦</span>
             <div>
               <p className="text-xs font-black text-white">AI + LIVE ORVIX DATA</p>
-              <p className="mt-0.5 text-[11px] font-semibold text-white/28">Orders, stock, customers, profit and admin actions</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-white/28">Orders, stock, price, sale controls, profit and checkout</p>
             </div>
           </div>
         </div>
@@ -115,18 +123,31 @@ export default function OrvixAiPage() {
             {answer}
           </div>
 
+          {lastAction?.type === "confirmation_required" && lastAction.command && (
+            <button
+              type="button"
+              onClick={() => setQuestion(lastAction.command || "")}
+              className="mt-3 rounded-full border border-amber-300/20 bg-amber-500/[0.08] px-4 py-2 text-[11px] font-black text-amber-100"
+            >
+              Load confirmed command
+            </button>
+          )}
+
           {mode && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-white/38">
-                {mode === "action" ? "Action complete" : mode === "ai" ? "AI + live data" : "Live data fallback"}
+                {mode === "action" ? "Action complete" : mode === "ai" ? "AI + live data" : "Live data / safe action"}
               </span>
 
               {lastAction?.type === "order_status_update" && (
-                <Link
-                  href="/admin"
-                  className="rounded-full border border-emerald-300/20 bg-emerald-500/[0.08] px-3 py-1.5 text-[10px] font-black text-emerald-100"
-                >
+                <Link href="/admin" className="rounded-full border border-emerald-300/20 bg-emerald-500/[0.08] px-3 py-1.5 text-[10px] font-black text-emerald-100">
                   View Orders
+                </Link>
+              )}
+
+              {lastAction?.type === "commerce_update" && (
+                <Link href="/admin/commerce" className="rounded-full border border-emerald-300/20 bg-emerald-500/[0.08] px-3 py-1.5 text-[10px] font-black text-emerald-100">
+                  Open Commerce Control
                 </Link>
               )}
             </div>
@@ -140,7 +161,7 @@ export default function OrvixAiPage() {
               id="orvix-ai-question"
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
-              placeholder="اكتب سؤالك هنا... مثال: Order ORVIX-... confirmed"
+              placeholder="اكتب سؤالك هنا... أو Stock google-fitbit-air = 7"
               rows={4}
               className="w-full resize-none rounded-[22px] border border-white/10 bg-[#09090a] px-4 py-4 text-base font-semibold text-white outline-none transition placeholder:text-white/20 focus:border-violet-300/30 focus:ring-2 focus:ring-violet-500/10"
             />
@@ -155,9 +176,9 @@ export default function OrvixAiPage() {
           </form>
 
           <div className="mt-5">
-            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/25">Quick prompts</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/25">Quick prompts & actions</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              {["Profit today", "Stock status", "Delayed orders", "Top customer"].map((prompt) => (
+              {["Profit today", "Stock status", "Delayed orders", "Top customer", "Stock google-fitbit-air = 10", "Price google-fitbit-air = 7400", "Sale google-fitbit-air = off", "Checkout = off"].map((prompt) => (
                 <button
                   key={prompt}
                   type="button"
@@ -171,7 +192,7 @@ export default function OrvixAiPage() {
           </div>
 
           <p className="mt-5 text-[10px] font-semibold leading-5 text-white/25">
-            Supported order actions: Pre-order · Confirmed · Shipped · Out for Delivery · Delivered · Cancelled
+            Commerce command format: Stock product-slug = 10 · Stock product-slug:variant = 5 · Price product-slug = 7400 · Sale product-slug = on/off · Checkout = on/off. ORVIX AI asks for “confirm” before executing these changes.
           </p>
         </div>
       </section>
