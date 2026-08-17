@@ -44,18 +44,34 @@ export default function CustomerSupportModeGate() {
     const originalFetch = window.fetch.bind(window);
 
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
 
-      if (url === "/api/chat" && String(init?.method || "GET").toUpperCase() === "POST" && typeof init?.body === "string") {
+      if (
+        url === "/api/chat" &&
+        String(init?.method || "GET").toUpperCase() === "POST" &&
+        typeof init?.body === "string"
+      ) {
         try {
           const body = JSON.parse(init.body);
+
           if (body?.action === "start") {
             const mode = window.localStorage.getItem(MODE_KEY);
             if (mode !== "ai" && mode !== "human") {
               setVisible(true);
               return new Response(
-                JSON.stringify({ success: false, message: "Please choose AI Support or Human Support first." }),
-                { status: 400, headers: { "Content-Type": "application/json" } }
+                JSON.stringify({
+                  success: false,
+                  message: "Please choose AI Support or Human Support first.",
+                }),
+                {
+                  status: 400,
+                  headers: { "Content-Type": "application/json" },
+                }
               );
             }
 
@@ -72,6 +88,29 @@ export default function CustomerSupportModeGate() {
               window.localStorage.removeItem(MODE_KEY);
               setSelectedMode(null);
             }
+            return response;
+          }
+
+          if (body?.action === "message") {
+            const response = await originalFetch("/api/chat-message", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                token: body.token,
+                message: body.message,
+              }),
+              cache: "no-store",
+            });
+
+            if (response.ok && body.token) {
+              void originalFetch("/api/chat-ai", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token: body.token }),
+                cache: "no-store",
+              }).catch(() => undefined);
+            }
+
             return response;
           }
         } catch {
@@ -103,7 +142,9 @@ export default function CustomerSupportModeGate() {
             <img src="/logo.jpeg" alt="ORVIX" className="h-full w-full object-cover" />
           </div>
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-300/70">ORVIX SUPPORT</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-300/70">
+              ORVIX SUPPORT
+            </p>
             <h2 className="mt-1 text-2xl font-black text-white">How do you want help?</h2>
           </div>
         </div>
@@ -119,7 +160,9 @@ export default function CustomerSupportModeGate() {
             className="rounded-2xl border border-violet-400/25 bg-violet-500/[0.10] p-5 text-left transition hover:bg-violet-500/[0.16]"
           >
             <p className="text-lg font-black text-violet-100">✨ AI Support</p>
-            <p className="mt-2 text-sm leading-5 text-white/45">Instant answers for products, prices, discounts, delivery and tracking.</p>
+            <p className="mt-2 text-sm leading-5 text-white/45">
+              Instant answers for products, prices, discounts, delivery and tracking.
+            </p>
           </button>
 
           <button
@@ -128,12 +171,16 @@ export default function CustomerSupportModeGate() {
             className="rounded-2xl border border-emerald-400/25 bg-emerald-500/[0.10] p-5 text-left transition hover:bg-emerald-500/[0.16]"
           >
             <p className="text-lg font-black text-emerald-100">👤 Human Support</p>
-            <p className="mt-2 text-sm leading-5 text-white/45">Talk directly with the ORVIX team. We’ll notify Customer Service immediately.</p>
+            <p className="mt-2 text-sm leading-5 text-white/45">
+              Talk directly with the ORVIX team. We’ll notify Customer Service immediately.
+            </p>
           </button>
         </div>
 
         {selectedMode && (
-          <p className="mt-4 text-xs text-white/30">Selected: {selectedMode === "human" ? "Human Support" : "AI Support"}</p>
+          <p className="mt-4 text-xs text-white/30">
+            Selected: {selectedMode === "human" ? "Human Support" : "AI Support"}
+          </p>
         )}
       </div>
     </div>
