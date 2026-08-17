@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 
 type AssistantAction = {
-  type?: "order_status_update" | "commerce_update" | "confirmation_required";
+  type?: "order_status_update" | "commerce_update" | "cashflow_entry_created" | "confirmation_required";
   orderNumber?: string;
   previousStatus?: string;
   status?: string;
@@ -15,6 +15,14 @@ type AssistantAction = {
   variantKey?: string;
   value?: string | number | boolean;
   command?: string;
+  entryType?: "expense" | "income" | "capital" | "settlement";
+  category?: string;
+  amount?: number;
+  paidBy?: "me" | "ahmed_samy" | null;
+  receivedBy?: "me" | "ahmed_samy" | null;
+  fromPerson?: "me" | "ahmed_samy" | null;
+  toPerson?: "me" | "ahmed_samy" | null;
+  entryDate?: string;
 };
 
 type AssistantResult = {
@@ -28,7 +36,7 @@ type AssistantResult = {
 export default function OrvixAiPage() {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState(
-    "اسألني عن ORVIX أو نفّذ Action. مثال: Order ORVIX-... confirmed"
+    "اكتبلي بطريقتك: عربي، English أو Franco. مثال: add to expenses 120 tools paid by me"
   );
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"ai" | "fallback" | "action" | "">("");
@@ -60,7 +68,8 @@ export default function OrvixAiPage() {
 
       if (
         result.action?.type === "order_status_update" ||
-        result.action?.type === "commerce_update"
+        result.action?.type === "commerce_update" ||
+        result.action?.type === "cashflow_entry_created"
       ) {
         setMode("action");
         window.dispatchEvent(
@@ -89,7 +98,7 @@ export default function OrvixAiPage() {
           <p className="text-[11px] font-black uppercase tracking-[0.34em] text-violet-200/50">ORVIX ADMIN</p>
           <h1 className="mt-3 text-4xl font-black tracking-tight text-white sm:text-5xl">ORVIX AI</h1>
           <p className="mt-3 max-w-2xl text-sm font-medium leading-6 text-white/38 sm:text-base">
-            Ask about live ORVIX data or run supported admin actions. Sensitive commerce changes require an explicit confirm.
+            Talk naturally in Arabic, English or Franco. ORVIX AI can read live data and execute supported admin actions, including cash flow entries.
           </p>
         </div>
 
@@ -107,7 +116,7 @@ export default function OrvixAiPage() {
             <span className="grid h-10 w-10 place-items-center rounded-2xl border border-violet-300/20 bg-violet-500/[0.12] text-lg text-violet-100">✦</span>
             <div>
               <p className="text-xs font-black text-white">AI + LIVE ORVIX DATA</p>
-              <p className="mt-0.5 text-[11px] font-semibold text-white/28">Orders, stock, price, sale controls, profit and checkout</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-white/28">Orders, stock, price, sale controls, cash flow, profit and checkout</p>
             </div>
           </div>
         </div>
@@ -150,6 +159,12 @@ export default function OrvixAiPage() {
                   Open Commerce Control
                 </Link>
               )}
+
+              {lastAction?.type === "cashflow_entry_created" && (
+                <Link href="/admin/cashflow" className="rounded-full border border-emerald-300/20 bg-emerald-500/[0.08] px-3 py-1.5 text-[10px] font-black text-emerald-100">
+                  Open Cash Flow
+                </Link>
+              )}
             </div>
           )}
 
@@ -161,7 +176,7 @@ export default function OrvixAiPage() {
               id="orvix-ai-question"
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
-              placeholder="اكتب سؤالك هنا... أو Stock google-fitbit-air = 7"
+              placeholder="مثال: add to expenses 120 tools paid by me"
               rows={4}
               className="w-full resize-none rounded-[22px] border border-white/10 bg-[#09090a] px-4 py-4 text-base font-semibold text-white outline-none transition placeholder:text-white/20 focus:border-violet-300/30 focus:ring-2 focus:ring-violet-500/10"
             />
@@ -178,7 +193,17 @@ export default function OrvixAiPage() {
           <div className="mt-5">
             <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/25">Quick prompts & actions</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              {["Profit today", "Stock status", "Delayed orders", "Top customer", "Stock google-fitbit-air = 10", "Price google-fitbit-air = 7400", "Sale google-fitbit-air = off", "Checkout = off"].map((prompt) => (
+              {[
+                "add to expenses 120 tools paid by me",
+                "ana dfa3t 200 delivery",
+                "500 income for ahmed samy",
+                "Profit today",
+                "Stock status",
+                "Delayed orders",
+                "Stock google-fitbit-air = 10",
+                "Price google-fitbit-air = 7400",
+                "Checkout = off",
+              ].map((prompt) => (
                 <button
                   key={prompt}
                   type="button"
@@ -192,7 +217,7 @@ export default function OrvixAiPage() {
           </div>
 
           <p className="mt-5 text-[10px] font-semibold leading-5 text-white/25">
-            Commerce command format: Stock product-slug = 10 · Stock product-slug:variant = 5 · Price product-slug = 7400 · Sale product-slug = on/off · Checkout = on/off. ORVIX AI asks for “confirm” before executing these changes.
+            Cash flow actions understand natural Arabic, English and Franco. Commerce commands still require an explicit “confirm” before changing stock, price, sale availability or checkout.
           </p>
         </div>
       </section>
