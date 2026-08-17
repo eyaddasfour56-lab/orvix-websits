@@ -102,13 +102,17 @@ export async function POST(request: NextRequest) {
       return reply({ success: false, code: "ORDER_CHANGED", message: "The order status changed before cancellation. Please refresh and try again or contact Customer Service." }, 409);
     }
 
-    void notifyAdmin({
-      kind: "order",
-      title: "Order cancelled",
-      body: `${clean(order.customer_name, 70) || "Customer"} · ${order.order_number} · ${reason}`,
-      targetUrl: `/admin?order=${encodeURIComponent(String(order.order_number))}`,
-      eventKey: `customer-cancel:${order.id}:${cancelledAt}`,
-    }).catch((error) => console.error("Cancel order admin notification failed:", error));
+    try {
+      await notifyAdmin({
+        kind: "order",
+        title: "Order cancelled",
+        body: `${clean(order.customer_name, 70) || "Customer"} · ${order.order_number} · ${reason}`,
+        targetUrl: `/admin?order=${encodeURIComponent(String(order.order_number))}`,
+        eventKey: `customer-cancel:${order.id}:${cancelledAt}`,
+      });
+    } catch (notificationError) {
+      console.error("Cancel order admin notification failed:", notificationError);
+    }
 
     return reply({
       success: true,
