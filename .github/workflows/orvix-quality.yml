@@ -37,6 +37,10 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: node scripts/sync-product-price.mjs
 
+      - name: Embed ORVIX AI in main admin
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: node scripts/embed-main-admin-ai.mjs
+
       - name: Build Next.js application
         run: npm run build
 
@@ -44,14 +48,14 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: bash
         run: |
-          git add package-lock.json app/checkout/page.tsx app/api/order/route.ts app/admin/products/page.tsx components/AdminShell.tsx
+          git add package-lock.json app/checkout/page.tsx app/api/order/route.ts app/admin/products/page.tsx app/admin/page.tsx components/AdminShell.tsx
 
           if git diff --cached --quiet; then
-            echo "Product controls are already synced."
+            echo "Admin dashboard and product controls are already synced."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Sync admin product price stock and availability"
+          git commit -m "Sync ORVIX admin dashboard"
           git push
