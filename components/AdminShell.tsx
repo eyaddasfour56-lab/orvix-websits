@@ -35,6 +35,7 @@ const groups: NavGroup[] = [
     items: [
       { label: "Analytics", href: "/admin/analytics", keywords: "analytics conversion traffic visitors funnel sales" },
       { label: "Checkout Recovery", href: "/admin/recovery", keywords: "abandoned checkout recovery conversion sessions funnel" },
+      { label: "Risk Center", href: "/admin/risk", keywords: "risk fraud suspicious duplicate repeated checkout order signals" },
       { label: "Discounts", href: "/admin/discounts", keywords: "discount coupon code offer promo" },
       { label: "Customers", href: "/admin/command-center/advanced#customers", keywords: "customers customer 360 vip returning" },
       { label: "Reviews", href: "/admin/reviews", keywords: "reviews ratings feedback" },
@@ -46,6 +47,7 @@ const groups: NavGroup[] = [
     items: [
       { label: "Cash Flow", href: "/admin/cashflow", keywords: "cash flow profit expense income partners money" },
       { label: "Quick Transfer", href: "/admin/cashflow/transfer", keywords: "transfer partner settlement" },
+      { label: "Export Center", href: "/admin/export", keywords: "export csv backup orders products customers inventory audit cashflow" },
       { label: "Chats", href: "/admin/chats", keywords: "chat messages support customers" },
       { label: "Advanced", href: "/admin/command-center/advanced", keywords: "advanced returns audit roles funnel customers" },
     ],
