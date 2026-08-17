@@ -33,6 +33,10 @@ type Toast = {
   order?: boolean;
 };
 
+const BRAND_VERSION = "orvix-20260817-v4";
+const APP_ICON = `/icon.svg?v=${BRAND_VERSION}`;
+const BADGE_ICON = `/orvix-notification-icon.svg?v=${BRAND_VERSION}`;
+
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -76,9 +80,14 @@ export default function AdminChatNotifier() {
       const keyResult = await keyResponse.json();
       if (!keyResponse.ok || !keyResult?.publicKey) return false;
 
-      const registration = await navigator.serviceWorker.register("/orvix-admin-sw.js", {
-        scope: "/",
-      });
+      const registration = await navigator.serviceWorker.register(
+        `/orvix-admin-sw.js?v=${BRAND_VERSION}`,
+        {
+          scope: "/",
+          updateViaCache: "none",
+        }
+      );
+      await registration.update();
       await navigator.serviceWorker.ready;
 
       let subscription = await registration.pushManager.getSubscription();
@@ -176,7 +185,8 @@ export default function AdminChatNotifier() {
             const notification = new Notification(toast.title, {
               body: toast.body,
               tag: toast.id,
-              icon: "/logo.jpeg",
+              icon: APP_ICON,
+              badge: BADGE_ICON,
             });
             notification.onclick = () => {
               window.focus();
@@ -225,7 +235,8 @@ export default function AdminChatNotifier() {
             const notification = new Notification(toast.title, {
               body: toast.body,
               tag: toast.id,
-              icon: "/logo.jpeg",
+              icon: APP_ICON,
+              badge: BADGE_ICON,
             });
             notification.onclick = () => {
               window.focus();
