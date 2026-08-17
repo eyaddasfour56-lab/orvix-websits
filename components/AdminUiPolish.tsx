@@ -1,9 +1,51 @@
 "use client";
 
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 
 export default function AdminUiPolish() {
   const pathname = usePathname();
+
+  useEffect(() => {
+    if (pathname !== "/admin") return;
+
+    function applyPreOrderLabels() {
+      document
+        .querySelectorAll<HTMLSelectElement>("main select")
+        .forEach((select) => {
+          Array.from(select.options).forEach((option) => {
+            if (option.value === "new" && option.textContent?.trim() === "New") {
+              option.textContent = "Pre-order";
+            }
+          });
+        });
+
+      document
+        .querySelectorAll<HTMLElement>("main article div")
+        .forEach((element) => {
+          if (
+            element.textContent?.trim() === "New" &&
+            element.classList.contains("rounded-full") &&
+            element.classList.contains("font-black")
+          ) {
+            element.textContent = "Pre-order";
+          }
+        });
+    }
+
+    applyPreOrderLabels();
+
+    const observer = new MutationObserver(() => {
+      applyPreOrderLabels();
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+
+    return () => observer.disconnect();
+  }, [pathname]);
 
   if (pathname !== "/admin/chats") return null;
 
