@@ -1,6 +1,8 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 
+type PaidBy = "me" | "ahmed_samy";
+
 type Order = {
   id: string;
   status: string;
@@ -16,6 +18,7 @@ type CashflowEntry = {
   category: string;
   amount: number | string;
   description?: string | null;
+  paid_by?: PaidBy | null;
   entry_date: string;
   created_at: string;
 };
@@ -78,6 +81,10 @@ function isSameMonth(dateValue: string, now: Date) {
   );
 }
 
+function sumEntries(entries: CashflowEntry[]) {
+  return entries.reduce((sum, entry) => sum + toNumber(entry.amount), 0);
+}
+
 async function loadCashflowData(settings: { url: string; key: string }) {
   const headers = {
     apikey: settings.key,
@@ -122,33 +129,50 @@ async function loadCashflowData(settings: { url: string; key: string }) {
     (sum, order) => sum + getOrderProductValue(order),
     0
   );
-  const manualIncome = entries
-    .filter((entry) => entry.entry_type === "income")
-    .reduce((sum, entry) => sum + toNumber(entry.amount), 0);
-  const expenses = entries
-    .filter((entry) => entry.entry_type === "expense")
-    .reduce((sum, entry) => sum + toNumber(entry.amount), 0);
+
+  const incomeEntries = entries.filter((entry) => entry.entry_type === "income");
+  const expenseEntries = entries.filter((entry) => entry.entry_type === "expense");
+
+  const manualIncome = sumEntries(incomeEntries);
+  const expenses = sumEntries(expenseEntries);
+  const expensesFromMe = sumEntries(
+    expenseEntries.filter((entry) => entry.paid_by === "me")
+  );
+  const expensesFromAhmedSamy = sumEntries(
+    expenseEntries.filter((entry) => entry.paid_by === "ahmed_samy")
+  );
+  const unassignedExpenses = sumEntries(
+    expenseEntries.filter((entry) => !entry.paid_by)
+  );
 
   const monthDeliveredSales = deliveredOrders
     .filter((order) => isSameMonth(order.created_at, now))
     .reduce((sum, order) => sum + getOrderProductValue(order), 0);
-  const monthManualIncome = entries
-    .filter(
-      (entry) => entry.entry_type === "income" && isSameMonth(entry.entry_date, now)
-    )
-    .reduce((sum, entry) => sum + toNumber(entry.amount), 0);
-  const monthExpenses = entries
-    .filter(
-      (entry) => entry.entry_type === "expense" && isSameMonth(entry.entry_date, now)
-    )
-    .reduce((sum, entry) => sum + toNumber(entry.amount), 0);
 
-  const categoryTotals = entries
-    .filter((entry) => entry.entry_type === "expense")
-    .reduce<Record<string, number>>((totals, entry) => {
-      totals[entry.category] = (totals[entry.category] || 0) + toNumber(entry.amount);
+  const monthIncomeEntries = incomeEntries.filter((entry) =>
+    isSameMonth(entry.entry_date, now)
+  );
+  const monthExpenseEntries = expenseEntries.filter((entry) =>
+    isSameMonth(entry.entry_date, now)
+  );
+
+  const monthManualIncome = sumEntries(monthIncomeEntries);
+  const monthExpenses = sumEntries(monthExpenseEntries);
+  const monthExpensesFromMe = sumEntries(
+    monthExpenseEntries.filter((entry) => entry.paid_by === "me")
+  );
+  const monthExpensesFromAhmedSamy = sumEntries(
+    monthExpenseEntries.filter((entry) => entry.paid_by === "ahmed_samy")
+  );
+
+  const categoryTotals = expenseEntries.reduce<Record<string, number>>(
+    (totals, entry) => {
+      totals[entry.category] =
+        (totals[entry.category] || 0) + toNumber(entry.amount);
       return totals;
-    }, {});
+    },
+    {}
+  );
 
   const topExpenseCategories = Object.entries(categoryTotals)
     .sort((a, b) => b[1] - a[1])
@@ -162,13 +186,19 @@ async function loadCashflowData(settings: { url: string; key: string }) {
       manualIncome,
       totalCashIn: deliveredSales + manualIncome,
       expenses,
+      expensesFromMe,
+      expensesFromAhmedSamy,
+      unassignedExpenses,
       netCash: deliveredSales + manualIncome - expenses,
       expectedSales,
       deliveredOrders: deliveredOrders.length,
       activeOrders: activeOrders.length,
       monthCashIn: monthDeliveredSales + monthManualIncome,
       monthExpenses,
-      monthNetCash: monthDeliveredSales + monthManualIncome - monthExpenses,
+      monthExpensesFromMe,
+      monthExpensesFromAhmedSamy,
+      monthNetCash:
+        monthDeliveredSales + monthManualIncome - monthExpenses,
       topExpenseCategories,
     },
   };
@@ -220,15 +250,33 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const entryType = body?.entryType === "income" ? "income" : body?.entryType === "expense" ? "expense" : null;
+    const entryType =
+      body?.entryType === "income"
+        ? "income"
+        : body?.entryType === "expense"
+          ? "expense"
+          : null;
     const category = String(body?.category || "").trim().slice(0, 80);
     const description = String(body?.description || "").trim().slice(0, 300);
     const amount = Number(body?.amount);
     const entryDate = String(body?.entryDate || "").trim();
+    const paidBy: PaidBy | null =
+      body?.paidBy === "me"
+        ? "me"
+        : body?.paidBy === "ahmed_samy"
+          ? "ahmed_samy"
+          : null;
 
     if (!entryType || !category || !Number.isFinite(amount) || amount <= 0) {
       return NextResponse.json(
         { success: false, message: "Enter a valid type, category and amount." },
+        { status: 400 }
+      );
+    }
+
+    if (entryType === "expense" && !paidBy) {
+      return NextResponse.json(
+        { success: false, message: "Choose who paid this expense." },
         { status: 400 }
       );
     }
@@ -252,6 +300,7 @@ export async function POST(request: NextRequest) {
         category,
         amount: Math.round(amount * 100) / 100,
         description: description || null,
+        paid_by: entryType === "expense" ? paidBy : null,
         entry_date: entryDate,
       }),
       cache: "no-store",
