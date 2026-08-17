@@ -11,6 +11,7 @@ import PaymentMethodSelector from "@/components/PaymentMethodSelector";
 import CustomerServiceLink from "@/components/CustomerServiceLink";
 import CustomerAiTrigger from "@/components/CustomerAiTrigger";
 import CustomerSupportModeGate from "@/components/CustomerSupportModeGate";
+import CustomerOrderCancellation from "@/components/CustomerOrderCancellation";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -102,6 +103,7 @@ export default function RootLayout({
           <ConversionMount />
           <CustomerAiTrigger />
           <CustomerSupportModeGate />
+          <CustomerOrderCancellation />
           {children}
           <CustomerServiceLink />
         </LanguageProvider>
