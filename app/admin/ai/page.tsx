@@ -4,7 +4,12 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 
 type AssistantAction = {
-  type?: "order_status_update" | "commerce_update" | "cashflow_entry_created" | "confirmation_required";
+  type?:
+    | "order_status_update"
+    | "commerce_update"
+    | "cashflow_entry_created"
+    | "admin_action"
+    | "confirmation_required";
   orderNumber?: string;
   previousStatus?: string;
   status?: string;
@@ -15,6 +20,8 @@ type AssistantAction = {
   variantKey?: string;
   value?: string | number | boolean;
   command?: string;
+  section?: string;
+  href?: string;
   entryType?: "expense" | "income" | "capital" | "settlement";
   category?: string;
   amount?: number;
@@ -36,7 +43,7 @@ type AssistantResult = {
 export default function OrvixAiPage() {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState(
-    "اكتبلي بطريقتك: عربي، English أو Franco. مثال: add to expenses 120 tools paid by me"
+    "اكتب أي حاجة بطريقتك — عربي، English أو Franco. مثال: make google fitbit air price 7400"
   );
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"ai" | "fallback" | "action" | "">("");
@@ -51,7 +58,7 @@ export default function OrvixAiPage() {
     setLastAction(null);
 
     try {
-      const response = await fetch("/api/admin/os/assistant-router", {
+      const response = await fetch("/api/admin/os/copilot", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -69,7 +76,8 @@ export default function OrvixAiPage() {
       if (
         result.action?.type === "order_status_update" ||
         result.action?.type === "commerce_update" ||
-        result.action?.type === "cashflow_entry_created"
+        result.action?.type === "cashflow_entry_created" ||
+        result.action?.type === "admin_action"
       ) {
         setMode("action");
         window.dispatchEvent(
@@ -83,7 +91,7 @@ export default function OrvixAiPage() {
 
       setQuestion("");
     } catch (error) {
-      setAnswer(error instanceof Error ? error.message : "ORVIX Assistant could not answer right now.");
+      setAnswer(error instanceof Error ? error.message : "ORVIX AI could not answer right now.");
       setMode("");
       setLastAction(null);
     } finally {
@@ -97,8 +105,8 @@ export default function OrvixAiPage() {
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.34em] text-violet-200/50">ORVIX ADMIN</p>
           <h1 className="mt-3 text-4xl font-black tracking-tight text-white sm:text-5xl">ORVIX AI</h1>
-          <p className="mt-3 max-w-2xl text-sm font-medium leading-6 text-white/38 sm:text-base">
-            Talk naturally in Arabic, English or Franco. ORVIX AI can read live data and execute supported admin actions, including cash flow entries.
+          <p className="mt-3 max-w-3xl text-sm font-medium leading-6 text-white/38 sm:text-base">
+            Full Admin Copilot. Talk naturally in Arabic, English or Franco and ORVIX AI can read live dashboard data or execute supported actions across the admin.
           </p>
         </div>
 
@@ -115,15 +123,17 @@ export default function OrvixAiPage() {
           <div className="flex items-center gap-3">
             <span className="grid h-10 w-10 place-items-center rounded-2xl border border-violet-300/20 bg-violet-500/[0.12] text-lg text-violet-100">✦</span>
             <div>
-              <p className="text-xs font-black text-white">AI + LIVE ORVIX DATA</p>
-              <p className="mt-0.5 text-[11px] font-semibold text-white/28">Orders, stock, price, sale controls, cash flow, profit and checkout</p>
+              <p className="text-xs font-black text-white">FULL ADMIN COPILOT + LIVE ORVIX DATA</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-white/28">
+                Orders · Products · Inventory · Cash Flow · Discounts · Reviews · Waitlist · Chats · Bosta · Commerce · Analytics · Features · Maintenance
+              </p>
             </div>
           </div>
         </div>
 
         <div className="p-4 sm:p-7">
           <div
-            className={`min-h-[190px] rounded-[24px] border p-5 text-sm font-bold leading-7 sm:min-h-[230px] sm:p-6 sm:text-base ${
+            className={`min-h-[190px] whitespace-pre-wrap rounded-[24px] border p-5 text-sm font-bold leading-7 sm:min-h-[230px] sm:p-6 sm:text-base ${
               mode === "action"
                 ? "border-emerald-300/15 bg-emerald-500/[0.07] text-emerald-50"
                 : "border-violet-300/10 bg-violet-500/[0.05] text-violet-50"
@@ -149,7 +159,7 @@ export default function OrvixAiPage() {
               </span>
 
               {lastAction?.type === "order_status_update" && (
-                <Link href="/admin" className="rounded-full border border-emerald-300/20 bg-emerald-500/[0.08] px-3 py-1.5 text-[10px] font-black text-emerald-100">
+                <Link href="/admin/orders" className="rounded-full border border-emerald-300/20 bg-emerald-500/[0.08] px-3 py-1.5 text-[10px] font-black text-emerald-100">
                   View Orders
                 </Link>
               )}
@@ -165,6 +175,12 @@ export default function OrvixAiPage() {
                   Open Cash Flow
                 </Link>
               )}
+
+              {lastAction?.type === "admin_action" && lastAction.href && (
+                <Link href={lastAction.href} className="rounded-full border border-emerald-300/20 bg-emerald-500/[0.08] px-3 py-1.5 text-[10px] font-black text-emerald-100">
+                  Open {lastAction.section || "Admin"}
+                </Link>
+              )}
             </div>
           )}
 
@@ -176,7 +192,7 @@ export default function OrvixAiPage() {
               id="orvix-ai-question"
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
-              placeholder="مثال: add to expenses 120 tools paid by me"
+              placeholder="اكتب اللي عايزه بطريقتك... مثال: 5aly google fitbit air 7400"
               rows={4}
               className="w-full resize-none rounded-[22px] border border-white/10 bg-[#09090a] px-4 py-4 text-base font-semibold text-white outline-none transition placeholder:text-white/20 focus:border-violet-300/30 focus:ring-2 focus:ring-violet-500/10"
             />
@@ -191,18 +207,17 @@ export default function OrvixAiPage() {
           </form>
 
           <div className="mt-5">
-            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/25">Quick prompts & actions</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/25">Try anything</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {[
                 "add to expenses 120 tools paid by me",
-                "ana dfa3t 200 delivery",
-                "500 income for ahmed samy",
-                "Profit today",
-                "Stock status",
-                "Delayed orders",
-                "Stock google-fitbit-air = 10",
-                "Price google-fitbit-air = 7400",
-                "Checkout = off",
+                "make google fitbit air price 7400",
+                "approve latest review",
+                "turn ORVIX15 off",
+                "close the website",
+                "show me all low stock products",
+                "how much did i spend this month?",
+                "reply to latest waiting customer tell him his order is confirmed",
               ].map((prompt) => (
                 <button
                   key={prompt}
@@ -217,7 +232,7 @@ export default function OrvixAiPage() {
           </div>
 
           <p className="mt-5 text-[10px] font-semibold leading-5 text-white/25">
-            Cash flow actions understand natural Arabic, English and Franco. Commerce commands still require an explicit “confirm” before changing stock, price, sale availability or checkout.
+            Normal admin actions execute immediately when the intent and target are clear. Delete/reset actions require one explicit confirmation before ORVIX AI executes them.
           </p>
         </div>
       </section>
