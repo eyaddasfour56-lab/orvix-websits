@@ -9,7 +9,6 @@ type AlertItem = {
   title: string;
   body: string;
   targetUrl: string;
-  persisted?: boolean;
 };
 
 type InventoryItem = {
@@ -45,7 +44,10 @@ type Dashboard = {
     waitingConfirmation: number;
     unreadChats: number;
   };
-  allTime: { deliveredSales: number; realProfit: number };
+  allTime: {
+    deliveredSales: number;
+    realProfit: number;
+  };
   summaryText: string;
   alerts: AlertItem[];
   inventory: InventoryItem[];
@@ -59,13 +61,19 @@ type Dashboard = {
   };
 };
 
-type ApiResult = {
+type DashboardResult = {
   success?: boolean;
   message?: string;
-  answer?: string;
   roleLabel?: string;
   dashboard?: Dashboard;
   partial?: boolean;
+};
+
+type AssistantResult = {
+  success?: boolean;
+  answer?: string;
+  message?: string;
+  ai?: boolean;
 };
 
 type InventoryResult = {
@@ -78,20 +86,16 @@ function money(value: number | string | null | undefined) {
   return `${(Number.isFinite(parsed) ? parsed : 0).toLocaleString("en-GB", { maximumFractionDigits: 2 })} EGP`;
 }
 
-function Metric({ label, value, helper, tone = "white" }: { label: string; value: string; helper: string; tone?: "white" | "green" | "blue" | "red" | "violet" }) {
-  const toneClass = {
-    white: "border-white/10 bg-white/[0.04]",
-    green: "border-emerald-400/20 bg-emerald-500/[0.08]",
-    blue: "border-blue-400/20 bg-blue-500/[0.08]",
-    red: "border-red-400/20 bg-red-500/[0.08]",
-    violet: "border-violet-400/20 bg-violet-500/[0.08]",
-  }[tone];
+function statusLabel(value: string) {
+  return value.replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
+function Metric({ label, value, note, emphasis = false }: { label: string; value: string; note: string; emphasis?: boolean }) {
   return (
-    <article className={`rounded-[24px] border p-4 sm:p-5 ${toneClass}`}>
-      <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/35">{label}</p>
-      <p className="mt-2 text-2xl font-black tracking-tight sm:text-3xl">{value}</p>
-      <p className="mt-1 text-[11px] font-bold text-white/30">{helper}</p>
+    <article className={`rounded-2xl border p-4 sm:p-5 ${emphasis ? "border-violet-300/20 bg-violet-500/[0.055]" : "border-white/[0.08] bg-white/[0.028]"}`}>
+      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/30">{label}</p>
+      <p className="mt-2 text-2xl font-black tracking-[-0.03em] text-white sm:text-[28px]">{value}</p>
+      <p className="mt-1.5 text-[11px] font-medium text-white/30">{note}</p>
     </article>
   );
 }
@@ -104,7 +108,8 @@ export default function CommandCenterPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("اسألني عن الربح، الأوردرات، الستوك، العملاء أو أي حاجة مهمة في ORVIX.");
+  const [answer, setAnswer] = useState("Ask about profit, orders, stock, customers, or anything important in ORVIX.");
+  const [assistantMode, setAssistantMode] = useState<"ai" | "fallback" | "">("");
   const [stockDrafts, setStockDrafts] = useState<Record<string, number>>({});
 
   async function load() {
@@ -112,15 +117,15 @@ export default function CommandCenterPage() {
     setError("");
     try {
       const response = await fetch("/api/admin/os", { cache: "no-store", credentials: "same-origin" });
-      const result = (await response.json()) as ApiResult;
+      const result = (await response.json()) as DashboardResult;
       if (!response.ok || !result.success || !result.dashboard) {
-        throw new Error(result.message || "Could not load ORVIX OS.");
+        throw new Error(result.message || "Could not load ORVIX overview.");
       }
       setDashboard(result.dashboard);
       setRoleLabel(result.roleLabel || "Admin");
       setStockDrafts(Object.fromEntries(result.dashboard.inventory.map((item) => [item.id, item.stock_quantity])));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Could not load ORVIX OS.");
+      setError(loadError instanceof Error ? loadError.message : "Could not load ORVIX overview.");
     } finally {
       setLoading(false);
     }
@@ -130,8 +135,8 @@ export default function CommandCenterPage() {
     void load();
   }, []);
 
-  async function osAction(body: Record<string, unknown>, key: string) {
-    setBusy(key);
+  async function processOrder(order: OrderItem) {
+    setBusy(`order-${order.id}`);
     setError("");
     setNotice("");
     try {
@@ -139,16 +144,14 @@ export default function CommandCenterPage() {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ action: "process_order", orderId: order.id }),
       });
-      const result = (await response.json()) as ApiResult;
-      if (!response.ok || !result.success) throw new Error(result.message || "Action failed.");
-      if (result.message) setNotice(result.message);
+      const result = (await response.json()) as DashboardResult;
+      if (!response.ok || !result.success) throw new Error(result.message || "Could not process order.");
+      setNotice(result.message || "Order processed.");
       await load();
-      return result;
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Action failed.");
-      return null;
+      setError(actionError instanceof Error ? actionError.message : "Could not process order.");
     } finally {
       setBusy("");
     }
@@ -157,31 +160,32 @@ export default function CommandCenterPage() {
   async function askAssistant(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const value = question.trim();
-    if (!value) return;
+    if (!value || busy === "assistant") return;
     setBusy("assistant");
     setError("");
     try {
-      const response = await fetch("/api/admin/os", {
+      const response = await fetch("/api/admin/os/assistant", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "ask", question: value }),
+        body: JSON.stringify({ question: value }),
       });
-      const result = (await response.json()) as ApiResult;
-      if (!response.ok || !result.success) throw new Error(result.message || "Assistant could not answer.");
+      const result = (await response.json()) as AssistantResult;
+      if (!response.ok || !result.success) throw new Error(result.message || "ORVIX AI could not answer.");
       setAnswer(result.answer || "No answer available.");
+      setAssistantMode(result.ai === false ? "fallback" : "ai");
       setQuestion("");
     } catch (assistantError) {
-      setError(assistantError instanceof Error ? assistantError.message : "Assistant could not answer.");
+      setError(assistantError instanceof Error ? assistantError.message : "ORVIX AI could not answer.");
     } finally {
       setBusy("");
     }
   }
 
-  function changeStock(item: InventoryItem, delta: number) {
+  function adjustStock(item: InventoryItem, amount: number) {
     setStockDrafts((current) => ({
       ...current,
-      [item.id]: Math.max(0, Math.round(Number(current[item.id] ?? item.stock_quantity) + delta)),
+      [item.id]: Math.max(0, Math.round(Number(current[item.id] ?? item.stock_quantity) + amount)),
     }));
   }
 
@@ -213,142 +217,207 @@ export default function CommandCenterPage() {
   }
 
   if (loading && !dashboard) {
-    return <main className="min-h-screen bg-[#050505] p-6 text-white"><div className="mx-auto max-w-6xl rounded-[28px] border border-white/10 bg-white/[0.035] p-10 text-center text-white/40">Loading ORVIX OS…</div></main>;
+    return (
+      <main className="min-h-[calc(100vh-64px)] bg-[#0b0c0e] p-5 sm:p-7">
+        <div className="mx-auto max-w-[1220px] animate-pulse">
+          <div className="h-8 w-52 rounded-lg bg-white/[0.05]" />
+          <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((item) => <div key={item} className="h-28 rounded-2xl bg-white/[0.04]" />)}
+          </div>
+        </div>
+      </main>
+    );
   }
 
   if (!dashboard) {
-    return <main className="min-h-screen bg-[#050505] p-6 text-white"><div className="mx-auto max-w-4xl rounded-[28px] border border-red-400/20 bg-red-500/[0.08] p-8">{error || "ORVIX OS unavailable."}</div></main>;
+    return (
+      <main className="min-h-[calc(100vh-64px)] bg-[#0b0c0e] p-5 sm:p-7">
+        <div className="mx-auto max-w-3xl rounded-2xl border border-red-400/20 bg-red-500/[0.07] p-6 text-sm font-semibold text-red-100">{error || "ORVIX overview unavailable."}</div>
+      </main>
+    );
   }
 
   const importantAlerts = dashboard.alerts.slice(0, 4);
-  const importantOrders = dashboard.actionOrders.slice(0, 4);
+  const actionOrders = dashboard.actionOrders.slice(0, 5);
 
   return (
-    <main className="min-h-screen bg-[#050505] px-4 py-6 text-white sm:px-6 sm:py-8">
-      <div className="mx-auto max-w-6xl">
+    <main className="min-h-[calc(100vh-64px)] bg-[#0b0c0e] px-4 py-5 text-white sm:px-6 sm:py-7">
+      <div className="mx-auto max-w-[1220px]">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-violet-200/60">ORVIX OS</p>
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-black text-white/35">{roleLabel}</span>
-            </div>
-            <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-5xl">Dashboard</h1>
+            <p className="text-xs font-semibold text-white/35">ORVIX / Overview</p>
+            <h1 className="mt-1 text-3xl font-black tracking-[-0.035em] sm:text-4xl">Good to see you.</h1>
+            <p className="mt-1.5 text-sm font-medium text-white/35">Here is what matters in the business right now.</p>
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => void load()} className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-black">Refresh</button>
-            <Link href="/admin/command-center/advanced" className="rounded-full bg-white px-5 py-2.5 text-xs font-black text-black">Advanced</Link>
+          <div className="flex items-center gap-2">
+            <span className="hidden rounded-lg border border-white/[0.08] bg-white/[0.025] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-white/35 sm:inline-flex">{roleLabel}</span>
+            <button type="button" onClick={() => void load()} className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-xs font-bold text-white/65 hover:bg-white/[0.055]">Refresh</button>
+            <Link href="/admin/command-center/advanced" className="rounded-xl bg-white px-4 py-2.5 text-xs font-black text-black hover:bg-white/90">Advanced</Link>
           </div>
         </header>
 
-        {error && <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-500/[0.08] px-4 py-3 text-sm font-bold text-red-100">{error}</div>}
-        {notice && <div className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-500/[0.08] px-4 py-3 text-sm font-bold text-emerald-100">{notice}</div>}
+        {error && <div className="mt-4 rounded-xl border border-red-400/20 bg-red-500/[0.07] px-4 py-3 text-sm font-semibold text-red-100">{error}</div>}
+        {notice && <div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-500/[0.07] px-4 py-3 text-sm font-semibold text-emerald-100">{notice}</div>}
 
-        <section className="mt-5 rounded-[26px] border border-violet-400/20 bg-violet-500/[0.07] p-5">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-200/50">TODAY</p>
-          <p className="mt-2 text-base font-black leading-6 text-violet-50 sm:text-xl">{dashboard.summaryText}</p>
+        <section className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Metric label="Sales today" value={money(dashboard.today.sales)} note={`${dashboard.today.orders} orders placed`} />
+          <Metric label="Profit today" value={money(dashboard.today.profit)} note="Delivered profit" emphasis />
+          <Metric label="Need confirmation" value={String(dashboard.today.waitingConfirmation)} note="Orders waiting for action" />
+          <Metric label="Customer chats" value={String(dashboard.today.unreadChats)} note={`${dashboard.stats.waitingChats} need attention`} />
         </section>
 
-        <section className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Metric label="Sales" value={money(dashboard.today.sales)} helper={`${dashboard.today.orders} orders today`} tone="blue" />
-          <Metric label="Profit" value={money(dashboard.today.profit)} helper="Delivered profit" tone={dashboard.today.profit >= 0 ? "green" : "red"} />
-          <Metric label="Need Confirm" value={String(dashboard.today.waitingConfirmation)} helper="Orders waiting" tone={dashboard.today.waitingConfirmation ? "violet" : "white"} />
-          <Metric label="Chats" value={String(dashboard.today.unreadChats)} helper={`${dashboard.stats.waitingChats} urgent`} tone={dashboard.stats.waitingChats ? "red" : "white"} />
-        </section>
-
-        <section id="assistant" className="mt-4 rounded-[28px] border border-violet-400/25 bg-violet-500/[0.08] p-5 sm:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-200/55">ORVIX ASSISTANT</p>
-              <h2 className="mt-1 text-2xl font-black">Ask your business</h2>
+        <section className="mt-4 grid gap-4 xl:grid-cols-[1.28fr_0.72fr]">
+          <article className="rounded-2xl border border-violet-300/15 bg-gradient-to-br from-violet-500/[0.07] to-white/[0.025] p-5 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="grid h-7 w-7 place-items-center rounded-lg bg-violet-300 text-xs font-black text-black">✦</span>
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-violet-100/70">ORVIX AI</p>
+                </div>
+                <h2 className="mt-3 text-xl font-black sm:text-2xl">Ask your business</h2>
+                <p className="mt-1 text-xs font-medium text-white/35">Answers from live ORVIX data.</p>
+              </div>
+              {assistantMode && <span className="rounded-full border border-white/[0.08] bg-black/20 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.1em] text-white/30">{assistantMode === "ai" ? "AI + Live Data" : "Live Data Fallback"}</span>}
             </div>
-            <span className="rounded-full border border-violet-300/15 bg-black/20 px-3 py-1.5 text-[10px] font-black text-violet-100/60">LIVE DATA</span>
+
+            <div className="mt-4 min-h-[76px] rounded-xl border border-white/[0.07] bg-black/20 p-4 text-sm font-semibold leading-6 text-white/75">{answer}</div>
+
+            <form onSubmit={askAssistant} className="mt-3 flex gap-2">
+              <input
+                value={question}
+                onChange={(event) => setQuestion(event.target.value)}
+                placeholder="Ask: How much did we profit? What needs my attention?"
+                className="min-w-0 flex-1 rounded-xl border border-white/[0.08] bg-[#111214] px-4 py-3 text-sm font-medium text-white outline-none placeholder:text-white/22 focus:border-violet-300/25"
+              />
+              <button disabled={busy === "assistant"} className="rounded-xl bg-violet-300 px-5 py-3 text-xs font-black text-black disabled:opacity-40">{busy === "assistant" ? "Thinking…" : "Ask"}</button>
+            </form>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {["Profit today", "Stock status", "Delayed orders", "Top customer"].map((prompt) => (
+                <button key={prompt} type="button" onClick={() => setQuestion(prompt)} className="rounded-lg border border-white/[0.07] bg-white/[0.025] px-3 py-1.5 text-[10px] font-semibold text-white/42 hover:bg-white/[0.05] hover:text-white/65">{prompt}</button>
+              ))}
+            </div>
+          </article>
+
+          <article className="rounded-2xl border border-white/[0.08] bg-white/[0.028] p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/28">Today</p>
+                <h2 className="mt-1 text-lg font-black">Business pulse</h2>
+              </div>
+              <span className={`h-2.5 w-2.5 rounded-full ${importantAlerts.length ? "bg-amber-300" : "bg-emerald-300"}`} />
+            </div>
+            <p className="mt-4 text-sm font-semibold leading-6 text-white/58">{dashboard.summaryText}</p>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <Link href="/admin" className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-3 text-center text-xs font-bold text-white/60 hover:bg-white/[0.05]">Orders</Link>
+              <Link href="/admin/cashflow" className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-3 text-center text-xs font-bold text-white/60 hover:bg-white/[0.05]">Cash Flow</Link>
+              <Link href="/admin/inventory" className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-3 text-center text-xs font-bold text-white/60 hover:bg-white/[0.05]">Inventory</Link>
+              <Link href="/admin/analytics" className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-3 text-center text-xs font-bold text-white/60 hover:bg-white/[0.05]">Analytics</Link>
+            </div>
+          </article>
+        </section>
+
+        <section className="mt-4 grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
+          <article className="rounded-2xl border border-white/[0.08] bg-white/[0.028] p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/28">Orders</p>
+                <h2 className="mt-1 text-lg font-black">Needs action</h2>
+              </div>
+              <Link href="/admin" className="text-[11px] font-bold text-white/35 hover:text-white/65">View all →</Link>
+            </div>
+
+            <div className="mt-4 divide-y divide-white/[0.06]">
+              {actionOrders.length === 0 ? (
+                <div className="rounded-xl bg-emerald-500/[0.045] px-4 py-5 text-sm font-semibold text-emerald-100/75">No orders need action right now.</div>
+              ) : actionOrders.map((order) => (
+                <div key={order.id} className="flex flex-wrap items-center gap-3 py-3.5 first:pt-0 last:pb-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-black">#{order.order_number}</p>
+                      <span className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[9px] font-bold uppercase text-white/35">{statusLabel(order.status)}</span>
+                    </div>
+                    <p className="mt-1 truncate text-xs font-semibold text-white/48">{order.customer_name} · {order.product_name || "Product"} · Qty {order.quantity}</p>
+                    {order.bosta_last_error && <p className="mt-1 text-[10px] font-semibold text-red-200/70">Bosta needs attention</p>}
+                  </div>
+                  <p className="text-xs font-black text-white/72">{money(order.total_price)}</p>
+                  <button type="button" disabled={busy === `order-${order.id}`} onClick={() => void processOrder(order)} className="rounded-lg bg-white px-3 py-2 text-[10px] font-black text-black disabled:opacity-40">{busy === `order-${order.id}` ? "Working" : "Process"}</button>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="rounded-2xl border border-white/[0.08] bg-white/[0.028] p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/28">Inventory</p>
+                <h2 className="mt-1 text-lg font-black">Quick stock</h2>
+              </div>
+              <Link href="/admin/inventory" className="text-[11px] font-bold text-white/35 hover:text-white/65">Manage →</Link>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {dashboard.inventory.map((item) => {
+                const draft = stockDrafts[item.id] ?? item.stock_quantity;
+                const low = item.is_available && draft <= item.low_stock_limit;
+                const changed = draft !== item.stock_quantity;
+                return (
+                  <div key={item.id} className="rounded-xl border border-white/[0.065] bg-black/15 p-3.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black">{item.product_name}</p>
+                        <p className={`mt-1 text-[10px] font-bold ${low ? "text-amber-200/75" : "text-emerald-200/60"}`}>{low ? `Low stock · limit ${item.low_stock_limit}` : "Stock healthy"}</p>
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={draft}
+                        onChange={(event) => setStockDrafts((current) => ({ ...current, [item.id]: Math.max(0, Math.round(Number(event.target.value || 0))) }))}
+                        className="h-10 w-20 rounded-lg border border-white/[0.08] bg-[#111214] px-2 text-center text-lg font-black text-white outline-none focus:border-white/20"
+                      />
+                    </div>
+                    <div className="mt-3 grid grid-cols-5 gap-1.5">
+                      {[-5, -1, 1, 5].map((amount) => (
+                        <button key={amount} type="button" onClick={() => adjustStock(item, amount)} className="rounded-lg border border-white/[0.065] bg-white/[0.02] py-2 text-[10px] font-bold text-white/48 hover:bg-white/[0.05]">{amount > 0 ? `+${amount}` : amount}</button>
+                      ))}
+                      <button type="button" disabled={!changed || busy === `stock-${item.id}`} onClick={() => void saveStock(item)} className="rounded-lg bg-white py-2 text-[10px] font-black text-black disabled:opacity-25">Save</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </article>
+        </section>
+
+        <section className="mt-4 rounded-2xl border border-white/[0.08] bg-white/[0.028] p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/28">Attention</p>
+              <h2 className="mt-1 text-lg font-black">Important alerts</h2>
+            </div>
+            <Link href="/admin/command-center/advanced#alerts" className="text-[11px] font-bold text-white/35 hover:text-white/65">All alerts →</Link>
           </div>
-          <div className="mt-4 min-h-[82px] rounded-2xl border border-violet-300/10 bg-black/25 p-4 text-sm font-bold leading-6 text-violet-50">{answer}</div>
-          <form onSubmit={askAssistant} className="mt-3 flex gap-2">
-            <input value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="اسأل: كام ربحنا؟ الستوك كام؟ إيه الأوردرات اللي محتاجة action؟" className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-[#111] px-4 py-3 text-sm text-white outline-none placeholder:text-white/25" />
-            <button disabled={busy === "assistant"} className="rounded-2xl bg-violet-300 px-5 py-3 text-sm font-black text-black disabled:opacity-40">{busy === "assistant" ? "..." : "Ask"}</button>
-          </form>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {["Profit today", "Stock status", "Delayed orders", "Top customer"].map((prompt) => (
-              <button key={prompt} type="button" onClick={() => setQuestion(prompt)} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[10px] font-black text-white/45">{prompt}</button>
+
+          <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+            {importantAlerts.length === 0 ? (
+              <div className="md:col-span-2 xl:col-span-4 rounded-xl bg-emerald-500/[0.045] px-4 py-4 text-sm font-semibold text-emerald-100/75">Everything looks clear.</div>
+            ) : importantAlerts.map((alert) => (
+              <Link key={alert.id} href={alert.targetUrl} className="rounded-xl border border-white/[0.065] bg-black/15 p-3.5 transition hover:bg-white/[0.035]">
+                <div className="flex items-center gap-2">
+                  <span className={`h-2 w-2 rounded-full ${alert.severity === "critical" ? "bg-red-300" : alert.severity === "warning" ? "bg-amber-300" : "bg-blue-300"}`} />
+                  <p className="text-xs font-black text-white/75">{alert.title}</p>
+                </div>
+                <p className="mt-2 line-clamp-2 text-[11px] font-medium leading-5 text-white/32">{alert.body}</p>
+              </Link>
             ))}
           </div>
         </section>
 
-        <div className="mt-4 grid gap-4 xl:grid-cols-2">
-          <section className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/30">IMPORTANT</p><h2 className="mt-1 text-xl font-black">Needs attention</h2></div>
-              <span className="rounded-full bg-white/[0.05] px-3 py-1 text-xs font-black text-white/35">{dashboard.alerts.length}</span>
-            </div>
-            <div className="mt-4 space-y-2">
-              {importantAlerts.length === 0 ? <div className="rounded-2xl bg-emerald-500/[0.06] p-4 text-sm font-black text-emerald-100">Everything clear ✓</div> : importantAlerts.map((alert) => (
-                <Link key={alert.id} href={alert.targetUrl} className="block rounded-2xl border border-white/8 bg-white/[0.025] p-4">
-                  <p className="text-sm font-black">{alert.title}</p>
-                  <p className="mt-1 text-xs leading-5 text-white/35">{alert.body}</p>
-                </Link>
-              ))}
-            </div>
-          </section>
-
-          <section className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/30">ORDERS</p><h2 className="mt-1 text-xl font-black">Ready now</h2></div>
-              <Link href="/admin" className="text-xs font-black text-white/35">All →</Link>
-            </div>
-            <div className="mt-4 space-y-2">
-              {importantOrders.length === 0 ? <p className="rounded-2xl bg-white/[0.025] p-4 text-sm text-white/35">No orders waiting.</p> : importantOrders.map((order) => (
-                <div key={order.id} className="rounded-2xl border border-white/8 bg-white/[0.025] p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div><p className="text-sm font-black">#{order.order_number} · {order.customer_name}</p><p className="mt-1 text-xs text-white/35">{order.product_name} · Qty {order.quantity}</p></div>
-                    <p className="text-sm font-black">{money(order.total_price)}</p>
-                  </div>
-                  {order.bosta_last_error && <p className="mt-2 text-xs font-bold text-red-200">Bosta needs attention</p>}
-                  <button disabled={busy === `process-${order.id}`} onClick={() => void osAction({ action: "process_order", orderId: order.id }, `process-${order.id}`)} className="mt-3 w-full rounded-xl bg-white px-4 py-2.5 text-xs font-black text-black disabled:opacity-40">{busy === `process-${order.id}` ? "Working…" : "Process Order"}</button>
-                </div>
-              ))}
-            </div>
-          </section>
-        </div>
-
-        <section id="inventory" className="mt-4 rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div><p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/30">STOCK</p><h2 className="mt-1 text-xl font-black">Quick edit</h2></div>
-            <Link href="/admin/inventory" className="text-xs font-black text-white/35">Full Inventory →</Link>
-          </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {dashboard.inventory.map((item) => {
-              const draft = Math.max(0, Number(stockDrafts[item.id] ?? item.stock_quantity));
-              const low = item.is_available && draft <= item.low_stock_limit;
-              return (
-                <article key={item.id} className={`rounded-[24px] border p-4 ${low ? "border-amber-400/20 bg-amber-500/[0.06]" : "border-white/8 bg-black/20"}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div><p className={`text-[10px] font-black uppercase ${low ? "text-amber-200/70" : "text-white/30"}`}>{low ? "LOW STOCK" : "IN STOCK"}</p><h3 className="mt-1 text-base font-black">{item.product_name}</h3></div>
-                    <p className="text-3xl font-black">{draft}</p>
-                  </div>
-                  <div className="mt-4 grid grid-cols-4 gap-2">
-                    <button type="button" onClick={() => changeStock(item, -5)} className="rounded-xl border border-white/10 py-2 text-xs font-black">−5</button>
-                    <button type="button" onClick={() => changeStock(item, -1)} className="rounded-xl border border-white/10 py-2 text-xs font-black">−1</button>
-                    <button type="button" onClick={() => changeStock(item, 1)} className="rounded-xl border border-white/10 py-2 text-xs font-black">+1</button>
-                    <button type="button" onClick={() => changeStock(item, 5)} className="rounded-xl border border-white/10 py-2 text-xs font-black">+5</button>
-                  </div>
-                  <div className="mt-2 flex gap-2">
-                    <input type="number" min="0" step="1" value={draft} onChange={(event) => setStockDrafts((current) => ({ ...current, [item.id]: Math.max(0, Math.round(Number(event.target.value || 0))) }))} className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#111] px-3 py-2.5 text-center text-sm font-black outline-none" />
-                    <button disabled={busy === `stock-${item.id}`} onClick={() => void saveStock(item)} className="rounded-xl bg-white px-4 py-2.5 text-xs font-black text-black disabled:opacity-40">{busy === `stock-${item.id}` ? "Saving…" : "Save"}</button>
-                  </div>
-                  <p className="mt-2 text-[10px] text-white/25">Low stock at {item.low_stock_limit} · Suggested reorder {item.reorderSuggested || 0}</p>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Link href="/admin/cashflow" className="rounded-2xl border border-emerald-400/15 bg-emerald-500/[0.06] p-4 text-sm font-black text-emerald-100">Cash Flow</Link>
-          <Link href="/admin/chats" className="rounded-2xl border border-blue-400/15 bg-blue-500/[0.06] p-4 text-sm font-black text-blue-100">Chats</Link>
-          <Link href="/admin/inventory" className="rounded-2xl border border-amber-400/15 bg-amber-500/[0.06] p-4 text-sm font-black text-amber-100">Inventory</Link>
-          <Link href="/admin/command-center/advanced" className="rounded-2xl border border-violet-400/15 bg-violet-500/[0.06] p-4 text-sm font-black text-violet-100">Advanced</Link>
-        </section>
+        <footer className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] py-4 text-[11px] font-medium text-white/25">
+          <span>Delivered sales: {money(dashboard.allTime.deliveredSales)} · Real profit: {money(dashboard.allTime.realProfit)}</span>
+          <span>Detailed reports, customers, returns and audit live in Advanced.</span>
+        </footer>
       </div>
     </main>
   );
