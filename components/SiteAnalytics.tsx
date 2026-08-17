@@ -50,8 +50,13 @@ function shouldTrackPath(pathname: string) {
   );
 }
 
-function productFromCheckoutUrl() {
+function productFromCheckoutUrl(pathname: string) {
   try {
+    if (pathname.startsWith("/checkout/")) {
+      const slugFromPath = decodeURIComponent(pathname.slice("/checkout/".length).split("/")[0] || "");
+      if (slugFromPath) return slugFromPath.slice(0, 120);
+    }
+
     const search = new URLSearchParams(window.location.search);
     const explicit = search.get("productSlug") || search.get("slug");
     if (explicit) return explicit.slice(0, 120);
@@ -139,8 +144,8 @@ export default function SiteAnalytics() {
       // A failed analytics request must stay invisible to customers.
     });
 
-    if (pathname === "/checkout") {
-      const productSlug = productFromCheckoutUrl();
+    if (pathname === "/checkout" || pathname.startsWith("/checkout/")) {
+      const productSlug = productFromCheckoutUrl(pathname);
       const payload = {
         stage: "checkout_started",
         visitorId,
