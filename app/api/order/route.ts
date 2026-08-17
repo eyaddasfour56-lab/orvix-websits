@@ -27,7 +27,6 @@ const PRODUCT_NAME =
 const PRODUCT_SLUG =
   "google-fitbit-air";
 
-const PRODUCT_PRICE = 8500;
 
 type DiscountType =
   | "free_delivery"
@@ -565,17 +564,106 @@ export async function POST(
       );
 
     /*
-      الأسعار الأساسية من السيرفر،
-      وليس من الـCheckout.
+      السعر والتوفر يأتوا من Products في Supabase.
+      أي تعديل من Admin > Products & Stock ينعكس هنا فورًا.
     */
-    const productName =
-      PRODUCT_NAME;
+    const liveProductResponse = await fetch(
+      `${supabaseUrl}/rest/v1/products?slug=eq.${encodeURIComponent(
+        PRODUCT_SLUG
+      )}&select=name,slug,price,status,stock_quantity,allow_purchase&limit=1`,
+      {
+        headers: {
+          apikey: supabaseSecretKey,
+          Authorization:
+            `Bearer ${supabaseSecretKey}`,
+          "Content-Type":
+            "application/json",
+        },
+        cache: "no-store",
+      }
+    );
 
-    const productSlug =
-      PRODUCT_SLUG;
+    if (!liveProductResponse.ok) {
+      console.error(
+        "Product pricing lookup failed:",
+        await liveProductResponse.text()
+      );
 
-    const productPrice =
-      PRODUCT_PRICE;
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Could not verify the product price right now.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const liveProductRows =
+      await liveProductResponse.json();
+
+    const liveProduct =
+      Array.isArray(liveProductRows)
+        ? liveProductRows[0]
+        : null;
+
+    if (!liveProduct) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "This product is not available right now.",
+        },
+        { status: 404 }
+      );
+    }
+
+    const productName = String(
+      liveProduct.name || PRODUCT_NAME
+    );
+
+    const productSlug = String(
+      liveProduct.slug || PRODUCT_SLUG
+    );
+
+    const productPrice = Number(
+      liveProduct.price || 0
+    );
+
+    const availableStock = Math.max(
+      0,
+      Number(
+        liveProduct.stock_quantity || 0
+      )
+    );
+
+    const availableForSale =
+      liveProduct.status === "available" &&
+      Boolean(liveProduct.allow_purchase) &&
+      availableStock > 0 &&
+      productPrice > 0;
+
+    if (!availableForSale) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "This product is currently unavailable for sale.",
+        },
+        { status: 409 }
+      );
+    }
+
+    if (quantity > availableStock) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            `Only ${availableStock} item(s) are currently available.`,
+        },
+        { status: 409 }
+      );
+    }
 
     const originalProductsTotal =
       productPrice * quantity;

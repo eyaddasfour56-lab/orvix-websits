@@ -25,8 +25,7 @@ const groups: NavGroup[] = [
     items: [
       { label: "Overview", href: "/admin/command-center", keywords: "home dashboard overview summary" },
       { label: "Orders", href: "/admin", keywords: "orders customers shipping bosta operations" },
-      { label: "Inventory", href: "/admin/inventory", keywords: "stock inventory quantity low stock" },
-      { label: "Products", href: "/admin/products", keywords: "products price catalog fitbit garmin" },
+      { label: "Products & Stock", href: "/admin/products", keywords: "products price catalog fitbit garmin stock inventory quantity availability sale" },
     ],
   },
   {

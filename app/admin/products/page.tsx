@@ -1167,7 +1167,7 @@ export default function AdminProductsPage() {
             </p>
 
             <h1 className="mt-3 text-4xl font-black sm:text-5xl">
-              Manage Products
+              Manage Products & Stock
             </h1>
 
             <p className="mt-4 max-w-2xl leading-7 text-gray-400">
@@ -1660,7 +1660,7 @@ export default function AdminProductsPage() {
                 {
                   key: "allowPurchase",
                   label:
-                    "Allow Purchase",
+                    "Available for Sale",
                   value:
                     newProduct.allowPurchase,
                 },
@@ -2210,7 +2210,7 @@ export default function AdminProductsPage() {
                             field:
                               "allow_purchase",
                             label:
-                              "Allow Purchase",
+                              "Available for Sale",
                             value:
                               product.allow_purchase,
                           },

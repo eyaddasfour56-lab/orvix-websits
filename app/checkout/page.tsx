@@ -20,7 +20,7 @@ import {
 
 const PRODUCT_NAME = "Google Fitbit Air";
 const PRODUCT_SLUG = "google-fitbit-air";
-const PRODUCT_PRICE = 8500;
+const FALLBACK_PRODUCT_PRICE = 8500;
 const CART_STORAGE_KEY = "orvixCart";
 
 const INSTAPAY_LOGO =
@@ -671,6 +671,9 @@ export default function CheckoutPage() {
 
   const [quantity, setQuantity] = useState(1);
 
+  const [productPrice, setProductPrice] =
+    useState(FALLBACK_PRODUCT_PRICE);
+
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
 
@@ -764,7 +767,7 @@ export default function CheckoutPage() {
   const deliveryFee = selectedArea?.fee ?? 0;
 
   const productsTotal =
-    PRODUCT_PRICE * quantity;
+    productPrice * quantity;
 
   const hasAppliedDiscount =
     appliedDiscount !== null;
@@ -816,6 +819,47 @@ export default function CheckoutPage() {
     finalProductsTotal + finalDeliveryFee,
     0
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProductSettings() {
+      try {
+        const response = await fetch(
+          `/api/products?slug=${encodeURIComponent(
+            PRODUCT_SLUG
+          )}`,
+          { cache: "no-store" }
+        );
+
+        const result = await response.json();
+        const livePrice = Number(
+          result?.product?.price
+        );
+
+        if (
+          !cancelled &&
+          response.ok &&
+          result?.success &&
+          Number.isFinite(livePrice) &&
+          livePrice > 0
+        ) {
+          setProductPrice(livePrice);
+        }
+      } catch (error) {
+        console.error(
+          "Could not load live checkout price:",
+          error
+        );
+      }
+    }
+
+    void loadProductSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(
@@ -1351,7 +1395,7 @@ export default function CheckoutPage() {
             colour: selectedColour.name,
             quantity,
 
-            productPrice: PRODUCT_PRICE,
+            productPrice,
             productsTotal,
 
             deliveryFee:
@@ -1548,7 +1592,7 @@ export default function CheckoutPage() {
 
                     <p className="mt-3 text-gray-400">
                       {formatMoney(
-                        PRODUCT_PRICE
+                        productPrice
                       )} {copy.each}
                     </p>
 
