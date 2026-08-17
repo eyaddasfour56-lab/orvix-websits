@@ -1,4 +1,6 @@
+import { generateText } from "ai";
 import { NextRequest, NextResponse } from "next/server";
+import { POST as createCashflowEntry } from "@/app/api/admin/cashflow/route";
 import { POST as askAssistant } from "@/app/api/admin/os/assistant/route";
 import { hasAdminPermission, isAdminAuthenticated } from "@/lib/admin-auth";
 import { auditAdminAction } from "@/lib/admin-audit";
@@ -20,6 +22,23 @@ type Variant = {
   variant_key: string;
   label: string;
   stock_quantity: number;
+};
+
+type Person = "me" | "ahmed_samy";
+type CashflowEntryType = "expense" | "income" | "capital" | "settlement";
+
+type CashflowCommand = {
+  kind: "cashflow";
+  entryType: CashflowEntryType;
+  amount: number;
+  category: string;
+  description: string;
+  paidBy: Person | null;
+  receivedBy: Person | null;
+  fromPerson: Person | null;
+  toPerson: Person | null;
+  entryDate: string;
+  confidence: number;
 };
 
 function clean(value: unknown) {
@@ -74,6 +93,252 @@ function parseCommand(question: string) {
   return null;
 }
 
+function egyptToday() {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Cairo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function normalizeLoose(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[,_]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isPerson(value: unknown): value is Person {
+  return value === "me" || value === "ahmed_samy";
+}
+
+function inferPerson(text: string): Person | null {
+  const q = normalizeLoose(text);
+  if (/ahmed\s*samy|ahmed\s*sami|a7med\s*samy|احمد\s*سامي|أحمد\s*سامي/.test(q)) return "ahmed_samy";
+  if (/\bme\b|by me|from me|to me|for me|\bana\b|\b3alaya\b|\b3alya\b|\blya\b|\bliya\b|انا|أنا|عليا|ليا/.test(q)) return "me";
+  return null;
+}
+
+function categoryFromText(text: string) {
+  const q = normalizeLoose(text);
+  const categories: Array<{ label: string; aliases: RegExp }> = [
+    { label: "Tools", aliases: /\btools?\b|ادوات|أدوات|عدة|3eda/ },
+    { label: "Delivery", aliases: /\bdelivery\b|courier|shipping|شحن|توصيل|دليفري|tawsil/ },
+    { label: "Packaging", aliases: /packag|packing|boxes?|box|stickers?|bubble|wrapp|تغليف|بوكس|استيكر/ },
+    { label: "Marketing", aliases: /marketing|ads?|advertis|اعلان|إعلان|تسويق/ },
+    { label: "Transport", aliases: /uber|transport|taxi|مواصلات|اوبر|أوبر/ },
+    { label: "Stock", aliases: /\bstock\b|inventory|بضاعة|ستوك|مخزون/ },
+    { label: "Cards", aliases: /\bcards?\b|كروت|كارت/ },
+  ];
+  return categories.find((item) => item.aliases.test(q))?.label || "Other";
+}
+
+function looksLikeCashflowMutation(question: string) {
+  const q = normalizeLoose(question);
+  const hasAmount = /(^|\s)\d+(?:[.,]\d+)?(?=\s|$)/.test(q);
+  const financeWord = /expense|expenses|income|capital|settlement|paid|spent|spend|received|invest|tools?|delivery|shipping|packag|cashflow|cash flow|مصروف|مصاريف|دخل|دفعت|دفع|قبض|استثمار|رأس مال|راس مال|تحويل|sagel|sجل|dfa3t|masareef|dakhl|d5l|7ot/;
+  const mutationWord = /\badd\b|\brecord\b|\blog\b|\bsave\b|\bput\b|paid|spent|received|invested|sagel|dfa3t|7ot|سجل|سجّل|ضيف|أضف|اضف|حط|دفعت|دفعت|قبضت|استثمر/;
+  return hasAmount && financeWord.test(q) && mutationWord.test(q);
+}
+
+function heuristicCashflowCommand(question: string): CashflowCommand | null {
+  if (!looksLikeCashflowMutation(question)) return null;
+  const q = normalizeLoose(question);
+  const amountMatch = q.match(/(^|\s)(\d+(?:[.,]\d+)?)(?=\s|$)/);
+  if (!amountMatch) return null;
+  const amount = Number(amountMatch[2].replace(",", "."));
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+
+  let entryType: CashflowEntryType = "expense";
+  if (/\bincome\b|received|قبض|دخل|dakhl|d5l/.test(q)) entryType = "income";
+  else if (/\bcapital\b|invest|استثمار|رأس مال|راس مال/.test(q)) entryType = "capital";
+  else if (/\bsettlement\b|transfer|تحويل|حوّل|حول/.test(q)) entryType = "settlement";
+
+  const person = inferPerson(question);
+  const category = categoryFromText(question);
+
+  return {
+    kind: "cashflow",
+    entryType,
+    amount: Math.round(amount * 100) / 100,
+    category,
+    description: question.slice(0, 300),
+    paidBy: entryType === "expense" || entryType === "capital" ? person : null,
+    receivedBy: entryType === "income" ? person : null,
+    fromPerson: null,
+    toPerson: null,
+    entryDate: egyptToday(),
+    confidence: category === "Other" ? 0.72 : 0.84,
+  };
+}
+
+function parseJsonObject(text: string) {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  try {
+    return JSON.parse(text.slice(start, end + 1)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+async function aiCashflowCommand(question: string): Promise<CashflowCommand | null> {
+  if (!looksLikeCashflowMutation(question)) return null;
+
+  try {
+    const today = egyptToday();
+    const { text } = await generateText({
+      model: "openai/gpt-5.6-luna",
+      prompt: `You are the command parser for ORVIX Admin. The owner may write English, Arabic, Egyptian Arabic, Franco-Arabic, mixed language, slang, shorthand, or typos.\n\nDecide whether the message is an instruction to ADD one cash-flow entry. Do NOT treat questions, reports, deletes, edits, or normal chat as add commands.\n\nReturn ONLY one JSON object with this exact shape:\n{\"isMutation\":boolean,\"entryType\":\"expense|income|capital|settlement|null\",\"amount\":number|null,\"category\":string|null,\"description\":string|null,\"paidBy\":\"me|ahmed_samy|null\",\"receivedBy\":\"me|ahmed_samy|null\",\"fromPerson\":\"me|ahmed_samy|null\",\"toPerson\":\"me|ahmed_samy|null\",\"entryDate\":\"YYYY-MM-DD|null\",\"confidence\":number}\n\nRules:\n- Today in Egypt is ${today}. Default entryDate to today unless the owner clearly gives another date.\n- \"me\", \"ana\", \"lya\", \"3alaya\", \"from me\", \"paid by me\" mean me.\n- \"Ahmed Samy\", \"Ahmed\", \"A7med Samy\", \"احمد سامي\" mean ahmed_samy when unambiguous.\n- Expense/capital require paidBy. Income requires receivedBy. Settlement requires fromPerson and toPerson.\n- Never invent a person if the message does not identify one.\n- Category should be short and useful, e.g. Tools, Delivery, Packaging, Marketing, Stock, Transport, Cards, Other.\n- Example: \"add to expenses 120 tools paid by me\" => expense, 120, Tools, paidBy me.\n- Example: \"ana dfa3t 200 delivery\" => expense, 200, Delivery, paidBy me.\n- Example: \"500 income for ahmed samy\" => income, 500, receivedBy ahmed_samy.\n\nOWNER MESSAGE:\n${question}`,
+    });
+
+    const parsed = parseJsonObject(text);
+    if (!parsed || parsed.isMutation !== true) return null;
+
+    const entryType = parsed.entryType;
+    if (entryType !== "expense" && entryType !== "income" && entryType !== "capital" && entryType !== "settlement") return null;
+
+    const amount = Number(parsed.amount);
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000) return null;
+
+    const paidBy = isPerson(parsed.paidBy) ? parsed.paidBy : null;
+    const receivedBy = isPerson(parsed.receivedBy) ? parsed.receivedBy : null;
+    const fromPerson = isPerson(parsed.fromPerson) ? parsed.fromPerson : null;
+    const toPerson = isPerson(parsed.toPerson) ? parsed.toPerson : null;
+    const rawDate = clean(parsed.entryDate);
+    const entryDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : today;
+    const category = clean(parsed.category).slice(0, 80) || categoryFromText(question);
+    const confidence = Math.max(0, Math.min(Number(parsed.confidence) || 0, 1));
+
+    if (confidence < 0.65) return null;
+
+    return {
+      kind: "cashflow",
+      entryType,
+      amount: Math.round(amount * 100) / 100,
+      category,
+      description: clean(parsed.description).slice(0, 300) || question.slice(0, 300),
+      paidBy,
+      receivedBy,
+      fromPerson,
+      toPerson,
+      entryDate,
+      confidence,
+    };
+  } catch (error) {
+    console.error("ORVIX AI cashflow parser error:", error);
+    return null;
+  }
+}
+
+function personLabel(person: Person | null) {
+  if (person === "me") return "you";
+  if (person === "ahmed_samy") return "Ahmed Samy";
+  return "unassigned";
+}
+
+async function executeCashflowCommand(request: NextRequest, command: CashflowCommand) {
+  if (!hasAdminPermission(request, "cashflow")) {
+    return NextResponse.json({ success: false, message: "Your role cannot change cash flow." }, { status: 403 });
+  }
+
+  if ((command.entryType === "expense" || command.entryType === "capital") && !command.paidBy) {
+    return NextResponse.json({
+      success: true,
+      ai: false,
+      answer: `I understood ${command.amount.toLocaleString("en-GB")} EGP as ${command.entryType} (${command.category}), but I need to know who paid it: you or Ahmed Samy.`,
+    });
+  }
+
+  if (command.entryType === "income" && !command.receivedBy) {
+    return NextResponse.json({
+      success: true,
+      ai: false,
+      answer: `I understood ${command.amount.toLocaleString("en-GB")} EGP as income (${command.category}), but I need to know who received it: you or Ahmed Samy.`,
+    });
+  }
+
+  if (command.entryType === "settlement" && (!command.fromPerson || !command.toPerson || command.fromPerson === command.toPerson)) {
+    return NextResponse.json({
+      success: true,
+      ai: false,
+      answer: `I understood a ${command.amount.toLocaleString("en-GB")} EGP settlement, but I need both directions: from you to Ahmed Samy, or from Ahmed Samy to you.`,
+    });
+  }
+
+  const forwarded = new NextRequest(new URL("/api/admin/cashflow", request.url), {
+    method: "POST",
+    headers: request.headers,
+    body: JSON.stringify({
+      entryType: command.entryType,
+      category: command.category,
+      amount: command.amount,
+      description: command.description,
+      paidBy: command.paidBy,
+      receivedBy: command.receivedBy,
+      fromPerson: command.fromPerson,
+      toPerson: command.toPerson,
+      entryDate: command.entryDate,
+    }),
+  });
+
+  const response = await createCashflowEntry(forwarded);
+  const payload = (await response.json().catch(() => ({}))) as {
+    success?: boolean;
+    message?: string;
+    entry?: { id?: string } | null;
+  };
+
+  if (!response.ok || !payload.success) {
+    return NextResponse.json({
+      success: false,
+      message: payload.message || "Could not add the cash-flow entry.",
+    }, { status: response.status || 500 });
+  }
+
+  const who =
+    command.entryType === "income"
+      ? `received by ${personLabel(command.receivedBy)}`
+      : command.entryType === "settlement"
+        ? `from ${personLabel(command.fromPerson)} to ${personLabel(command.toPerson)}`
+        : `paid by ${personLabel(command.paidBy)}`;
+
+  if (payload.entry?.id) {
+    await auditAdminAction(request, "ai_cashflow_entry_create", "cashflow_entry", payload.entry.id, {
+      entryType: command.entryType,
+      category: command.category,
+      amount: command.amount,
+      paidBy: command.paidBy,
+      receivedBy: command.receivedBy,
+      fromPerson: command.fromPerson,
+      toPerson: command.toPerson,
+      entryDate: command.entryDate,
+    });
+  }
+
+  return NextResponse.json({
+    success: true,
+    ai: true,
+    answer: `Done — added ${command.amount.toLocaleString("en-GB")} EGP to ${command.entryType === "expense" ? "Expenses" : command.entryType === "income" ? "Income" : command.entryType === "capital" ? "Capital" : "Settlements"} under ${command.category}, ${who}.`,
+    action: {
+      type: "cashflow_entry_created",
+      entryType: command.entryType,
+      category: command.category,
+      amount: command.amount,
+      paidBy: command.paidBy,
+      receivedBy: command.receivedBy,
+      fromPerson: command.fromPerson,
+      toPerson: command.toPerson,
+      entryDate: command.entryDate,
+    },
+  });
+}
+
 async function getProduct(slug: string) {
   const rows = await supabaseAdminJson<Product[]>(
     `products?slug=eq.${postgrestValue(slug)}&select=id,name,slug,price,stock_quantity,allow_purchase&limit=1`
@@ -103,7 +368,12 @@ export async function POST(request: NextRequest) {
     }
 
     const command = parseCommand(question);
-    if (!command) return forwardToAssistant(request, question);
+    if (!command) {
+      const aiParsed = await aiCashflowCommand(question);
+      const cashflowCommand = aiParsed || heuristicCashflowCommand(question);
+      if (cashflowCommand) return executeCashflowCommand(request, cashflowCommand);
+      return forwardToAssistant(request, question);
+    }
 
     if (!hasAdminPermission(request, "inventory")) {
       return NextResponse.json({ success: false, message: "Your role cannot change commerce settings." }, { status: 403 });
