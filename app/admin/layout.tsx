@@ -15,17 +15,24 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <div className="mx-auto max-w-[1600px] px-3 py-2.5 sm:px-5">
           <div className="flex flex-wrap items-center gap-2">
             <Link
-              href="/admin"
-              className="shrink-0 rounded-xl border border-white/10 bg-[#111] px-3 py-2 text-[11px] font-black tracking-[0.08em] text-white/80 transition hover:bg-[#171717] hover:text-white sm:text-xs"
+              href="/admin/command-center"
+              className="shrink-0 rounded-xl border border-violet-400/25 bg-violet-500/[0.1] px-3 py-2 text-[11px] font-black tracking-[0.08em] text-violet-100 transition hover:bg-violet-500/[0.16] sm:text-xs"
             >
-              ORVIX ADMIN
+              ORVIX OS
+            </Link>
+
+            <Link
+              href="/admin"
+              className="shrink-0 rounded-xl border border-white/10 bg-[#111] px-3 py-2 text-[11px] font-black text-white/70 transition hover:bg-[#171717] hover:text-white sm:text-xs"
+            >
+              Operations
             </Link>
 
             <Link
               href="/admin/chats"
               className="shrink-0 rounded-xl border border-blue-400/20 bg-blue-500/[0.08] px-3 py-2 text-[11px] font-black text-blue-200 transition hover:bg-blue-500/[0.14] sm:text-xs"
             >
-              Customer Chats
+              Chats
             </Link>
 
             <Link
@@ -39,7 +46,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               href="/admin/cashflow/transfer"
               className="shrink-0 rounded-xl border border-violet-400/20 bg-violet-500/[0.08] px-3 py-2 text-[11px] font-black text-violet-200 transition hover:bg-violet-500/[0.14] sm:text-xs"
             >
-              Quick Transfer
+              Transfer
             </Link>
 
             <AdminAiToggle />
