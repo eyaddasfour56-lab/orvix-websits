@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { hasAdminPermission, isAdminAuthenticated, readAdminRole } from "@/lib/admin-auth";
+import { auditAdminAction } from "@/lib/admin-audit";
 import { postgrestValue, supabaseAdminJson } from "@/lib/supabase-admin";
 
 const allowedStatuses = [
@@ -13,8 +14,11 @@ const allowedStatuses = [
 
 type OrderRow = {
   id: string;
+  order_number?: string | null;
   product_slug?: string | null;
   unit_cost_at_sale?: number | string | null;
+  status?: string | null;
+  inventory_reserved_qty?: number | null;
 };
 
 type ProductCostRow = {
@@ -22,7 +26,7 @@ type ProductCostRow = {
 };
 
 export async function PATCH(request: NextRequest) {
-  if (!isAdminAuthenticated(request)) {
+  if (!isAdminAuthenticated(request) || !hasAdminPermission(request, "orders")) {
     return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
   }
 
@@ -42,17 +46,17 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ success: false, message: "Invalid order status." }, { status: 400 });
     }
 
+    const orders = await supabaseAdminJson<OrderRow[]>(
+      `orders?select=id,order_number,product_slug,unit_cost_at_sale,status,inventory_reserved_qty&id=eq.${postgrestValue(orderId)}&limit=1`
+    );
+    const order = orders?.[0];
+    if (!order) {
+      return NextResponse.json({ success: false, message: "Order was not found." }, { status: 404 });
+    }
+
     const patch: Record<string, unknown> = { status };
 
     if (status === "delivered") {
-      const orders = await supabaseAdminJson<OrderRow[]>(
-        `orders?select=id,product_slug,unit_cost_at_sale&id=eq.${postgrestValue(orderId)}&limit=1`
-      );
-      const order = orders?.[0];
-      if (!order) {
-        return NextResponse.json({ success: false, message: "Order was not found." }, { status: 404 });
-      }
-
       const frozenCost = Number(order.unit_cost_at_sale);
       if (!(Number.isFinite(frozenCost) && frozenCost > 0) && order.product_slug) {
         const products = await supabaseAdminJson<ProductCostRow[]>(
@@ -74,14 +78,23 @@ export async function PATCH(request: NextRequest) {
       }
     );
 
-    if (!updatedOrders?.[0]) {
+    const updated = updatedOrders?.[0];
+    if (!updated) {
       return NextResponse.json({ success: false, message: "Order was not found." }, { status: 404 });
     }
+
+    await auditAdminAction(request, "order_status_changed", "order", orderId, {
+      orderNumber: order.order_number,
+      from: order.status,
+      to: status,
+      role: readAdminRole(request),
+      inventoryReservedQty: updated.inventory_reserved_qty || 0,
+    });
 
     return NextResponse.json({
       success: true,
       message: "Order status updated successfully.",
-      order: updatedOrders[0],
+      order: updated,
     });
   } catch (error) {
     console.error("Order status API error:", error);
