@@ -136,6 +136,7 @@ export default function CashflowPage() {
 
   const [entryType, setEntryType] = useState<"expense" | "income">("expense");
   const [category, setCategory] = useState(expenseCategories[0]);
+  const [otherExpense, setOtherExpense] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [paidBy, setPaidBy] = useState<PaidBy>("me");
@@ -177,13 +178,27 @@ export default function CashflowPage() {
     setCategory(
       entryType === "expense" ? expenseCategories[0] : incomeCategories[0]
     );
+    setOtherExpense("");
   }, [entryType]);
 
   async function addEntry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSaving(true);
     setError("");
     setNotice("");
+
+    const isOtherExpense = entryType === "expense" && category === "Other";
+    const otherExpenseName = otherExpense.trim();
+
+    if (isOtherExpense && !otherExpenseName) {
+      setError("Tell us what the Other expense is.");
+      return;
+    }
+
+    const savedCategory = isOtherExpense
+      ? `Other: ${otherExpenseName.slice(0, 70)}`
+      : category;
+
+    setSaving(true);
 
     try {
       const response = await fetch("/api/admin/cashflow", {
@@ -192,7 +207,7 @@ export default function CashflowPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           entryType,
-          category,
+          category: savedCategory,
           amount,
           description,
           paidBy: entryType === "expense" ? paidBy : null,
@@ -207,6 +222,7 @@ export default function CashflowPage() {
 
       setAmount("");
       setDescription("");
+      setOtherExpense("");
       setNotice(
         entryType === "expense"
           ? `Expense saved under ${payerLabel(paidBy)}.`
@@ -429,7 +445,11 @@ export default function CashflowPage() {
                     Category
                     <select
                       value={category}
-                      onChange={(event) => setCategory(event.target.value)}
+                      onChange={(event) => {
+                        const nextCategory = event.target.value;
+                        setCategory(nextCategory);
+                        if (nextCategory !== "Other") setOtherExpense("");
+                      }}
                       className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111] px-4 py-3 text-white outline-none focus:border-white/30"
                     >
                       {categories.map((item) => (
@@ -455,6 +475,21 @@ export default function CashflowPage() {
                     />
                   </label>
                 </div>
+
+                {entryType === "expense" && category === "Other" && (
+                  <label className="mt-4 block text-sm font-bold text-white/65">
+                    What is the other expense?
+                    <input
+                      type="text"
+                      required
+                      maxLength={70}
+                      value={otherExpense}
+                      onChange={(event) => setOtherExpense(event.target.value)}
+                      placeholder="e.g. Customs fee, printing, repair"
+                      className="mt-2 w-full rounded-2xl border border-amber-300/20 bg-[#111] px-4 py-3 text-white outline-none placeholder:text-white/20 focus:border-amber-300/50"
+                    />
+                  </label>
+                )}
 
                 <label className="mt-4 block text-sm font-bold text-white/65">
                   Date
