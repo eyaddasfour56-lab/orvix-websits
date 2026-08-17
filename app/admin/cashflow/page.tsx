@@ -3,12 +3,15 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
+type PaidBy = "me" | "ahmed_samy";
+
 type Entry = {
   id: string;
   entry_type: "income" | "expense";
   category: string;
   amount: number | string;
   description?: string | null;
+  paid_by?: PaidBy | null;
   entry_date: string;
   created_at: string;
 };
@@ -18,12 +21,17 @@ type Summary = {
   manualIncome: number;
   totalCashIn: number;
   expenses: number;
+  expensesFromMe: number;
+  expensesFromAhmedSamy: number;
+  unassignedExpenses: number;
   netCash: number;
   expectedSales: number;
   deliveredOrders: number;
   activeOrders: number;
   monthCashIn: number;
   monthExpenses: number;
+  monthExpensesFromMe: number;
+  monthExpensesFromAhmedSamy: number;
   monthNetCash: number;
   topExpenseCategories: Array<{
     category: string;
@@ -56,6 +64,11 @@ const incomeCategories = [
   "Other Income",
 ];
 
+const payerOptions: Array<{ value: PaidBy; label: string }> = [
+  { value: "me", label: "Me" },
+  { value: "ahmed_samy", label: "Ahmed Samy" },
+];
+
 function localDateInputValue() {
   const now = new Date();
   const year = now.getFullYear();
@@ -70,6 +83,12 @@ function money(value: number | string | null | undefined) {
   return `${safe.toLocaleString("en-GB", {
     maximumFractionDigits: 2,
   })} EGP`;
+}
+
+function payerLabel(value: PaidBy | null | undefined) {
+  if (value === "me") return "Me";
+  if (value === "ahmed_samy") return "Ahmed Samy";
+  return "Unassigned";
 }
 
 function MetricCard({
@@ -92,16 +111,16 @@ function MetricCard({
   }[tone];
 
   return (
-    <article className={`rounded-[26px] border p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)] ${toneClasses}`}>
+    <article
+      className={`rounded-[26px] border p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)] ${toneClasses}`}
+    >
       <p className="text-xs font-black uppercase tracking-[0.18em] text-white/40">
         {label}
       </p>
       <p className="mt-3 text-2xl font-black tracking-tight sm:text-3xl">
         {value}
       </p>
-      <p className="mt-2 text-sm leading-6 text-white/45">
-        {helper}
-      </p>
+      <p className="mt-2 text-sm leading-6 text-white/45">{helper}</p>
     </article>
   );
 }
@@ -119,6 +138,7 @@ export default function CashflowPage() {
   const [category, setCategory] = useState(expenseCategories[0]);
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
+  const [paidBy, setPaidBy] = useState<PaidBy>("me");
   const [entryDate, setEntryDate] = useState(localDateInputValue());
 
   async function load() {
@@ -140,7 +160,9 @@ export default function CashflowPage() {
       setSummary(result.summary);
     } catch (loadError) {
       setError(
-        loadError instanceof Error ? loadError.message : "Could not load cash flow."
+        loadError instanceof Error
+          ? loadError.message
+          : "Could not load cash flow."
       );
     } finally {
       setLoading(false);
@@ -173,6 +195,7 @@ export default function CashflowPage() {
           category,
           amount,
           description,
+          paidBy: entryType === "expense" ? paidBy : null,
           entryDate,
         }),
       });
@@ -184,11 +207,17 @@ export default function CashflowPage() {
 
       setAmount("");
       setDescription("");
-      setNotice(entryType === "expense" ? "Expense saved." : "Income saved.");
+      setNotice(
+        entryType === "expense"
+          ? `Expense saved under ${payerLabel(paidBy)}.`
+          : "Income saved."
+      );
       await load();
     } catch (saveError) {
       setError(
-        saveError instanceof Error ? saveError.message : "Could not save entry."
+        saveError instanceof Error
+          ? saveError.message
+          : "Could not save entry."
       );
     } finally {
       setSaving(false);
@@ -203,10 +232,13 @@ export default function CashflowPage() {
     setNotice("");
 
     try {
-      const response = await fetch(`/api/admin/cashflow?id=${encodeURIComponent(id)}`, {
-        method: "DELETE",
-        credentials: "same-origin",
-      });
+      const response = await fetch(
+        `/api/admin/cashflow?id=${encodeURIComponent(id)}`,
+        {
+          method: "DELETE",
+          credentials: "same-origin",
+        }
+      );
       const result = (await response.json()) as ApiResult;
 
       if (!response.ok || !result.success) {
@@ -226,10 +258,15 @@ export default function CashflowPage() {
     }
   }
 
-  const categories = entryType === "expense" ? expenseCategories : incomeCategories;
+  const categories =
+    entryType === "expense" ? expenseCategories : incomeCategories;
 
   const maxCategoryExpense = useMemo(
-    () => Math.max(...(summary?.topExpenseCategories.map((item) => item.amount) || [0]), 1),
+    () =>
+      Math.max(
+        ...(summary?.topExpenseCategories.map((item) => item.amount) || [0]),
+        1
+      ),
     [summary]
   );
 
@@ -245,8 +282,7 @@ export default function CashflowPage() {
               Cash Flow
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-white/45 sm:text-base">
-              Delivered order product totals count automatically as cash in. Add stock,
-              packaging, ads, transport, tools and other costs below to see your real cash position.
+              Delivered order product totals count automatically as cash in. Record expenses and choose whether they were paid by you or Ahmed Samy.
             </p>
           </div>
 
@@ -285,7 +321,7 @@ export default function CashflowPage() {
           </div>
         ) : summary ? (
           <>
-            <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard
                 label="Cash In"
                 value={money(summary.totalCashIn)}
@@ -295,13 +331,29 @@ export default function CashflowPage() {
               <MetricCard
                 label="Cash Out"
                 value={money(summary.expenses)}
-                helper="All manually recorded business expenses"
+                helper={
+                  summary.unassignedExpenses > 0
+                    ? `${money(summary.unassignedExpenses)} still unassigned`
+                    : "All manually recorded business expenses"
+                }
                 tone="red"
+              />
+              <MetricCard
+                label="Expenses from Me"
+                value={money(summary.expensesFromMe)}
+                helper={`${money(summary.monthExpensesFromMe)} this month`}
+                tone="amber"
+              />
+              <MetricCard
+                label="Expenses from Ahmed Samy"
+                value={money(summary.expensesFromAhmedSamy)}
+                helper={`${money(summary.monthExpensesFromAhmedSamy)} this month`}
+                tone="blue"
               />
               <MetricCard
                 label="Net Cash"
                 value={money(summary.netCash)}
-                helper="Cash in minus recorded expenses"
+                helper="Cash in minus all recorded expenses"
                 tone={summary.netCash >= 0 ? "green" : "red"}
               />
               <MetricCard
@@ -326,7 +378,9 @@ export default function CashflowPage() {
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-white/35">
                   NEW ENTRY
                 </p>
-                <h2 className="mt-2 text-2xl font-black">Record money in or out</h2>
+                <h2 className="mt-2 text-2xl font-black">
+                  Record money in or out
+                </h2>
 
                 <div className="mt-6 grid grid-cols-2 gap-2 rounded-2xl bg-black/30 p-1.5">
                   <button
@@ -353,7 +407,24 @@ export default function CashflowPage() {
                   </button>
                 </div>
 
-                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                {entryType === "expense" && (
+                  <label className="mt-5 block text-sm font-bold text-white/65">
+                    Paid by
+                    <select
+                      value={paidBy}
+                      onChange={(event) => setPaidBy(event.target.value as PaidBy)}
+                      className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111] px-4 py-3 text-white outline-none focus:border-white/30"
+                    >
+                      {payerOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <label className="text-sm font-bold text-white/65">
                     Category
                     <select
@@ -416,7 +487,11 @@ export default function CashflowPage() {
                       : "bg-emerald-400 text-black hover:bg-emerald-300"
                   }`}
                 >
-                  {saving ? "Saving…" : entryType === "expense" ? "Add Expense" : "Add Income"}
+                  {saving
+                    ? "Saving…"
+                    : entryType === "expense"
+                      ? "Add Expense"
+                      : "Add Income"}
                 </button>
               </form>
 
@@ -426,7 +501,9 @@ export default function CashflowPage() {
                     <p className="text-xs font-black uppercase tracking-[0.2em] text-white/35">
                       EXPENSE BREAKDOWN
                     </p>
-                    <h2 className="mt-2 text-2xl font-black">Where the money is going</h2>
+                    <h2 className="mt-2 text-2xl font-black">
+                      Where the money is going
+                    </h2>
                   </div>
                   <span className="rounded-full border border-white/10 px-3 py-2 text-xs font-bold text-white/45">
                     All-time
@@ -442,14 +519,19 @@ export default function CashflowPage() {
                     {summary.topExpenseCategories.map((item) => (
                       <div key={item.category}>
                         <div className="mb-2 flex items-center justify-between gap-4 text-sm">
-                          <span className="font-bold text-white/65">{item.category}</span>
+                          <span className="font-bold text-white/65">
+                            {item.category}
+                          </span>
                           <strong>{money(item.amount)}</strong>
                         </div>
                         <div className="h-3 overflow-hidden rounded-full bg-white/[0.07]">
                           <div
                             className="h-full rounded-full bg-gradient-to-r from-red-300 to-red-500"
                             style={{
-                              width: `${Math.max((item.amount / maxCategoryExpense) * 100, 4)}%`,
+                              width: `${Math.max(
+                                (item.amount / maxCategoryExpense) * 100,
+                                4
+                              )}%`,
                             }}
                           />
                         </div>
@@ -458,14 +540,36 @@ export default function CashflowPage() {
                   </div>
                 )}
 
-                <div className="mt-8 rounded-[22px] border border-emerald-400/15 bg-emerald-500/[0.06] p-5">
+                <div className="mt-8 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-[22px] border border-amber-400/15 bg-amber-500/[0.06] p-5">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200/60">
+                      ME
+                    </p>
+                    <p className="mt-2 text-2xl font-black">
+                      {money(summary.expensesFromMe)}
+                    </p>
+                    <p className="mt-1 text-sm text-white/45">Total paid by you</p>
+                  </div>
+                  <div className="rounded-[22px] border border-blue-400/15 bg-blue-500/[0.06] p-5">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-200/60">
+                      AHMED SAMY
+                    </p>
+                    <p className="mt-2 text-2xl font-black">
+                      {money(summary.expensesFromAhmedSamy)}
+                    </p>
+                    <p className="mt-1 text-sm text-white/45">
+                      Total paid by Ahmed Samy
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-[22px] border border-emerald-400/15 bg-emerald-500/[0.06] p-5">
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-200/60">
                     AUTOMATIC SALES
                   </p>
                   <p className="mt-2 text-sm leading-6 text-white/55">
                     You do not need to add normal website sales manually. When an order becomes
-                    <strong className="text-white"> Delivered</strong>, its products total is counted automatically.
-                    Delivery fees are excluded because the courier collects them separately.
+                    <strong className="text-white"> Delivered</strong>, its products total is counted automatically. Delivery fees are excluded because the courier collects them separately.
                   </p>
                 </div>
               </article>
@@ -488,11 +592,12 @@ export default function CashflowPage() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[760px] text-left text-sm">
+                  <table className="w-full min-w-[900px] text-left text-sm">
                     <thead className="bg-black/20 text-xs uppercase tracking-[0.14em] text-white/35">
                       <tr>
                         <th className="px-6 py-4">Date</th>
                         <th className="px-6 py-4">Type</th>
+                        <th className="px-6 py-4">Paid by</th>
                         <th className="px-6 py-4">Category</th>
                         <th className="px-6 py-4">Note</th>
                         <th className="px-6 py-4 text-right">Amount</th>
@@ -502,7 +607,9 @@ export default function CashflowPage() {
                     <tbody className="divide-y divide-white/[0.07]">
                       {entries.map((entry) => (
                         <tr key={entry.id} className="hover:bg-white/[0.025]">
-                          <td className="px-6 py-4 font-bold text-white/60">{entry.entry_date}</td>
+                          <td className="px-6 py-4 font-bold text-white/60">
+                            {entry.entry_date}
+                          </td>
                           <td className="px-6 py-4">
                             <span
                               className={`rounded-full border px-3 py-1 text-xs font-black ${
@@ -513,6 +620,11 @@ export default function CashflowPage() {
                             >
                               {entry.entry_type === "expense" ? "Expense" : "Income"}
                             </span>
+                          </td>
+                          <td className="px-6 py-4 font-bold text-white/60">
+                            {entry.entry_type === "expense"
+                              ? payerLabel(entry.paid_by)
+                              : "—"}
                           </td>
                           <td className="px-6 py-4 font-bold">{entry.category}</td>
                           <td className="max-w-[320px] px-6 py-4 text-white/45">
