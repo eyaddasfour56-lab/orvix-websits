@@ -1,59 +1,6 @@
-import {
-  createHmac,
-  timingSafeEqual,
-} from "crypto";
-
-import {
-  NextRequest,
-  NextResponse,
-} from "next/server";
-
-function createAdminSession(
-  secret: string
-) {
-  return createHmac("sha256", secret)
-    .update("orvix-admin-session")
-    .digest("hex");
-}
-
-function isAdminAuthenticated(
-  request: NextRequest
-) {
-  const sessionSecret =
-    process.env.ADMIN_SESSION_SECRET;
-
-  const receivedSession =
-    request.cookies.get(
-      "orvix_admin_session"
-    )?.value;
-
-  if (
-    !sessionSecret ||
-    !receivedSession
-  ) {
-    return false;
-  }
-
-  const expectedSession =
-    createAdminSession(sessionSecret);
-
-  const receivedBuffer = Buffer.from(
-    receivedSession
-  );
-
-  const expectedBuffer = Buffer.from(
-    expectedSession
-  );
-
-  return (
-    receivedBuffer.length ===
-      expectedBuffer.length &&
-    timingSafeEqual(
-      receivedBuffer,
-      expectedBuffer
-    )
-  );
-}
+import { NextRequest, NextResponse } from "next/server";
+import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { postgrestValue, supabaseAdminJson } from "@/lib/supabase-admin";
 
 const allowedStatuses = [
   "new",
@@ -64,171 +11,80 @@ const allowedStatuses = [
   "cancelled",
 ];
 
-export async function PATCH(
-  request: NextRequest
-) {
+type OrderRow = {
+  id: string;
+  product_slug?: string | null;
+  unit_cost_at_sale?: number | string | null;
+};
+
+type ProductCostRow = {
+  unit_cost?: number | string | null;
+};
+
+export async function PATCH(request: NextRequest) {
+  if (!isAdminAuthenticated(request)) {
+    return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
+  }
+
   try {
-    if (!isAdminAuthenticated(request)) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Unauthorized.",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
-
-    const supabaseUrl =
-      process.env.SUPABASE_URL;
-
-    const supabaseSecretKey =
-      process.env.SUPABASE_SECRET_KEY;
-
-    if (
-      !supabaseUrl ||
-      !supabaseSecretKey
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Supabase settings are missing.",
-        },
-        {
-          status: 500,
-        }
-      );
-    }
-
     const body = await request.json();
-
-    const orderId = String(
-      body.orderId || ""
-    ).trim();
-
-    const status = String(
-      body.status || ""
-    )
+    const orderId = String(body.orderId || "").trim();
+    const status = String(body.status || "")
       .trim()
       .toLowerCase()
       .replaceAll(" ", "_")
       .replaceAll("-", "_");
 
-    if (!orderId) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Order ID is required.",
-        },
-        {
-          status: 400,
-        }
-      );
+    if (!/^[0-9a-f-]{36}$/i.test(orderId)) {
+      return NextResponse.json({ success: false, message: "A valid order ID is required." }, { status: 400 });
+    }
+    if (!allowedStatuses.includes(status)) {
+      return NextResponse.json({ success: false, message: "Invalid order status." }, { status: 400 });
     }
 
-    if (
-      !allowedStatuses.includes(status)
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Invalid order status.",
-        },
-        {
-          status: 400,
-        }
+    const patch: Record<string, unknown> = { status };
+
+    if (status === "delivered") {
+      const orders = await supabaseAdminJson<OrderRow[]>(
+        `orders?select=id,product_slug,unit_cost_at_sale&id=eq.${postgrestValue(orderId)}&limit=1`
       );
+      const order = orders?.[0];
+      if (!order) {
+        return NextResponse.json({ success: false, message: "Order was not found." }, { status: 404 });
+      }
+
+      const frozenCost = Number(order.unit_cost_at_sale);
+      if (!(Number.isFinite(frozenCost) && frozenCost > 0) && order.product_slug) {
+        const products = await supabaseAdminJson<ProductCostRow[]>(
+          `products?select=unit_cost&slug=eq.${postgrestValue(order.product_slug)}&limit=1`
+        );
+        const currentCost = Number(products?.[0]?.unit_cost || 0);
+        if (Number.isFinite(currentCost) && currentCost > 0) {
+          patch.unit_cost_at_sale = Math.round(currentCost * 100) / 100;
+        }
+      }
     }
 
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/orders?id=eq.${encodeURIComponent(
-        orderId
-      )}`,
+    const updatedOrders = await supabaseAdminJson<OrderRow[]>(
+      `orders?id=eq.${postgrestValue(orderId)}`,
       {
         method: "PATCH",
-        headers: {
-          apikey: supabaseSecretKey,
-          Authorization: `Bearer ${supabaseSecretKey}`,
-          "Content-Type":
-            "application/json",
-          Prefer: "return=representation",
-        },
-        body: JSON.stringify({
-          status,
-        }),
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify(patch),
       }
     );
 
-    if (!response.ok) {
-      const errorText =
-        await response.text();
-
-      console.error(
-        "Order status Supabase error:",
-        errorText
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Could not update order status.",
-          details:
-            process.env.NODE_ENV ===
-            "development"
-              ? errorText
-              : undefined,
-        },
-        {
-          status: 500,
-        }
-      );
-    }
-
-    const updatedOrders =
-      await response.json();
-
-    if (
-      !Array.isArray(updatedOrders) ||
-      updatedOrders.length === 0
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Order was not found.",
-        },
-        {
-          status: 404,
-        }
-      );
+    if (!updatedOrders?.[0]) {
+      return NextResponse.json({ success: false, message: "Order was not found." }, { status: 404 });
     }
 
     return NextResponse.json({
       success: true,
-      message:
-        "Order status updated successfully.",
+      message: "Order status updated successfully.",
       order: updatedOrders[0],
     });
   } catch (error) {
-    console.error(
-      "Order status API error:",
-      error
-    );
-
-    return NextResponse.json(
-      {
-        success: false,
-        message:
-          "Could not update order status.",
-      },
-      {
-        status: 500,
-      }
-    );
+    console.error("Order status API error:", error);
+    return NextResponse.json({ success: false, message: "Could not update order status." }, { status: 500 });
   }
 }
