@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { createPortal } from "react-dom";
 
 type AssistantAction = {
   type?: "order_status_update";
@@ -70,87 +71,115 @@ export default function AdminOrvixAssistant() {
     }
   }
 
+  const modal = (
+    <div
+      className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/70 p-3 backdrop-blur-sm sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-label="ORVIX AI Assistant"
+      onClick={() => setOpen(false)}
+    >
+      <div
+        className="w-full max-w-2xl rounded-[30px] border border-violet-300/20 bg-[#0a0a0a] p-5 shadow-2xl sm:p-6"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-200/55">ORVIX AI + SUPPORT</p>
+            <h2 className="mt-1 text-2xl font-black text-white">Ask or run an action</h2>
+            <p className="mt-1 text-xs text-white/30">Live ORVIX data + safe order status controls.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-black text-white/45"
+          >
+            Close
+          </button>
+        </div>
+
+        <div
+          className={`mt-5 min-h-[120px] rounded-2xl border p-4 text-sm font-bold leading-6 ${
+            mode === "action"
+              ? "border-emerald-300/15 bg-emerald-500/[0.07] text-emerald-50"
+              : "border-violet-300/10 bg-violet-500/[0.05] text-violet-50"
+          }`}
+        >
+          {answer}
+        </div>
+
+        {mode && (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-white/25">
+              {mode === "action"
+                ? "ACTION COMPLETE"
+                : mode === "ai"
+                  ? "AI + LIVE DATA"
+                  : "LIVE DATA FALLBACK"}
+            </p>
+
+            {lastAction?.type === "order_status_update" && (
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="rounded-full border border-emerald-300/20 bg-emerald-500/[0.08] px-3 py-1 text-[10px] font-black text-emerald-100 transition hover:bg-emerald-500/[0.14]"
+              >
+                Refresh Admin
+              </button>
+            )}
+          </div>
+        )}
+
+        <form onSubmit={ask} className="mt-4 flex gap-2">
+          <input
+            autoFocus
+            value={question}
+            onChange={(event) => setQuestion(event.target.value)}
+            placeholder="مثال: Order ORVIX-... confirmed"
+            className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-[#111] px-4 py-3 text-sm text-white outline-none placeholder:text-white/20"
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            className="rounded-2xl bg-violet-300 px-5 py-3 text-sm font-black text-black disabled:opacity-40"
+          >
+            {loading ? "..." : "Run / Ask"}
+          </button>
+        </form>
+
+        <p className="mt-3 text-[10px] font-semibold leading-5 text-white/30">
+          Order actions: Pre-order · Confirmed · Shipped · Out for Delivery · Delivered · Cancelled
+        </p>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {["Profit today", "Stock status", "Delayed orders", "Top customer"].map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              onClick={() => setQuestion(prompt)}
+              className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[10px] font-black text-white/45"
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
         className="shrink-0 rounded-xl border border-violet-300/25 bg-violet-500/[0.12] px-3 py-2 text-[11px] font-black text-violet-100 transition hover:bg-violet-500/[0.2] sm:text-xs"
       >
         ✦ ORVIX AI
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-[300] flex items-end justify-center bg-black/70 p-3 backdrop-blur-sm sm:items-center">
-          <div className="w-full max-w-2xl rounded-[30px] border border-violet-300/20 bg-[#0a0a0a] p-5 shadow-2xl sm:p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-200/55">ORVIX AI + SUPPORT</p>
-                <h2 className="mt-1 text-2xl font-black text-white">Ask or run an action</h2>
-                <p className="mt-1 text-xs text-white/30">Live ORVIX data + safe order status controls.</p>
-              </div>
-              <button type="button" onClick={() => setOpen(false)} className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-black text-white/45">Close</button>
-            </div>
-
-            <div
-              className={`mt-5 min-h-[120px] rounded-2xl border p-4 text-sm font-bold leading-6 ${
-                mode === "action"
-                  ? "border-emerald-300/15 bg-emerald-500/[0.07] text-emerald-50"
-                  : "border-violet-300/10 bg-violet-500/[0.05] text-violet-50"
-              }`}
-            >
-              {answer}
-            </div>
-
-            {mode && (
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-white/25">
-                  {mode === "action"
-                    ? "ACTION COMPLETE"
-                    : mode === "ai"
-                      ? "AI + LIVE DATA"
-                      : "LIVE DATA FALLBACK"}
-                </p>
-
-                {lastAction?.type === "order_status_update" && (
-                  <button
-                    type="button"
-                    onClick={() => window.location.reload()}
-                    className="rounded-full border border-emerald-300/20 bg-emerald-500/[0.08] px-3 py-1 text-[10px] font-black text-emerald-100 transition hover:bg-emerald-500/[0.14]"
-                  >
-                    Refresh Admin
-                  </button>
-                )}
-              </div>
-            )}
-
-            <form onSubmit={ask} className="mt-4 flex gap-2">
-              <input
-                autoFocus
-                value={question}
-                onChange={(event) => setQuestion(event.target.value)}
-                placeholder="مثال: Order ORVIX-... confirmed"
-                className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-[#111] px-4 py-3 text-sm text-white outline-none placeholder:text-white/20"
-              />
-              <button disabled={loading} className="rounded-2xl bg-violet-300 px-5 py-3 text-sm font-black text-black disabled:opacity-40">
-                {loading ? "..." : "Run / Ask"}
-              </button>
-            </form>
-
-            <p className="mt-3 text-[10px] font-semibold leading-5 text-white/30">
-              Order actions: Pre-order · Confirmed · Shipped · Out for Delivery · Delivered · Cancelled
-            </p>
-
-            <div className="mt-3 flex flex-wrap gap-2">
-              {["Profit today", "Stock status", "Delayed orders", "Top customer"].map((prompt) => (
-                <button key={prompt} type="button" onClick={() => setQuestion(prompt)} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[10px] font-black text-white/45">
-                  {prompt}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {open && typeof document !== "undefined" ? createPortal(modal, document.body) : null}
     </>
   );
 }
