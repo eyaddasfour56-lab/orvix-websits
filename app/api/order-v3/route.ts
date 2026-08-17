@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const DEFAULT_PRODUCT_SLUG = "google-fitbit-air";
+const CHECKOUT_SESSION_COOKIE = "orvix_checkout_session";
 
 type OrderInput = {
   fullName?: string;
@@ -255,6 +256,7 @@ export async function POST(request: NextRequest) {
 
     const checkoutSessionKey =
       clean(request.headers.get("x-checkout-session")) ||
+      clean(request.cookies.get(CHECKOUT_SESSION_COOKIE)?.value) ||
       sha256(`${sourceHash}:${userAgentHash}:${Math.floor(Date.now() / 1800000)}`);
 
     let created: CreateOrderResult;
