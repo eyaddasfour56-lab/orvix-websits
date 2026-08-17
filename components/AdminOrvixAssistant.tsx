@@ -2,19 +2,32 @@
 
 import { FormEvent, useState } from "react";
 
+type AssistantAction = {
+  type?: "order_status_update";
+  orderNumber?: string;
+  previousStatus?: string;
+  status?: string;
+  statusLabel?: string;
+  changed?: boolean;
+};
+
 type AssistantResult = {
   success?: boolean;
   answer?: string;
   message?: string;
   ai?: boolean;
+  action?: AssistantAction;
 };
 
 export default function AdminOrvixAssistant() {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("اسألني عن ORVIX: الربح، الأوردرات، الستوك، العملاء أو أي حاجة في البزنس.");
+  const [answer, setAnswer] = useState(
+    "اسألني عن ORVIX أو نفّذ Action. مثال: Order ORVIX-... confirmed"
+  );
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<"ai" | "fallback" | "">("");
+  const [mode, setMode] = useState<"ai" | "fallback" | "action" | "">("");
+  const [lastAction, setLastAction] = useState<AssistantAction | null>(null);
 
   async function ask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -22,6 +35,7 @@ export default function AdminOrvixAssistant() {
     if (!value || loading) return;
 
     setLoading(true);
+    setLastAction(null);
     try {
       const response = await fetch("/api/admin/os/assistant", {
         method: "POST",
@@ -31,12 +45,26 @@ export default function AdminOrvixAssistant() {
       });
       const result = (await response.json()) as AssistantResult;
       if (!response.ok || !result.success) throw new Error(result.message || "Could not answer.");
+
       setAnswer(result.answer || "No answer available.");
-      setMode(result.ai === false ? "fallback" : "ai");
+      setLastAction(result.action || null);
+
+      if (result.action?.type === "order_status_update") {
+        setMode("action");
+        window.dispatchEvent(
+          new CustomEvent("orvix-order-status-updated", {
+            detail: result.action,
+          })
+        );
+      } else {
+        setMode(result.ai === false ? "fallback" : "ai");
+      }
+
       setQuestion("");
     } catch (error) {
       setAnswer(error instanceof Error ? error.message : "ORVIX Assistant could not answer right now.");
       setMode("");
+      setLastAction(null);
     } finally {
       setLoading(false);
     }
@@ -57,21 +85,43 @@ export default function AdminOrvixAssistant() {
           <div className="w-full max-w-2xl rounded-[30px] border border-violet-300/20 bg-[#0a0a0a] p-5 shadow-2xl sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-200/55">ORVIX AI</p>
-                <h2 className="mt-1 text-2xl font-black text-white">Ask your business</h2>
-                <p className="mt-1 text-xs text-white/30">Uses live ORVIX admin data.</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-200/55">ORVIX AI + SUPPORT</p>
+                <h2 className="mt-1 text-2xl font-black text-white">Ask or run an action</h2>
+                <p className="mt-1 text-xs text-white/30">Live ORVIX data + safe order status controls.</p>
               </div>
               <button type="button" onClick={() => setOpen(false)} className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-black text-white/45">Close</button>
             </div>
 
-            <div className="mt-5 min-h-[120px] rounded-2xl border border-violet-300/10 bg-violet-500/[0.05] p-4 text-sm font-bold leading-6 text-violet-50">
+            <div
+              className={`mt-5 min-h-[120px] rounded-2xl border p-4 text-sm font-bold leading-6 ${
+                mode === "action"
+                  ? "border-emerald-300/15 bg-emerald-500/[0.07] text-emerald-50"
+                  : "border-violet-300/10 bg-violet-500/[0.05] text-violet-50"
+              }`}
+            >
               {answer}
             </div>
 
             {mode && (
-              <p className="mt-2 text-[10px] font-black uppercase tracking-[0.12em] text-white/25">
-                {mode === "ai" ? "AI + LIVE DATA" : "LIVE DATA FALLBACK"}
-              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-white/25">
+                  {mode === "action"
+                    ? "ACTION COMPLETE"
+                    : mode === "ai"
+                      ? "AI + LIVE DATA"
+                      : "LIVE DATA FALLBACK"}
+                </p>
+
+                {lastAction?.type === "order_status_update" && (
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="rounded-full border border-emerald-300/20 bg-emerald-500/[0.08] px-3 py-1 text-[10px] font-black text-emerald-100 transition hover:bg-emerald-500/[0.14]"
+                  >
+                    Refresh Admin
+                  </button>
+                )}
+              </div>
             )}
 
             <form onSubmit={ask} className="mt-4 flex gap-2">
@@ -79,13 +129,17 @@ export default function AdminOrvixAssistant() {
                 autoFocus
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
-                placeholder="كام ربحنا؟ الستوك كام؟ إيه الأوردرات اللي محتاجة action؟"
+                placeholder="مثال: Order ORVIX-... confirmed"
                 className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-[#111] px-4 py-3 text-sm text-white outline-none placeholder:text-white/20"
               />
               <button disabled={loading} className="rounded-2xl bg-violet-300 px-5 py-3 text-sm font-black text-black disabled:opacity-40">
-                {loading ? "..." : "Ask"}
+                {loading ? "..." : "Run / Ask"}
               </button>
             </form>
+
+            <p className="mt-3 text-[10px] font-semibold leading-5 text-white/30">
+              Order actions: Pre-order · Confirmed · Shipped · Out for Delivery · Delivered · Cancelled
+            </p>
 
             <div className="mt-3 flex flex-wrap gap-2">
               {["Profit today", "Stock status", "Delayed orders", "Top customer"].map((prompt) => (
