@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 
-type PaidBy = "me" | "ahmed_samy";
+type Person = "me" | "ahmed_samy";
 
 type Order = {
   id: string;
@@ -18,7 +18,8 @@ type CashflowEntry = {
   category: string;
   amount: number | string;
   description?: string | null;
-  paid_by?: PaidBy | null;
+  paid_by?: Person | null;
+  received_by?: Person | null;
   entry_date: string;
   created_at: string;
 };
@@ -134,6 +135,16 @@ async function loadCashflowData(settings: { url: string; key: string }) {
   const expenseEntries = entries.filter((entry) => entry.entry_type === "expense");
 
   const manualIncome = sumEntries(incomeEntries);
+  const incomeToMe = sumEntries(
+    incomeEntries.filter((entry) => entry.received_by === "me")
+  );
+  const incomeToAhmedSamy = sumEntries(
+    incomeEntries.filter((entry) => entry.received_by === "ahmed_samy")
+  );
+  const unassignedIncome = sumEntries(
+    incomeEntries.filter((entry) => !entry.received_by)
+  );
+
   const expenses = sumEntries(expenseEntries);
   const expensesFromMe = sumEntries(
     expenseEntries.filter((entry) => entry.paid_by === "me")
@@ -157,6 +168,12 @@ async function loadCashflowData(settings: { url: string; key: string }) {
   );
 
   const monthManualIncome = sumEntries(monthIncomeEntries);
+  const monthIncomeToMe = sumEntries(
+    monthIncomeEntries.filter((entry) => entry.received_by === "me")
+  );
+  const monthIncomeToAhmedSamy = sumEntries(
+    monthIncomeEntries.filter((entry) => entry.received_by === "ahmed_samy")
+  );
   const monthExpenses = sumEntries(monthExpenseEntries);
   const monthExpensesFromMe = sumEntries(
     monthExpenseEntries.filter((entry) => entry.paid_by === "me")
@@ -184,6 +201,9 @@ async function loadCashflowData(settings: { url: string; key: string }) {
     summary: {
       deliveredSales,
       manualIncome,
+      incomeToMe,
+      incomeToAhmedSamy,
+      unassignedIncome,
       totalCashIn: deliveredSales + manualIncome,
       expenses,
       expensesFromMe,
@@ -194,6 +214,8 @@ async function loadCashflowData(settings: { url: string; key: string }) {
       deliveredOrders: deliveredOrders.length,
       activeOrders: activeOrders.length,
       monthCashIn: monthDeliveredSales + monthManualIncome,
+      monthIncomeToMe,
+      monthIncomeToAhmedSamy,
       monthExpenses,
       monthExpensesFromMe,
       monthExpensesFromAhmedSamy,
@@ -260,10 +282,16 @@ export async function POST(request: NextRequest) {
     const description = String(body?.description || "").trim().slice(0, 300);
     const amount = Number(body?.amount);
     const entryDate = String(body?.entryDate || "").trim();
-    const paidBy: PaidBy | null =
+    const paidBy: Person | null =
       body?.paidBy === "me"
         ? "me"
         : body?.paidBy === "ahmed_samy"
+          ? "ahmed_samy"
+          : null;
+    const receivedBy: Person | null =
+      body?.receivedBy === "me"
+        ? "me"
+        : body?.receivedBy === "ahmed_samy"
           ? "ahmed_samy"
           : null;
 
@@ -277,6 +305,13 @@ export async function POST(request: NextRequest) {
     if (entryType === "expense" && !paidBy) {
       return NextResponse.json(
         { success: false, message: "Choose who paid this expense." },
+        { status: 400 }
+      );
+    }
+
+    if (entryType === "income" && !receivedBy) {
+      return NextResponse.json(
+        { success: false, message: "Choose who received this income." },
         { status: 400 }
       );
     }
@@ -301,6 +336,7 @@ export async function POST(request: NextRequest) {
         amount: Math.round(amount * 100) / 100,
         description: description || null,
         paid_by: entryType === "expense" ? paidBy : null,
+        received_by: entryType === "income" ? receivedBy : null,
         entry_date: entryDate,
       }),
       cache: "no-store",
