@@ -53,10 +53,10 @@ await updateFile("app/checkout/page.tsx", (source) => {
     "                      {formatMoney(\n                        productPrice\n                      )} {copy.each}"
   );
 
-  if (!next.includes("async function loadProductSettings()")) {
-    const effectAnchor =
-      "  useEffect(() => {\n    const timeoutId = window.setTimeout(";
+  const effectAnchor =
+    "  useEffect(() => {\n    const timeoutId = window.setTimeout(";
 
+  if (!next.includes("async function loadProductSettings()")) {
     if (!next.includes(effectAnchor)) {
       throw new Error("Could not find checkout product settings effect anchor.");
     }
@@ -66,6 +66,22 @@ await updateFile("app/checkout/page.tsx", (source) => {
     next = next.replace(
       effectAnchor,
       `${productEffect}${effectAnchor}`
+    );
+  }
+
+  if (!next.includes("Redirect non-Fitbit cart items to their generic checkout.")) {
+    const redirectAnchor =
+      "  useEffect(() => {\n    const timeoutId = window.setTimeout(";
+
+    if (!next.includes(redirectAnchor)) {
+      throw new Error("Could not find checkout redirect effect anchor.");
+    }
+
+    const redirectEffect = `  // Redirect non-Fitbit cart items to their generic checkout.\n  useEffect(() => {\n    const cartItem = readFirstCartItem();\n\n    if (\n      cartItem?.slug &&\n      cartItem.slug !== PRODUCT_SLUG\n    ) {\n      router.replace(\n        \`/checkout/\${encodeURIComponent(\n          cartItem.slug\n        )}?quantity=\${Math.max(\n          1,\n          Number(cartItem.quantity || 1)\n        )}\`\n      );\n    }\n  }, [router]);\n\n`;
+
+    next = next.replace(
+      redirectAnchor,
+      `${redirectEffect}${redirectAnchor}`
     );
   }
 
