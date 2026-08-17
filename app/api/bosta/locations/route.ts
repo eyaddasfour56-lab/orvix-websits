@@ -9,6 +9,11 @@ import {
   getBostaDistricts,
 } from "@/lib/bosta";
 
+const cacheHeaders = {
+  "Cache-Control":
+    "public, s-maxage=3600, stale-while-revalidate=86400",
+};
+
 export async function GET(
   request: NextRequest
 ) {
@@ -31,6 +36,9 @@ export async function GET(
         },
         {
           status: 400,
+          headers: {
+            "Cache-Control": "no-store",
+          },
         }
       );
     }
@@ -41,19 +49,29 @@ export async function GET(
           cityId
         );
 
-      return NextResponse.json({
-        success: true,
-        districts,
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          districts,
+        },
+        {
+          headers: cacheHeaders,
+        }
+      );
     }
 
     const cities =
       await getBostaCities();
 
-    return NextResponse.json({
-      success: true,
-      cities,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        cities,
+      },
+      {
+        headers: cacheHeaders,
+      }
+    );
   } catch (error) {
     console.error(
       "Bosta locations API error:",
@@ -70,6 +88,9 @@ export async function GET(
       },
       {
         status: 502,
+        headers: {
+          "Cache-Control": "no-store",
+        },
       }
     );
   }
