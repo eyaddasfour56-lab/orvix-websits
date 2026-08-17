@@ -27,12 +27,14 @@ const groups: NavGroup[] = [
       { label: "Orders", href: "/admin", keywords: "orders customers shipping bosta operations" },
       { label: "Products & Stock", href: "/admin/products", keywords: "products price catalog fitbit garmin stock inventory quantity availability sale" },
       { label: "Commerce Control", href: "/admin/commerce", keywords: "health system checkout queue variants scheduled pricing rate limit reliability stock alerts kill switch" },
+      { label: "Feature Flags", href: "/admin/features", keywords: "feature flags rollout switch experiment staged release" },
     ],
   },
   {
     label: "Growth",
     items: [
       { label: "Analytics", href: "/admin/analytics", keywords: "analytics conversion traffic visitors funnel sales" },
+      { label: "Checkout Recovery", href: "/admin/recovery", keywords: "abandoned checkout recovery conversion sessions funnel" },
       { label: "Discounts", href: "/admin/discounts", keywords: "discount coupon code offer promo" },
       { label: "Customers", href: "/admin/command-center/advanced#customers", keywords: "customers customer 360 vip returning" },
       { label: "Reviews", href: "/admin/reviews", keywords: "reviews ratings feedback" },
