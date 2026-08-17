@@ -13,6 +13,9 @@ async function updateFile(path, transform) {
   console.log(`Updated ${path}.`);
 }
 
+// Keep the legacy Fitbit checkout pointed at the public live product price.
+// Order creation itself is now handled by the atomic /api/order-v3 pipeline,
+// so this build helper must never rewrite app/api/order/route.ts again.
 await updateFile("app/checkout/page.tsx", (source) => {
   let next = source;
 
@@ -63,149 +66,6 @@ await updateFile("app/checkout/page.tsx", (source) => {
     next = next.replace(
       effectAnchor,
       `${productEffect}${effectAnchor}`
-    );
-  }
-
-  return next;
-});
-
-await updateFile("app/api/order/route.ts", (source) => {
-  let next = source.replace(
-    "const PRODUCT_PRICE = 8500;\n",
-    ""
-  );
-
-  const oldProductBlock = `    /*\n      الأسعار الأساسية من السيرفر،\n      وليس من الـCheckout.\n    */\n    const productName =\n      PRODUCT_NAME;\n\n    const productSlug =\n      PRODUCT_SLUG;\n\n    const productPrice =\n      PRODUCT_PRICE;`;
-
-  if (!next.includes("const liveProductResponse = await fetch(")) {
-    if (!next.includes(oldProductBlock)) {
-      throw new Error("Could not find server product pricing block.");
-    }
-
-    const liveProductBlock = [
-      "    /*",
-      "      السعر والتوفر يأتوا من Products في Supabase.",
-      "      أي تعديل من Admin > Products & Stock ينعكس هنا فورًا.",
-      "    */",
-      "    const liveProductResponse = await fetch(",
-      "      `${supabaseUrl}/rest/v1/products?slug=eq.${encodeURIComponent(",
-      "        PRODUCT_SLUG",
-      "      )}&select=name,slug,price,status,stock_quantity,allow_purchase&limit=1`,",
-      "      {",
-      "        headers: {",
-      "          apikey: supabaseSecretKey,",
-      "          Authorization:",
-      "            `Bearer ${supabaseSecretKey}`,",
-      "          \"Content-Type\":",
-      "            \"application/json\",",
-      "        },",
-      "        cache: \"no-store\",",
-      "      }",
-      "    );",
-      "",
-      "    if (!liveProductResponse.ok) {",
-      "      console.error(",
-      "        \"Product pricing lookup failed:\",",
-      "        await liveProductResponse.text()",
-      "      );",
-      "",
-      "      return NextResponse.json(",
-      "        {",
-      "          success: false,",
-      "          message:",
-      "            \"Could not verify the product price right now.\",",
-      "        },",
-      "        { status: 500 }",
-      "      );",
-      "    }",
-      "",
-      "    const liveProductRows =",
-      "      await liveProductResponse.json();",
-      "",
-      "    const liveProduct =",
-      "      Array.isArray(liveProductRows)",
-      "        ? liveProductRows[0]",
-      "        : null;",
-      "",
-      "    if (!liveProduct) {",
-      "      return NextResponse.json(",
-      "        {",
-      "          success: false,",
-      "          message:",
-      "            \"This product is not available right now.\",",
-      "        },",
-      "        { status: 404 }",
-      "      );",
-      "    }",
-      "",
-      "    const productName = String(",
-      "      liveProduct.name || PRODUCT_NAME",
-      "    );",
-      "",
-      "    const productSlug = String(",
-      "      liveProduct.slug || PRODUCT_SLUG",
-      "    );",
-      "",
-      "    const productPrice = Number(",
-      "      liveProduct.price || 0",
-      "    );",
-      "",
-      "    const availableStock = Math.max(",
-      "      0,",
-      "      Number(",
-      "        liveProduct.stock_quantity || 0",
-      "      )",
-      "    );",
-      "",
-      "    const availableForSale =",
-      "      liveProduct.status === \"available\" &&",
-      "      Boolean(liveProduct.allow_purchase) &&",
-      "      availableStock > 0 &&",
-      "      productPrice > 0;",
-      "",
-      "    if (!availableForSale) {",
-      "      return NextResponse.json(",
-      "        {",
-      "          success: false,",
-      "          message:",
-      "            \"This product is currently unavailable for sale.\",",
-      "        },",
-      "        { status: 409 }",
-      "      );",
-      "    }",
-      "",
-      "    if (quantity > availableStock) {",
-      "      return NextResponse.json(",
-      "        {",
-      "          success: false,",
-      "          message:",
-      "            `Only ${availableStock} item(s) are currently available.`,",
-      "        },",
-      "        { status: 409 }",
-      "      );",
-      "    }",
-    ].join("\n");
-
-    next = next.replace(
-      oldProductBlock,
-      liveProductBlock
-    );
-  }
-
-  return next;
-});
-
-await updateFile("components/AdminShell.tsx", (source) => {
-  let next = source;
-
-  const oldCoreItems = `      { label: "Inventory", href: "/admin/inventory", keywords: "stock inventory quantity low stock" },\n      { label: "Products", href: "/admin/products", keywords: "products price catalog fitbit garmin" },`;
-
-  const newCoreItem = `      { label: "Products & Stock", href: "/admin/products", keywords: "products price catalog fitbit garmin stock inventory quantity availability sale" },`;
-
-  if (next.includes(oldCoreItems)) {
-    next = next.replace(
-      oldCoreItems,
-      newCoreItem
     );
   }
 
