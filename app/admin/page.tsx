@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import OrvixAiPanel from "./OrvixAiPanel";
 import {
   FormEvent,
   useEffect,
@@ -2255,6 +2256,12 @@ export default function AdminPage() {
               </div>
             </section>
           </header>
+
+          <OrvixAiPanel
+            onActionComplete={() =>
+              void loadDashboard(true)
+            }
+          />
 
           {message && (
             <p
