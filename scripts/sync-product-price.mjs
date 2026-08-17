@@ -45,6 +45,11 @@ await updateFile("app/checkout/page.tsx", (source) => {
     "            productPrice,"
   );
 
+  next = next.replace(
+    "                      {formatMoney(\n                        PRODUCT_PRICE\n                      )} {copy.each}",
+    "                      {formatMoney(\n                        productPrice\n                      )} {copy.each}"
+  );
+
   if (!next.includes("async function loadProductSettings()")) {
     const effectAnchor =
       "  useEffect(() => {\n    const timeoutId = window.setTimeout(";
