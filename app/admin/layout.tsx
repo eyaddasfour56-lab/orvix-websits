@@ -4,6 +4,7 @@ import AdminChatNotifier from "@/components/AdminChatNotifier";
 import AdminUiPolish from "@/components/AdminUiPolish";
 import AdminAiToggle from "@/components/AdminAiToggle";
 import AdminPwaRefresh from "@/components/AdminPwaRefresh";
+import AdminOrvixAssistant from "@/components/AdminOrvixAssistant";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
@@ -20,6 +21,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             >
               ORVIX OS
             </Link>
+
+            <AdminOrvixAssistant />
 
             <Link
               href="/admin"
