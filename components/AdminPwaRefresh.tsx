@@ -9,7 +9,7 @@ export default function AdminPwaRefresh() {
     void (async () => {
       try {
         const registration = await navigator.serviceWorker.register(
-          "/orvix-admin-sw.js?v=orvix-20260817-v3",
+          "/orvix-admin-sw.js?v=orvix-20260817-v4",
           {
             scope: "/",
             updateViaCache: "none",
