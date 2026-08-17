@@ -1,5 +1,5 @@
-import CashflowV2 from "./CashflowV2";
+import CashflowSimple from "./CashflowSimple";
 
 export default function CashflowPage() {
-  return <CashflowV2 />;
+  return <CashflowSimple />;
 }
