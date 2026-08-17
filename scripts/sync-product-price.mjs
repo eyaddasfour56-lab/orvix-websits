@@ -40,6 +40,11 @@ await updateFile("app/checkout/page.tsx", (source) => {
     "  const productsTotal =\n    productPrice * quantity;"
   );
 
+  next = next.replace(
+    "            productPrice: PRODUCT_PRICE,",
+    "            productPrice,"
+  );
+
   if (!next.includes("async function loadProductSettings()")) {
     const effectAnchor =
       "  useEffect(() => {\n    const timeoutId = window.setTimeout(";
