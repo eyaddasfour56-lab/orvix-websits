@@ -861,6 +861,25 @@ export default function CheckoutPage() {
     };
   }, []);
 
+  // Redirect non-Fitbit cart items to their generic checkout.
+  useEffect(() => {
+    const cartItem = readFirstCartItem();
+
+    if (
+      cartItem?.slug &&
+      cartItem.slug !== PRODUCT_SLUG
+    ) {
+      router.replace(
+        `/checkout/${encodeURIComponent(
+          cartItem.slug
+        )}?quantity=${Math.max(
+          1,
+          Number(cartItem.quantity || 1)
+        )}`
+      );
+    }
+  }, [router]);
+
   useEffect(() => {
     const timeoutId = window.setTimeout(
       () => {
