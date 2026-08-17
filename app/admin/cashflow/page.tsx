@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-type PaidBy = "me" | "ahmed_samy";
+type Person = "me" | "ahmed_samy";
 
 type Entry = {
   id: string;
@@ -11,7 +11,8 @@ type Entry = {
   category: string;
   amount: number | string;
   description?: string | null;
-  paid_by?: PaidBy | null;
+  paid_by?: Person | null;
+  received_by?: Person | null;
   entry_date: string;
   created_at: string;
 };
@@ -19,6 +20,9 @@ type Entry = {
 type Summary = {
   deliveredSales: number;
   manualIncome: number;
+  incomeToMe: number;
+  incomeToAhmedSamy: number;
+  unassignedIncome: number;
   totalCashIn: number;
   expenses: number;
   expensesFromMe: number;
@@ -29,6 +33,8 @@ type Summary = {
   deliveredOrders: number;
   activeOrders: number;
   monthCashIn: number;
+  monthIncomeToMe: number;
+  monthIncomeToAhmedSamy: number;
   monthExpenses: number;
   monthExpensesFromMe: number;
   monthExpensesFromAhmedSamy: number;
@@ -64,7 +70,7 @@ const incomeCategories = [
   "Other Income",
 ];
 
-const payerOptions: Array<{ value: PaidBy; label: string }> = [
+const personOptions: Array<{ value: Person; label: string }> = [
   { value: "me", label: "Me" },
   { value: "ahmed_samy", label: "Ahmed Samy" },
 ];
@@ -85,7 +91,7 @@ function money(value: number | string | null | undefined) {
   })} EGP`;
 }
 
-function payerLabel(value: PaidBy | null | undefined) {
+function personLabel(value: Person | null | undefined) {
   if (value === "me") return "Me";
   if (value === "ahmed_samy") return "Ahmed Samy";
   return "Unassigned";
@@ -139,7 +145,8 @@ export default function CashflowPage() {
   const [otherExpense, setOtherExpense] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
-  const [paidBy, setPaidBy] = useState<PaidBy>("me");
+  const [paidBy, setPaidBy] = useState<Person>("me");
+  const [receivedBy, setReceivedBy] = useState<Person>("me");
   const [entryDate, setEntryDate] = useState(localDateInputValue());
 
   async function load() {
@@ -211,6 +218,7 @@ export default function CashflowPage() {
           amount,
           description,
           paidBy: entryType === "expense" ? paidBy : null,
+          receivedBy: entryType === "income" ? receivedBy : null,
           entryDate,
         }),
       });
@@ -225,8 +233,8 @@ export default function CashflowPage() {
       setOtherExpense("");
       setNotice(
         entryType === "expense"
-          ? `Expense saved under ${payerLabel(paidBy)}.`
-          : "Income saved."
+          ? `Expense saved under ${personLabel(paidBy)}.`
+          : `Income saved to ${personLabel(receivedBy)}.`
       );
       await load();
     } catch (saveError) {
@@ -298,7 +306,7 @@ export default function CashflowPage() {
               Cash Flow
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-white/45 sm:text-base">
-              Delivered order product totals count automatically as cash in. Record expenses and choose whether they were paid by you or Ahmed Samy.
+              Track who paid every expense and who received every extra income entry: you or Ahmed Samy.
             </p>
           </div>
 
@@ -345,11 +353,23 @@ export default function CashflowPage() {
                 tone="green"
               />
               <MetricCard
+                label="Income to Me"
+                value={money(summary.incomeToMe)}
+                helper={`${money(summary.monthIncomeToMe)} this month • manual income`}
+                tone="green"
+              />
+              <MetricCard
+                label="Income to Ahmed Samy"
+                value={money(summary.incomeToAhmedSamy)}
+                helper={`${money(summary.monthIncomeToAhmedSamy)} this month • manual income`}
+                tone="blue"
+              />
+              <MetricCard
                 label="Cash Out"
                 value={money(summary.expenses)}
                 helper={
                   summary.unassignedExpenses > 0
-                    ? `${money(summary.unassignedExpenses)} still unassigned`
+                    ? `${money(summary.unassignedExpenses)} old expenses still unassigned`
                     : "All manually recorded business expenses"
                 }
                 tone="red"
@@ -423,15 +443,30 @@ export default function CashflowPage() {
                   </button>
                 </div>
 
-                {entryType === "expense" && (
+                {entryType === "expense" ? (
                   <label className="mt-5 block text-sm font-bold text-white/65">
                     Paid by
                     <select
                       value={paidBy}
-                      onChange={(event) => setPaidBy(event.target.value as PaidBy)}
+                      onChange={(event) => setPaidBy(event.target.value as Person)}
                       className="mt-2 w-full rounded-2xl border border-white/10 bg-[#111] px-4 py-3 text-white outline-none focus:border-white/30"
                     >
-                      {payerOptions.map((option) => (
+                      {personOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <label className="mt-5 block text-sm font-bold text-white/65">
+                    Received by
+                    <select
+                      value={receivedBy}
+                      onChange={(event) => setReceivedBy(event.target.value as Person)}
+                      className="mt-2 w-full rounded-2xl border border-emerald-400/15 bg-[#111] px-4 py-3 text-white outline-none focus:border-emerald-300/40"
+                    >
+                      {personOptions.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
                         </option>
@@ -603,8 +638,8 @@ export default function CashflowPage() {
                     AUTOMATIC SALES
                   </p>
                   <p className="mt-2 text-sm leading-6 text-white/55">
-                    You do not need to add normal website sales manually. When an order becomes
-                    <strong className="text-white"> Delivered</strong>, its products total is counted automatically. Delivery fees are excluded because the courier collects them separately.
+                    Normal website sales are still counted automatically when an order becomes
+                    <strong className="text-white"> Delivered</strong>. The Me / Ahmed Samy income split applies to manual Extra Income entries.
                   </p>
                 </div>
               </article>
@@ -632,7 +667,7 @@ export default function CashflowPage() {
                       <tr>
                         <th className="px-6 py-4">Date</th>
                         <th className="px-6 py-4">Type</th>
-                        <th className="px-6 py-4">Paid by</th>
+                        <th className="px-6 py-4">Paid / Received by</th>
                         <th className="px-6 py-4">Category</th>
                         <th className="px-6 py-4">Note</th>
                         <th className="px-6 py-4 text-right">Amount</th>
@@ -658,8 +693,8 @@ export default function CashflowPage() {
                           </td>
                           <td className="px-6 py-4 font-bold text-white/60">
                             {entry.entry_type === "expense"
-                              ? payerLabel(entry.paid_by)
-                              : "—"}
+                              ? personLabel(entry.paid_by)
+                              : personLabel(entry.received_by)}
                           </td>
                           <td className="px-6 py-4 font-bold">{entry.category}</td>
                           <td className="max-w-[320px] px-6 py-4 text-white/45">
