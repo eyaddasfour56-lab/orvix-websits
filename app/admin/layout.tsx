@@ -35,6 +35,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               Cash Flow
             </Link>
 
+            <Link
+              href="/admin/cashflow/transfer"
+              className="shrink-0 rounded-xl border border-violet-400/20 bg-violet-500/[0.08] px-3 py-2 text-[11px] font-black text-violet-200 transition hover:bg-violet-500/[0.14] sm:text-xs"
+            >
+              Quick Transfer
+            </Link>
+
             <AdminAiToggle />
 
             <div className="min-w-0 sm:ml-auto">
