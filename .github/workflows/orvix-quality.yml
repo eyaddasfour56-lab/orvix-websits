@@ -24,11 +24,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
+      - name: Sync dependency lockfile
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
       - name: Sync checkout and order base price
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -37,17 +40,18 @@ jobs:
       - name: Build Next.js application
         run: npm run build
 
-      - name: Commit synced price when needed
+      - name: Commit synced files when needed
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: bash
         run: |
-          if git diff --quiet; then
-            echo "Price already synced."
+          git add package-lock.json app/checkout/page.tsx app/api/order/route.ts
+
+          if git diff --cached --quiet; then
+            echo "Lockfile and price are already synced."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/checkout/page.tsx app/api/order/route.ts
-          git commit -m "Sync Fitbit base price to 8500 EGP"
+          git commit -m "Sync dependency lockfile and Fitbit base price"
           git push
