@@ -90,9 +90,9 @@ export async function supabaseAdminJson<T>(
 }
 
 export function postgrestValue(
-  value: string | number
+  value: unknown
 ) {
   return encodeURIComponent(
-    String(value)
+    String(value ?? "")
   );
 }
