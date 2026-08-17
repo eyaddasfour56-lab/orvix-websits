@@ -1,4 +1,4 @@
-name: ORVIX Quality & Price Sync
+name: ORVIX Quality & Product Sync
 
 on:
   pull_request:
@@ -33,7 +33,7 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Sync checkout and order base price
+      - name: Sync admin product controls
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: node scripts/sync-product-price.mjs
 
@@ -44,14 +44,14 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: bash
         run: |
-          git add package-lock.json app/checkout/page.tsx app/api/order/route.ts
+          git add package-lock.json app/checkout/page.tsx app/api/order/route.ts app/admin/products/page.tsx components/AdminShell.tsx
 
           if git diff --cached --quiet; then
-            echo "Lockfile and price are already synced."
+            echo "Product controls are already synced."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Sync dependency lockfile and Fitbit base price"
+          git commit -m "Sync admin product price stock and availability"
           git push
