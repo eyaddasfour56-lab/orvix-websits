@@ -2,12 +2,15 @@ import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getBostaCities, getBostaDistricts } from "@/lib/bosta";
 import { getDeliveryAreaForBostaCity } from "@/lib/shipping-pricing";
-import { SupabaseAdminError, supabaseAdminJson } from "@/lib/supabase-admin";
+import { postgrestValue, SupabaseAdminError, supabaseAdminJson } from "@/lib/supabase-admin";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const CHECKOUT_SESSION_COOKIE = "orvix_checkout_session";
+const PAYMENT_METHOD_COOKIE = "orvixPaymentMethod";
+
+type PaymentMethod = "cash_on_delivery" | "instapay_on_delivery";
 
 type CartInput = {
   productSlug?: string;
@@ -26,6 +29,7 @@ type OrderInput = {
   address?: string;
   notes?: string;
   discountCode?: string | null;
+  paymentMethod?: PaymentMethod | null;
 };
 
 type CommerceSettings = {
@@ -59,6 +63,12 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function normalisePaymentMethod(value: unknown): PaymentMethod {
+  return clean(value).toLowerCase() === "instapay_on_delivery"
+    ? "instapay_on_delivery"
+    : "cash_on_delivery";
+}
+
 function sha256(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -81,16 +91,12 @@ function normaliseItems(items: CartInput[] | undefined) {
   if (!Array.isArray(items)) return [];
 
   const grouped = new Map<string, Required<CartInput>>();
-
   for (const rawItem of items) {
     const productSlug = clean(rawItem?.productSlug).toLowerCase();
     const variantKey = clean(rawItem?.variantKey) || "";
     const colour = clean(rawItem?.colour) || "Standard";
     const quantity = Number(rawItem?.quantity);
-
-    if (!productSlug || !Number.isInteger(quantity) || quantity < 1 || quantity > 100) {
-      continue;
-    }
+    if (!productSlug || !Number.isInteger(quantity) || quantity < 1 || quantity > 100) continue;
 
     const key = `${productSlug}|${variantKey.toLowerCase()}|${colour.toLowerCase()}`;
     const existing = grouped.get(key);
@@ -117,27 +123,13 @@ function getRpcError(error: unknown) {
         ? error.message
         : String(error);
 
-  if (details.includes("CHECKOUT_DISABLED")) {
-    return { status: 503, message: "Ordering is temporarily paused. Please try again shortly." };
-  }
-  if (details.includes("INVALID_ITEMS") || details.includes("INVALID_CART_QUANTITY")) {
-    return { status: 400, message: "Your cart is invalid. Please review the items and try again." };
-  }
-  if (details.includes("PRODUCT_NOT_FOUND")) {
-    return { status: 404, message: "One of the products in your cart could not be found." };
-  }
-  if (details.includes("PRODUCT_UNAVAILABLE") || details.includes("VARIANT_UNAVAILABLE")) {
-    return { status: 409, message: "One of the selected product options is currently unavailable." };
-  }
-  if (details.includes("INVALID_PRODUCT_PRICE")) {
-    return { status: 409, message: "One of the products is not available for ordering yet." };
-  }
-  if (details.includes("INVALID_QUANTITY")) {
-    return { status: 400, message: "One of the selected quantities is not available." };
-  }
-  if (details.includes("INVALID_DISCOUNT")) {
-    return { status: 400, message: "This discount code is invalid, inactive, expired or has reached its limit." };
-  }
+  if (details.includes("CHECKOUT_DISABLED")) return { status: 503, message: "Ordering is temporarily paused. Please try again shortly." };
+  if (details.includes("INVALID_ITEMS") || details.includes("INVALID_CART_QUANTITY")) return { status: 400, message: "Your cart is invalid. Please review the items and try again." };
+  if (details.includes("PRODUCT_NOT_FOUND")) return { status: 404, message: "One of the products in your cart could not be found." };
+  if (details.includes("PRODUCT_UNAVAILABLE") || details.includes("VARIANT_UNAVAILABLE")) return { status: 409, message: "One of the selected product options is currently unavailable." };
+  if (details.includes("INVALID_PRODUCT_PRICE")) return { status: 409, message: "One of the products is not available for ordering yet." };
+  if (details.includes("INVALID_QUANTITY")) return { status: 400, message: "One of the selected quantities is not available." };
+  if (details.includes("INVALID_DISCOUNT")) return { status: 400, message: "This discount code is invalid, inactive, expired or has reached its limit." };
   if (details.includes("INSUFFICIENT_STOCK")) {
     const match = details.match(/INSUFFICIENT_STOCK:([^: ]+):(\d+)/);
     return {
@@ -163,6 +155,7 @@ async function trackCompletedOrder(input: {
   items: Array<Required<CartInput>>;
   visitorId: string;
   sessionId: string;
+  paymentMethod: PaymentMethod;
 }) {
   try {
     await supabaseAdminJson("analytics_events", {
@@ -180,6 +173,7 @@ async function trackCompletedOrder(input: {
           itemCount: input.items.length,
           quantity: input.items.reduce((total, item) => total + item.quantity, 0),
           products: input.items.map((item) => item.productSlug),
+          paymentMethod: input.paymentMethod,
         },
       }),
     });
@@ -200,66 +194,46 @@ export async function POST(request: NextRequest) {
     const address = clean(input.address);
     const notes = clean(input.notes) || "No notes";
     const discountCode = clean(input.discountCode).toUpperCase();
+    const paymentMethod = normalisePaymentMethod(
+      input.paymentMethod || request.cookies.get(PAYMENT_METHOD_COOKIE)?.value
+    );
 
     if (!fullName || !phone || !bostaCityId || !bostaDistrictId || !address || items.length === 0) {
-      return NextResponse.json(
-        { success: false, message: "Please complete all required order details." },
-        { status: 400, headers: { "Cache-Control": "no-store" } }
-      );
+      return NextResponse.json({ success: false, message: "Please complete all required order details." }, { status: 400, headers: { "Cache-Control": "no-store" } });
     }
 
     const totalQuantity = items.reduce((total, item) => total + item.quantity, 0);
     if (items.length > 20 || totalQuantity > 20) {
-      return NextResponse.json(
-        { success: false, message: "Your cart can contain up to 20 units per order." },
-        { status: 400, headers: { "Cache-Control": "no-store" } }
-      );
+      return NextResponse.json({ success: false, message: "Your cart can contain up to 20 units per order." }, { status: 400, headers: { "Cache-Control": "no-store" } });
     }
 
     if (customerEmail && !isValidEmail(customerEmail)) {
-      return NextResponse.json(
-        { success: false, message: "Please enter a valid email address or leave it empty." },
-        { status: 400, headers: { "Cache-Control": "no-store" } }
-      );
+      return NextResponse.json({ success: false, message: "Please enter a valid email address or leave it empty." }, { status: 400, headers: { "Cache-Control": "no-store" } });
     }
 
     const settings = await getCommerceSettings();
     if (settings.checkout_enabled === false) {
-      return NextResponse.json(
-        { success: false, message: "Ordering is temporarily paused. Please try again shortly." },
-        { status: 503, headers: { "Cache-Control": "no-store", "Retry-After": "60" } }
-      );
+      return NextResponse.json({ success: false, message: "Ordering is temporarily paused. Please try again shortly." }, { status: 503, headers: { "Cache-Control": "no-store", "Retry-After": "60" } });
     }
 
     const sourceAddress = getSourceAddress(request);
     const sourceHash = fingerprint(sourceAddress);
     const userAgentHash = fingerprint(request.headers.get("user-agent") || "unknown");
     const rateLimit = Math.max(1, Math.min(Number(settings.rate_limit_per_minute || 20), 1000));
-
     const allowed = await supabaseAdminJson<boolean>("rpc/orvix_take_rate_limit", {
       method: "POST",
       body: JSON.stringify({ p_key: `order-v4:${sourceHash}`, p_limit: rateLimit, p_window_seconds: 60 }),
     });
 
     if (!allowed) {
-      return NextResponse.json(
-        { success: false, message: "Too many checkout attempts. Please wait a moment and try again." },
-        { status: 429, headers: { "Cache-Control": "no-store", "Retry-After": "60" } }
-      );
+      return NextResponse.json({ success: false, message: "Too many checkout attempts. Please wait a moment and try again." }, { status: 429, headers: { "Cache-Control": "no-store", "Retry-After": "60" } });
     }
 
-    const [cities, districts] = await Promise.all([
-      getBostaCities(),
-      getBostaDistricts(bostaCityId),
-    ]);
+    const [cities, districts] = await Promise.all([getBostaCities(), getBostaDistricts(bostaCityId)]);
     const city = cities.find((candidate) => candidate.id === bostaCityId);
     const district = districts.find((candidate) => candidate.id === bostaDistrictId);
-
     if (!city || !district) {
-      return NextResponse.json(
-        { success: false, message: "The selected delivery location is invalid. Please select it again." },
-        { status: 400, headers: { "Cache-Control": "no-store" } }
-      );
+      return NextResponse.json({ success: false, message: "The selected delivery location is invalid. Please select it again." }, { status: 400, headers: { "Cache-Control": "no-store" } });
     }
 
     const deliveryArea = getDeliveryAreaForBostaCity(city);
@@ -274,6 +248,7 @@ export async function POST(request: NextRequest) {
       district.id,
       address.toLowerCase(),
       discountCode,
+      paymentMethod,
       timeBucket,
     ].join("|"));
 
@@ -312,15 +287,23 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       const mapped = getRpcError(error);
       console.error("Order v4 atomic creation error:", error);
-      return NextResponse.json(
-        { success: false, message: mapped.message },
-        { status: mapped.status, headers: { "Cache-Control": "no-store" } }
-      );
+      return NextResponse.json({ success: false, message: mapped.message }, { status: mapped.status, headers: { "Cache-Control": "no-store" } });
     }
 
-    if (!created?.orderNumber) {
+    if (!created?.orderNumber || !created.orderId) {
+      return NextResponse.json({ success: false, message: "Your order could not be confirmed. Please try again." }, { status: 500, headers: { "Cache-Control": "no-store" } });
+    }
+
+    try {
+      await supabaseAdminJson(`orders?id=eq.${postgrestValue(created.orderId)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ payment_method: paymentMethod, updated_at: new Date().toISOString() }),
+      });
+    } catch (error) {
+      console.error("Order payment method update error:", error);
       return NextResponse.json(
-        { success: false, message: "Your order could not be confirmed. Please try again." },
+        { success: false, message: "Your order was created, but the payment method could not be saved. Please contact ORVIX support with your order number.", orderNumber: created.orderNumber },
         { status: 500, headers: { "Cache-Control": "no-store" } }
       );
     }
@@ -333,6 +316,7 @@ export async function POST(request: NextRequest) {
       items,
       visitorId,
       sessionId: analyticsSessionId,
+      paymentMethod,
     });
 
     return NextResponse.json(
@@ -343,6 +327,7 @@ export async function POST(request: NextRequest) {
         orderId: created.orderId,
         shippingNumber: created.shippingNumber,
         orderType: created.orderType || "standard",
+        paymentMethod,
         paymentStatus: created.paymentStatus || "pending",
         estimatedDeliveryFrom: created.estimatedDeliveryFrom || null,
         estimatedDeliveryTo: created.estimatedDeliveryTo || null,
@@ -352,16 +337,10 @@ export async function POST(request: NextRequest) {
         totalPrice: Number(created.totalPrice || 0),
         items: Array.isArray(created.items) ? created.items : [],
       },
-      {
-        status: created.duplicate ? 200 : 201,
-        headers: { "Cache-Control": "no-store" },
-      }
+      { status: created.duplicate ? 200 : 201, headers: { "Cache-Control": "no-store" } }
     );
   } catch (error) {
     console.error("Order v4 API error:", error);
-    return NextResponse.json(
-      { success: false, message: "Could not place your order. Please try again." },
-      { status: 500, headers: { "Cache-Control": "no-store" } }
-    );
+    return NextResponse.json({ success: false, message: "Could not place your order. Please try again." }, { status: 500, headers: { "Cache-Control": "no-store" } });
   }
 }
