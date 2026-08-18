@@ -18,42 +18,28 @@ export async function GET(request: NextRequest) {
   try {
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
-
     if (!supabaseUrl || !supabaseSecretKey) {
-      return NextResponse.json(
-        { success: false, message: "Supabase settings are missing." },
-        { status: 500, headers: { "Cache-Control": "no-store" } }
-      );
+      return NextResponse.json({ success: false, message: "Supabase settings are missing." }, { status: 500, headers: { "Cache-Control": "no-store" } });
     }
 
     const url = new URL(request.url);
     const homepageOnly = url.searchParams.get("homepage") === "true";
     const productSlug = url.searchParams.get("slug")?.trim() || "";
-
     let query = `${supabaseUrl}/rest/v1/store_products?select=*`;
-    if (productSlug) {
-      query += `&slug=eq.${encodeURIComponent(productSlug)}`;
-    } else {
+    if (productSlug) query += `&slug=eq.${encodeURIComponent(productSlug)}`;
+    else {
       query += `&status=neq.hidden`;
       if (homepageOnly) query += `&show_on_homepage=eq.true`;
     }
     query += `&order=display_order.asc,created_at.asc`;
 
     const response = await fetch(query, {
-      headers: {
-        apikey: supabaseSecretKey,
-        Authorization: `Bearer ${supabaseSecretKey}`,
-        "Content-Type": "application/json",
-      },
+      headers: { apikey: supabaseSecretKey, Authorization: `Bearer ${supabaseSecretKey}`, "Content-Type": "application/json" },
       next: { revalidate: 10 },
     });
-
     if (!response.ok) {
       console.error("Public products fetch error:", await response.text());
-      return NextResponse.json(
-        { success: false, message: "Could not load products." },
-        { status: 500, headers: { "Cache-Control": "no-store" } }
-      );
+      return NextResponse.json({ success: false, message: "Could not load products." }, { status: 500, headers: { "Cache-Control": "no-store" } });
     }
 
     const products = await response.json();
@@ -68,10 +54,7 @@ export async function GET(request: NextRequest) {
             description: product.description || "",
             price: Number(product.effective_price || 0),
             basePrice: Number(product.base_price || 0),
-            compareAtPrice:
-              product.effective_compare_at_price === null
-                ? null
-                : Number(product.effective_compare_at_price || 0),
+            compareAtPrice: product.effective_compare_at_price === null ? null : Number(product.effective_compare_at_price || 0),
             saleActive: Boolean(product.sale_active),
             saleStartsAt: product.sale_starts_at || null,
             saleEndsAt: product.sale_ends_at || null,
@@ -87,6 +70,8 @@ export async function GET(request: NextRequest) {
             maxOrderQuantity: Number(product.max_order_quantity || 10),
             availableFrom: product.available_from || null,
             availableUntil: product.available_until || null,
+            preorderMinDays: Number(product.preorder_min_days || 25),
+            preorderMaxDays: Number(product.preorder_max_days || 45),
             createdAt: product.created_at,
             updatedAt: product.updated_at,
           };
@@ -94,28 +79,18 @@ export async function GET(request: NextRequest) {
       : [];
 
     if (productSlug && formattedProducts.length === 0) {
-      return NextResponse.json(
-        { success: false, message: "Product was not found." },
-        { status: 404, headers: publicCacheHeaders }
-      );
+      return NextResponse.json({ success: false, message: "Product was not found." }, { status: 404, headers: publicCacheHeaders });
     }
 
     let variants: Array<Record<string, unknown>> = [];
     if (productSlug && formattedProducts[0]?.id) {
       const variantsResponse = await fetch(
-        `${supabaseUrl}/rest/v1/product_variants?product_id=eq.${encodeURIComponent(
-          String(formattedProducts[0].id)
-        )}&active=eq.true&select=id,variant_key,label,stock_quantity,low_stock_limit,allow_purchase,display_order&order=display_order.asc,created_at.asc`,
+        `${supabaseUrl}/rest/v1/product_variants?product_id=eq.${encodeURIComponent(String(formattedProducts[0].id))}&active=eq.true&select=id,variant_key,label,stock_quantity,low_stock_limit,allow_purchase,display_order&order=display_order.asc,created_at.asc`,
         {
-          headers: {
-            apikey: supabaseSecretKey,
-            Authorization: `Bearer ${supabaseSecretKey}`,
-            "Content-Type": "application/json",
-          },
+          headers: { apikey: supabaseSecretKey, Authorization: `Bearer ${supabaseSecretKey}`, "Content-Type": "application/json" },
           next: { revalidate: 10 },
         }
       );
-
       if (variantsResponse.ok) {
         const rows = await variantsResponse.json();
         variants = Array.isArray(rows)
@@ -135,20 +110,11 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(
-      {
-        success: true,
-        products: productSlug ? undefined : formattedProducts,
-        product: productSlug
-          ? { ...formattedProducts[0], variants }
-          : undefined,
-      },
+      { success: true, products: productSlug ? undefined : formattedProducts, product: productSlug ? { ...formattedProducts[0], variants } : undefined },
       { headers: publicCacheHeaders }
     );
   } catch (error) {
     console.error("Public products API error:", error);
-    return NextResponse.json(
-      { success: false, message: "Could not load products." },
-      { status: 500, headers: { "Cache-Control": "no-store" } }
-    );
+    return NextResponse.json({ success: false, message: "Could not load products." }, { status: 500, headers: { "Cache-Control": "no-store" } });
   }
 }
