@@ -13,6 +13,7 @@ import CustomerAiTrigger from "@/components/CustomerAiTrigger";
 import CustomerSupportModeGate from "@/components/CustomerSupportModeGate";
 import CustomerOrderCancellation from "@/components/CustomerOrderCancellation";
 import PreorderPurchaseBar from "@/components/PreorderPurchaseBar";
+import CommerceCartAnalytics from "@/components/CommerceCartAnalytics";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -64,6 +65,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className="min-h-full flex flex-col">
         <LanguageProvider>
           <Suspense fallback={null}><SiteAnalytics /></Suspense>
+          <CommerceCartAnalytics />
           <PromoBanner />
           <HomepageQuickOrder />
           <CheckoutCompactPolish />
