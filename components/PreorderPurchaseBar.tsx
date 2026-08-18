@@ -4,7 +4,6 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
-import { trackCommerceEvent } from "@/lib/commerce-analytics";
 
 type Variant = {
   id: string;
@@ -52,7 +51,7 @@ function readCart() {
 
 export default function PreorderPurchaseBar() {
   const pathname = usePathname();
-  const { language, isArabic } = useLanguage();
+  const { isArabic } = useLanguage();
   const [product, setProduct] = useState<Product | null>(null);
   const [variantKey, setVariantKey] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -85,7 +84,6 @@ export default function PreorderPurchaseBar() {
         setVariantKey(firstVariant?.variantKey || "");
         setQuantity(1);
         setAdded(false);
-        void trackCommerceEvent("product_view", { productSlug: next.slug, metadata: { mode: "preorder" } });
       } catch {
         if (!cancelled) setProduct(null);
       }
@@ -97,7 +95,8 @@ export default function PreorderPurchaseBar() {
 
   if (!product) return null;
 
-  const variant = product.variants?.find((candidate) => candidate.variantKey === variantKey) || null;
+  const availableVariants = product.variants?.filter((item) => item.allowPurchase) || [];
+  const variant = availableVariants.find((candidate) => candidate.variantKey === variantKey) || null;
   const maxQuantity = Math.max(1, Math.min(Number(product.maxOrderQuantity || 10), 10));
   const minDays = Number(product.preorderMinDays || 25);
   const maxDays = Number(product.preorderMaxDays || 45);
@@ -127,23 +126,19 @@ export default function PreorderPurchaseBar() {
     window.localStorage.setItem(CART_KEY, JSON.stringify(cart));
     window.dispatchEvent(new Event("orvix-cart-updated"));
     setAdded(true);
-    void trackCommerceEvent("add_to_cart", {
-      productSlug: product.slug,
-      metadata: { quantity, variant: variant?.variantKey || null, preorder: true },
-    });
   }
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-[120] border-t border-violet-300/15 bg-[#0b0b0d]/96 px-3 py-3 shadow-[0_-18px_50px_rgba(0,0,0,.45)] backdrop-blur-xl print:hidden">
-      <div className="mx-auto flex max-w-6xl items-center gap-3">
+      <div className="mx-auto flex max-w-6xl items-center gap-2 sm:gap-3">
         <div className="hidden h-14 w-14 shrink-0 rounded-xl bg-white p-1.5 sm:block"><Image src={product.image || "/black.png"} alt="" width={100} height={100} unoptimized className="h-full w-full object-contain" /></div>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-violet-400/15 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-violet-200">{isArabic ? "طلب مسبق" : "PRE-ORDER"}</span><p className="truncate text-sm font-black text-white">{product.name}</p></div>
-          <p className="mt-1 text-[10px] font-semibold text-white/38">{isArabic ? `التوصيل المتوقع ${minDays}–${maxDays} يوم` : `Estimated delivery ${minDays}–${maxDays} days`}</p>
+          <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-violet-400/15 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-violet-200">{isArabic ? "طلب مسبق" : "PRE-ORDER"}</span><p className="hidden truncate text-sm font-black text-white sm:block">{product.name}</p></div>
+          <p className="mt-1 truncate text-[9px] font-semibold text-white/38 sm:text-[10px]">{isArabic ? `التوصيل المتوقع ${minDays}–${maxDays} يوم` : `Estimated delivery ${minDays}–${maxDays} days`}</p>
         </div>
-        {product.variants?.length ? <select aria-label="Product option" value={variantKey} onChange={(event) => setVariantKey(event.target.value)} className="hidden rounded-xl border border-white/10 bg-[#141417] px-3 py-2 text-xs font-bold text-white sm:block">{product.variants.filter((item) => item.allowPurchase).map((item) => <option key={item.id} value={item.variantKey}>{item.label}</option>)}</select> : null}
-        <div className="hidden items-center rounded-xl border border-white/10 p-1 sm:flex"><button type="button" onClick={() => setQuantity((value) => Math.max(1, value - 1))} className="grid h-8 w-8 place-items-center">−</button><span className="min-w-7 text-center text-xs font-black">{quantity}</span><button type="button" onClick={() => setQuantity((value) => Math.min(maxQuantity, value + 1))} className="grid h-8 w-8 place-items-center">+</button></div>
-        <button type="button" onClick={addToCart} className="shrink-0 rounded-full bg-white px-4 py-3 text-xs font-black text-black sm:px-6">{added ? (isArabic ? "تمت الإضافة ✓" : "Added ✓") : (isArabic ? "أضف الطلب المسبق" : "Add pre-order")}</button>
+        {availableVariants.length ? <select aria-label="Product option" value={variantKey} onChange={(event) => { setVariantKey(event.target.value); setAdded(false); }} className="max-w-[105px] rounded-xl border border-white/10 bg-[#141417] px-2 py-2.5 text-[10px] font-bold text-white sm:max-w-none sm:px-3 sm:text-xs">{availableVariants.map((item) => <option key={item.id} value={item.variantKey}>{item.label}</option>)}</select> : null}
+        <div className="hidden items-center rounded-xl border border-white/10 p-1 sm:flex"><button type="button" aria-label="Decrease quantity" onClick={() => setQuantity((value) => Math.max(1, value - 1))} className="grid h-8 w-8 place-items-center">−</button><span className="min-w-7 text-center text-xs font-black">{quantity}</span><button type="button" aria-label="Increase quantity" onClick={() => setQuantity((value) => Math.min(maxQuantity, value + 1))} className="grid h-8 w-8 place-items-center">+</button></div>
+        <button type="button" onClick={addToCart} className="shrink-0 rounded-full bg-white px-3 py-3 text-[10px] font-black text-black sm:px-6 sm:text-xs">{added ? (isArabic ? "تمت ✓" : "Added ✓") : (isArabic ? "أضف" : "Add pre-order")}</button>
       </div>
     </div>
   );
