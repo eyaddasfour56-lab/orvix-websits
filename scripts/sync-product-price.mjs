@@ -13,10 +13,18 @@ async function updateFile(path, transform) {
   console.log(`Updated ${path}.`);
 }
 
-// Keep the legacy Fitbit checkout pointed at the public live product price.
-// Order creation itself is now handled by the atomic /api/order-v3 pipeline,
-// so this build helper must never rewrite app/api/order/route.ts again.
+// Orders V2 resolves every cart item's price from /api/products and verifies it again
+// inside orvix_create_order_v4. The legacy transform below is kept only for older
+// checkout files so existing branches do not break.
 await updateFile("app/checkout/page.tsx", (source) => {
+  if (
+    source.includes("orvixCheckoutDraftV2") ||
+    source.includes("/api/order-v4")
+  ) {
+    console.log("Orders V2 checkout resolves live prices at runtime; legacy price sync skipped.");
+    return source;
+  }
+
   let next = source;
 
   next = next.replace(

@@ -1,280 +1,164 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-type Funnel = {
-  uniqueVisitors: number;
-  totalViews: number;
+type MetricData = {
+  visitors: number;
   productViews: number;
-  checkoutStarts: number;
-  ordersPlaced: number;
-  visitorToProductRate: number;
-  productToCheckoutRate: number;
-  checkoutToOrderRate: number;
-  visitorToOrderRate: number;
+  addToCart: number;
+  checkoutStarted: number;
+  orders: number;
+  cancelledOrders: number;
+  revenue: number;
+  averageOrderValue: number;
+  conversionRate: number;
+  checkoutConversion: number;
+  preorderOrders: number;
 };
 
-type ApiResult = {
-  success?: boolean;
+type FunnelItem = { key: string; label: string; value: number };
+type RankItem = { label: string; value: number };
+type TimelineItem = {
+  date: string;
+  visitors: number;
+  productViews: number;
+  addToCart: number;
+  checkoutStarted: number;
+  orders: number;
+  revenue: number;
+};
+
+type AnalyticsResult = {
+  success: boolean;
   message?: string;
-  funnel?: Funnel;
+  days: number;
+  metrics: MetricData;
+  funnel: FunnelItem[];
+  topViewedProducts: RankItem[];
+  topCartProducts: RankItem[];
+  topOrderedProducts: RankItem[];
+  topColours: RankItem[];
+  promoCodes: RankItem[];
+  timeline: TimelineItem[];
 };
 
 function number(value: number) {
-  return value.toLocaleString("en-GB");
+  return Math.round(value).toLocaleString("en-GB");
 }
 
-function rate(value: number) {
-  return `${value.toFixed(2)}%`;
+function money(value: number) {
+  return `${Math.round(value).toLocaleString("en-GB")} EGP`;
 }
 
-function MetricCard({
-  label,
-  value,
-  helper,
-}: {
-  label: string;
-  value: string;
-  helper: string;
-}) {
+function percent(value: number) {
+  return `${Number(value || 0).toFixed(2)}%`;
+}
+
+function metricTone(index: number) {
+  const tones = [
+    "border-blue-300/10 bg-blue-400/[0.045]",
+    "border-violet-300/10 bg-violet-400/[0.045]",
+    "border-amber-300/10 bg-amber-400/[0.045]",
+    "border-emerald-300/10 bg-emerald-400/[0.045]",
+    "border-white/8 bg-white/[0.025]",
+  ];
+  return tones[index % tones.length];
+}
+
+function RankList({ title, items, empty = "No data yet." }: { title: string; items: RankItem[]; empty?: string }) {
+  const max = Math.max(...items.map((item) => item.value), 1);
   return (
-    <article className="rounded-[26px] border border-white/10 bg-white/[0.045] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-white/40">
-        {label}
-      </p>
-      <p className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">
-        {value}
-      </p>
-      <p className="mt-2 text-sm leading-6 text-white/45">
-        {helper}
-      </p>
-    </article>
+    <section className="rounded-[24px] border border-white/8 bg-white/[0.025] p-5">
+      <h2 className="text-sm font-black">{title}</h2>
+      <div className="mt-4 space-y-3">
+        {items.length === 0 ? <p className="py-6 text-center text-xs text-white/25">{empty}</p> : null}
+        {items.map((item) => (
+          <div key={item.label}>
+            <div className="flex items-center justify-between gap-3 text-xs"><span className="truncate font-semibold text-white/58">{item.label}</span><b>{number(item.value)}</b></div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.055]"><div className="h-full rounded-full bg-white/60" style={{ width: `${Math.max(4, (item.value / max) * 100)}%` }} /></div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
-function FunnelRow({
-  label,
-  value,
-  max,
-  accent = false,
-}: {
-  label: string;
-  value: number;
-  max: number;
-  accent?: boolean;
-}) {
-  const width = max > 0 ? Math.max((value / max) * 100, value > 0 ? 6 : 0) : 0;
-
-  return (
-    <div>
-      <div className="mb-2 flex items-center justify-between gap-4 text-sm">
-        <span className="font-bold text-white/70">{label}</span>
-        <span className="font-black">{number(value)}</span>
-      </div>
-      <div className="h-3 overflow-hidden rounded-full bg-white/[0.07]">
-        <div
-          className={`h-full rounded-full transition-all duration-500 ${
-            accent
-              ? "bg-gradient-to-r from-emerald-300 to-emerald-500"
-              : "bg-gradient-to-r from-blue-300 to-blue-600"
-          }`}
-          style={{ width: `${Math.min(width, 100)}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-export default function ConversionAnalyticsPage() {
-  const [data, setData] = useState<Funnel | null>(null);
+export default function AnalyticsPage() {
+  const [days, setDays] = useState(30);
+  const [data, setData] = useState<AnalyticsResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function load() {
+  useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     setError("");
-
-    try {
-      const response = await fetch("/api/admin/conversion", {
-        cache: "no-store",
-        credentials: "same-origin",
-      });
-      const result = (await response.json()) as ApiResult;
-
-      if (!response.ok || !result.success || !result.funnel) {
-        throw new Error(result.message || "Could not load conversion analytics.");
+    void (async () => {
+      try {
+        const response = await fetch(`/api/admin/analytics-v2?days=${days}`, { cache: "no-store" });
+        const result = (await response.json()) as AnalyticsResult;
+        if (!response.ok || !result.success) throw new Error(result.message || "Could not load analytics.");
+        if (!cancelled) setData(result);
+      } catch (loadError) {
+        if (!cancelled) setError(loadError instanceof Error ? loadError.message : "Could not load analytics.");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      setData(result.funnel);
-    } catch (loadError) {
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "Could not load conversion analytics."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    void load();
-  }, []);
-
-  const insight = useMemo(() => {
-    if (!data) return null;
-
-    if (data.productViews > 20 && data.productToCheckoutRate < 15) {
-      return {
-        title: "Biggest opportunity: product → checkout",
-        text: "People are viewing the Fitbit page but too few are starting checkout. Focus on price clarity, stronger proof, and keeping the Order Now button visible.",
-      };
-    }
-
-    if (data.checkoutStarts > 10 && data.checkoutToOrderRate < 35) {
-      return {
-        title: "Biggest opportunity: checkout completion",
-        text: "Shoppers are reaching checkout but not finishing. Keep fields short, show the final total early, and remove any confusing delivery or payment copy.",
-      };
-    }
-
-    if (data.uniqueVisitors > 20 && data.visitorToProductRate < 30) {
-      return {
-        title: "Biggest opportunity: homepage → product",
-        text: "More visitors need to reach the product page. The new price-drop hero and clearer calls to action are designed to improve this step.",
-      };
-    }
-
-    return {
-      title: "Funnel is ready to measure",
-      text: "Keep watching the same four stages after each campaign so you can tell whether traffic, product interest, checkout completion, or the offer needs improvement.",
+    })();
+    return () => {
+      cancelled = true;
     };
-  }, [data]);
+  }, [days]);
+
+  const funnel = data?.funnel || [];
+  const maxFunnel = Math.max(...funnel.map((item) => item.value), 1);
+  const dailyPeak = useMemo(() => Math.max(...(data?.timeline || []).map((item) => item.orders), 1), [data]);
 
   return (
-    <main className="min-h-screen bg-[#050505] px-4 py-8 text-white sm:px-6 sm:py-12">
-      <div className="mx-auto max-w-7xl">
-        <div className="flex flex-col gap-5 border-b border-white/10 pb-7 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-blue-200/70">
-              ORVIX ADMIN
-            </p>
-            <h1 className="mt-3 text-4xl font-black tracking-[-0.035em] sm:text-6xl">
-              Conversion Analytics
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-white/45 sm:text-base">
-              Follow the path from visitor → Fitbit page → checkout → placed order.
-            </p>
-          </div>
-
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => void load()}
-              className="rounded-full border border-white/15 bg-white/[0.05] px-5 py-3 text-sm font-black transition hover:bg-white/10"
-            >
-              Refresh
-            </button>
-            <Link
-              href="/admin"
-              className="rounded-full bg-white px-5 py-3 text-sm font-black text-black transition hover:bg-blue-50"
-            >
-              Back to Admin
-            </Link>
-          </div>
+    <main className="min-h-[calc(100vh-64px)] bg-[#0b0c0e] px-4 py-6 text-white sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1500px]">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div><p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/25">COMMERCE INTELLIGENCE</p><h1 className="mt-2 text-3xl font-black tracking-[-0.03em]">Analytics V2</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-white/38">Follow the full shopping funnel: visitors, product interest, cart activity, checkout and completed orders.</p></div>
+          <div className="flex rounded-xl border border-white/8 bg-white/[0.025] p-1">{[7, 30, 90].map((value) => <button key={value} type="button" onClick={() => setDays(value)} className={`rounded-lg px-4 py-2 text-xs font-black transition ${days === value ? "bg-white text-black" : "text-white/40 hover:text-white"}`}>{value}D</button>)}</div>
         </div>
 
-        {loading && (
-          <div className="mt-8 rounded-[28px] border border-white/10 bg-white/[0.035] p-8 text-center text-white/55">
-            Loading conversion data…
-          </div>
-        )}
+        {error ? <p className="mt-5 rounded-2xl border border-red-300/15 bg-red-400/[0.06] p-4 text-sm font-semibold text-red-100">{error}</p> : null}
+        {loading && !data ? <div className="mt-8 rounded-[28px] border border-white/8 bg-white/[0.025] p-12 text-center text-sm text-white/30">Loading commerce analytics…</div> : null}
 
-        {!loading && error && (
-          <div className="mt-8 rounded-[28px] border border-red-400/20 bg-red-500/[0.07] p-7">
-            <p className="font-black text-red-100">Could not load analytics</p>
-            <p className="mt-2 text-sm text-red-100/60">{error}</p>
-          </div>
-        )}
-
-        {!loading && data && (
-          <>
-            <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-              <MetricCard
-                label="Unique visitors"
-                value={number(data.uniqueVisitors)}
-                helper={`${number(data.totalViews)} total page views recorded`}
-              />
-              <MetricCard
-                label="Fitbit views"
-                value={number(data.productViews)}
-                helper={`${rate(data.visitorToProductRate)} of visitors reached the product page`}
-              />
-              <MetricCard
-                label="Checkout starts"
-                value={number(data.checkoutStarts)}
-                helper={`${rate(data.productToCheckoutRate)} of product views reached checkout`}
-              />
-              <MetricCard
-                label="Orders placed"
-                value={number(data.ordersPlaced)}
-                helper={`${rate(data.checkoutToOrderRate)} checkout-to-order rate`}
-              />
-              <MetricCard
-                label="Overall conversion"
-                value={rate(data.visitorToOrderRate)}
-                helper="Placed orders divided by unique visitors"
-              />
+        {data ? (
+          <div className={`mt-7 space-y-6 ${loading ? "opacity-60" : ""}`}>
+            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              {[
+                { label: "Visitors", value: number(data.metrics.visitors), helper: `${days}-day unique traffic` },
+                { label: "Add to cart", value: number(data.metrics.addToCart), helper: "Units added to cart" },
+                { label: "Orders", value: number(data.metrics.orders), helper: `${data.metrics.cancelledOrders} cancelled` },
+                { label: "Conversion", value: percent(data.metrics.conversionRate), helper: "Visitors → orders" },
+                { label: "Revenue", value: money(data.metrics.revenue), helper: `AOV ${money(data.metrics.averageOrderValue)}` },
+              ].map((metric, index) => <div key={metric.label} className={`rounded-[22px] border p-5 ${metricTone(index)}`}><p className="text-[10px] font-bold uppercase tracking-[.14em] text-white/26">{metric.label}</p><p className="mt-2 text-2xl font-black tracking-tight">{metric.value}</p><p className="mt-1 text-[10px] text-white/28">{metric.helper}</p></div>)}
             </section>
 
-            <section className="mt-5 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-              <article className="rounded-[32px] border border-white/10 bg-white/[0.035] p-6 sm:p-8">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.2em] text-white/35">
-                      FUNNEL
-                    </p>
-                    <h2 className="mt-2 text-2xl font-black">Where shoppers are dropping off</h2>
-                  </div>
-                  <span className="rounded-full border border-white/10 px-3 py-2 text-xs font-bold text-white/45">
-                    All-time
-                  </span>
-                </div>
+            <section className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,.65fr)]">
+              <div className="rounded-[26px] border border-white/8 bg-white/[0.025] p-5 sm:p-6">
+                <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-lg font-black">Commerce funnel</h2><p className="mt-1 text-xs text-white/28">Where shoppers progress — and where they drop.</p></div><div className="text-right"><p className="text-[9px] font-bold uppercase tracking-[.14em] text-white/24">Checkout conversion</p><p className="mt-1 text-lg font-black">{percent(data.metrics.checkoutConversion)}</p></div></div>
+                <div className="mt-6 space-y-4">{funnel.map((item, index) => { const previous = index > 0 ? funnel[index - 1].value : item.value; const stepRate = previous > 0 ? (item.value / previous) * 100 : 0; return <div key={item.key}><div className="flex items-center justify-between gap-3"><div><span className="text-xs font-black text-white/65">{item.label}</span>{index > 0 ? <span className="ml-2 text-[9px] font-semibold text-white/22">{percent(stepRate)} from previous</span> : null}</div><b>{number(item.value)}</b></div><div className="mt-2 h-3 overflow-hidden rounded-full bg-white/[0.055]"><div className="h-full rounded-full bg-white/65 transition-all" style={{ width: `${Math.max(item.value ? 3 : 0, (item.value / maxFunnel) * 100)}%` }} /></div></div>; })}</div>
+              </div>
 
-                <div className="mt-8 space-y-7">
-                  <FunnelRow label="Unique visitors" value={data.uniqueVisitors} max={data.uniqueVisitors} />
-                  <FunnelRow label="Google Fitbit Air views" value={data.productViews} max={data.uniqueVisitors} />
-                  <FunnelRow label="Checkout starts" value={data.checkoutStarts} max={data.uniqueVisitors} />
-                  <FunnelRow label="Orders placed" value={data.ordersPlaced} max={data.uniqueVisitors} accent />
-                </div>
-              </article>
-
-              <article className="rounded-[32px] border border-blue-400/15 bg-blue-500/[0.06] p-6 sm:p-8">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-200/70">
-                  ACTIONABLE READOUT
-                </p>
-                <h2 className="mt-3 text-2xl font-black">{insight?.title}</h2>
-                <p className="mt-4 text-sm leading-7 text-white/55">{insight?.text}</p>
-
-                <div className="mt-7 space-y-3 rounded-[22px] border border-white/10 bg-black/20 p-5 text-sm">
-                  <div className="flex justify-between gap-4">
-                    <span className="text-white/45">Visitor → product</span>
-                    <strong>{rate(data.visitorToProductRate)}</strong>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span className="text-white/45">Product → checkout</span>
-                    <strong>{rate(data.productToCheckoutRate)}</strong>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span className="text-white/45">Checkout → order</span>
-                    <strong>{rate(data.checkoutToOrderRate)}</strong>
-                  </div>
-                </div>
-              </article>
+              <div className="rounded-[26px] border border-white/8 bg-white/[0.025] p-5 sm:p-6">
+                <h2 className="text-lg font-black">Order health</h2>
+                <div className="mt-5 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-black/20 p-4"><p className="text-[9px] font-bold uppercase text-white/25">Pre-order / mixed</p><p className="mt-2 text-xl font-black text-violet-200">{number(data.metrics.preorderOrders)}</p></div><div className="rounded-2xl bg-black/20 p-4"><p className="text-[9px] font-bold uppercase text-white/25">Cancelled</p><p className="mt-2 text-xl font-black text-red-200">{number(data.metrics.cancelledOrders)}</p></div><div className="col-span-2 rounded-2xl bg-black/20 p-4"><p className="text-[9px] font-bold uppercase text-white/25">Checkout → order</p><p className="mt-2 text-2xl font-black">{percent(data.metrics.checkoutConversion)}</p></div></div>
+              </div>
             </section>
-          </>
-        )}
+
+            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <RankList title="Most viewed products" items={data.topViewedProducts} />
+              <RankList title="Most added to cart" items={data.topCartProducts} />
+              <RankList title="Best-selling products" items={data.topOrderedProducts} />
+              <RankList title="Most selected colours" items={data.topColours} />
+              <RankList title="Promo code usage" items={data.promoCodes} empty="No promo code usage in this period." />
+              <section className="rounded-[24px] border border-white/8 bg-white/[0.025] p-5"><h2 className="text-sm font-black">Daily orders</h2><div className="mt-4 flex h-[175px] items-end gap-1.5 overflow-hidden">{data.timeline.slice(-30).map((item) => <div key={item.date} className="group flex min-w-0 flex-1 flex-col items-center justify-end"><div title={`${item.date}: ${item.orders} orders · ${money(item.revenue)}`} className="w-full rounded-t-md bg-white/55 transition hover:bg-white" style={{ height: `${Math.max(item.orders ? 8 : 2, (item.orders / dailyPeak) * 145)}px` }} /><span className="mt-2 hidden text-[8px] text-white/20 group-last:block">{item.date.slice(5)}</span></div>)}</div></section>
+            </section>
+          </div>
+        ) : null}
       </div>
     </main>
   );
