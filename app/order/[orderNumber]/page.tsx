@@ -119,7 +119,7 @@ export default function CustomerOrderPage() {
         void loadOrder(String(saved.phone));
       }
     } catch {
-      // The form stays available when the session record cannot be read.
+      // Keep verification form available when session data cannot be read.
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderNumber]);
@@ -141,10 +141,7 @@ export default function CustomerOrderPage() {
         <div className="mx-auto max-w-6xl">
           <Link href="/track-order" className="text-xs font-bold text-white/35 hover:text-white">{isArabic ? "→ تتبّع طلب آخر" : "← Track another order"}</Link>
           <div className="mt-5 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.25em] text-white/25">ORVIX ORDER</p>
-              <h1 className="mt-2 break-all text-3xl font-black tracking-[-0.03em] sm:text-4xl">{orderNumber}</h1>
-            </div>
+            <div><p className="text-[11px] font-black uppercase tracking-[0.25em] text-white/25">ORVIX ORDER</p><h1 className="mt-2 break-all text-3xl font-black tracking-[-0.03em] sm:text-4xl">{orderNumber}</h1></div>
             {order ? <div className="flex flex-wrap gap-2"><span className={`rounded-full border px-3 py-1.5 text-xs font-black ${order.status === "cancelled" ? "border-red-300/20 bg-red-400/10 text-red-200" : "border-emerald-300/20 bg-emerald-400/10 text-emerald-200"}`}>{label(order.status)}</span><span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-black text-white/60">{label(order.paymentStatus)}</span></div> : null}
           </div>
 
@@ -157,26 +154,11 @@ export default function CustomerOrderPage() {
             </form>
           ) : (
             <div className="mt-8 space-y-6">
-              {order.status === "cancelled" ? (
-                <div className="rounded-[24px] border border-red-300/20 bg-red-400/[0.07] p-5"><p className="font-black text-red-100">{isArabic ? "تم إلغاء الطلب" : "This order was cancelled"}</p><p className="mt-1 text-sm text-red-100/50">{isArabic ? "تواصل مع ORVIX Support لو محتاج مساعدة." : "Contact ORVIX Support if you need help with this order."}</p></div>
-              ) : (
-                <section className="rounded-[28px] border border-white/10 bg-white/[0.035] p-5 sm:p-6">
-                  <div className="grid grid-cols-5 gap-2">
-                    {statusOrder.map((status, index) => {
-                      const done = index <= currentStatusIndex;
-                      return <div key={status} className="text-center"><div className={`mx-auto grid h-8 w-8 place-items-center rounded-full border text-xs font-black ${done ? "border-white bg-white text-black" : "border-white/10 bg-white/[0.03] text-white/20"}`}>{done ? "✓" : index + 1}</div><p className={`mt-2 text-[9px] font-bold sm:text-[11px] ${done ? "text-white/70" : "text-white/20"}`}>{label(status)}</p></div>;
-                    })}
-                  </div>
-                </section>
+              {order.status === "cancelled" ? <div className="rounded-[24px] border border-red-300/20 bg-red-400/[0.07] p-5"><p className="font-black text-red-100">{isArabic ? "تم إلغاء الطلب" : "This order was cancelled"}</p><p className="mt-1 text-sm text-red-100/50">{isArabic ? "تواصل مع ORVIX Support لو محتاج مساعدة." : "Contact ORVIX Support if you need help with this order."}</p></div> : (
+                <section className="rounded-[28px] border border-white/10 bg-white/[0.035] p-5 sm:p-6"><div className="grid grid-cols-5 gap-2">{statusOrder.map((status, index) => { const done = index <= currentStatusIndex; return <div key={status} className="text-center"><div className={`mx-auto grid h-8 w-8 place-items-center rounded-full border text-xs font-black ${done ? "border-white bg-white text-black" : "border-white/10 bg-white/[0.03] text-white/20"}`}>{done ? "✓" : index + 1}</div><p className={`mt-2 text-[9px] font-bold sm:text-[11px] ${done ? "text-white/70" : "text-white/20"}`}>{label(status)}</p></div>; })}</div></section>
               )}
 
-              {order.orderType !== "standard" && order.estimatedDeliveryFrom && order.estimatedDeliveryTo ? (
-                <section className="rounded-[28px] border border-violet-300/20 bg-violet-400/[0.07] p-5 sm:p-6">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-100/45">{isArabic ? "موعد الطلب المسبق" : "PRE-ORDER WINDOW"}</p>
-                  <p className="mt-2 text-xl font-black text-violet-100">{dateOnly(order.estimatedDeliveryFrom, isArabic)} → {dateOnly(order.estimatedDeliveryTo, isArabic)}</p>
-                  <p className="mt-2 text-sm leading-6 text-violet-100/50">{isArabic ? "ده الموعد المتوقع لوصول كل منتجات الطلب الجاهزة للشحن معًا." : "This is the estimated window for the full order to be ready for delivery."}</p>
-                </section>
-              ) : null}
+              {order.orderType !== "standard" && order.estimatedDeliveryFrom && order.estimatedDeliveryTo ? <section className="rounded-[28px] border border-violet-300/20 bg-violet-400/[0.07] p-5 sm:p-6"><p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-100/45">{isArabic ? "موعد الطلب المسبق" : "PRE-ORDER WINDOW"}</p><p className="mt-2 text-xl font-black text-violet-100">{dateOnly(order.estimatedDeliveryFrom, isArabic)} → {dateOnly(order.estimatedDeliveryTo, isArabic)}</p><p className="mt-2 text-sm leading-6 text-violet-100/50">{isArabic ? "ده الموعد المتوقع لوصول الطلب كاملًا للتوصيل." : "This is the estimated window for the full order to be ready for delivery."}</p></section> : null}
 
               <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_350px] lg:items-start">
                 <div className="space-y-6">
@@ -187,28 +169,23 @@ export default function CustomerOrderPage() {
 
                   <section className="rounded-[28px] border border-white/10 bg-white/[0.035] p-5 sm:p-6">
                     <h2 className="text-xl font-black">{isArabic ? "سجل الطلب" : "Order timeline"}</h2>
-                    <div className="mt-5 space-y-0">{order.timeline.map((event, index) => <div key={`${event.id}-${index}`} className="grid grid-cols-[22px_1fr] gap-3"><div className="flex flex-col items-center"><span className="mt-1 h-2.5 w-2.5 rounded-full bg-white" />{index < order.timeline.length - 1 ? <span className="min-h-14 w-px flex-1 bg-white/10" /> : null}</div><div className="pb-5"><p className="text-sm font-black">{event.title}</p>{event.details ? <p className="mt-1 text-xs leading-5 text-white/35">{event.details}</p> : null}<p className="mt-1 text-[10px] font-semibold text-white/20">{date(event.createdAt, isArabic)}</p></div></div>)}</div>
+                    <div className="mt-5">{order.timeline.map((event, index) => <div key={`${event.id}-${index}`} className="grid grid-cols-[22px_1fr] gap-3"><div className="flex flex-col items-center"><span className="mt-1 h-2.5 w-2.5 rounded-full bg-white" />{index < order.timeline.length - 1 ? <span className="min-h-14 w-px flex-1 bg-white/10" /> : null}</div><div className="pb-5"><p className="text-sm font-black">{event.title}</p>{event.details ? <p className="mt-1 text-xs leading-5 text-white/35">{event.details}</p> : null}<p className="mt-1 text-[10px] font-semibold text-white/20">{date(event.createdAt, isArabic)}</p></div></div>)}</div>
                   </section>
                 </div>
 
                 <aside className="space-y-4 lg:sticky lg:top-24">
                   <section className="rounded-[28px] border border-white/10 bg-[#111214] p-5">
                     <h2 className="font-black">{isArabic ? "ملخص الدفع" : "Payment summary"}</h2>
-                    <div className="mt-4 space-y-3 text-sm"><div className="flex justify-between"><span className="text-white/35">{isArabic ? "المنتجات" : "Products"}</span><b>{money(order.productsTotal + Math.max(order.discountAmount - order.deliveryFee, 0), isArabic)}</b></div><div className="flex justify-between"><span className="text-white/35">{isArabic ? "التوصيل" : "Delivery"}</span><b>{money(order.deliveryFee, isArabic)}</b></div>{order.discountAmount > 0 ? <div className="flex justify-between text-emerald-300"><span>{isArabic ? "الخصم" : "Discount"}</span><b>-{money(order.discountAmount, isArabic)}</b></div> : null}</div>
+                    <div className="mt-4 space-y-3 text-sm"><div className="flex justify-between"><span className="text-white/35">{isArabic ? "المنتجات بعد الخصم" : "Products after discount"}</span><b>{money(order.productsTotal, isArabic)}</b></div><div className="flex justify-between"><span className="text-white/35">{isArabic ? "التوصيل بعد الخصم" : "Delivery after discount"}</span><b>{money(order.deliveryFee, isArabic)}</b></div>{order.discountAmount > 0 ? <div className="flex justify-between text-emerald-300"><span>{isArabic ? "وفّرت" : "You saved"}</span><b>{money(order.discountAmount, isArabic)}</b></div> : null}</div>
                     <div className="mt-5 flex items-end justify-between border-t border-white/10 pt-5"><span className="font-black">{isArabic ? "الإجمالي" : "Total"}</span><b className="text-2xl">{money(order.totalPrice, isArabic)}</b></div>
                     <div className="mt-4 rounded-2xl bg-white/[0.035] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/25">{isArabic ? "حالة الدفع" : "Payment"}</p><p className="mt-1 font-black">{label(order.paymentStatus)}</p></div>
                   </section>
 
-                  <section className="rounded-[28px] border border-white/10 bg-[#111214] p-5">
-                    <h2 className="font-black">{isArabic ? "التوصيل" : "Delivery"}</h2>
-                    <p className="mt-3 text-sm font-semibold">{order.governorate}</p>{order.address ? <p className="mt-1 text-xs leading-5 text-white/35">{order.address}</p> : null}
-                    {order.trackingNumber ? <div className="mt-4 rounded-2xl bg-white/[0.035] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/25">Tracking</p><p className="mt-1 break-all font-black">{order.trackingNumber}</p>{order.carrierStatus ? <p className="mt-1 text-xs text-white/40">{order.carrierStatus}</p> : null}</div> : null}
-                  </section>
+                  <section className="rounded-[28px] border border-white/10 bg-[#111214] p-5"><h2 className="font-black">{isArabic ? "التوصيل" : "Delivery"}</h2><p className="mt-3 text-sm font-semibold">{order.governorate}</p>{order.address ? <p className="mt-1 text-xs leading-5 text-white/35">{order.address}</p> : null}{order.trackingNumber ? <div className="mt-4 rounded-2xl bg-white/[0.035] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/25">Tracking</p><p className="mt-1 break-all font-black">{order.trackingNumber}</p>{order.carrierStatus ? <p className="mt-1 text-xs text-white/40">{order.carrierStatus}</p> : null}</div> : null}</section>
 
                   <Link href={`/chat?order=${encodeURIComponent(order.orderNumber)}`} className="block rounded-full bg-white px-5 py-4 text-center text-sm font-black text-black">{isArabic ? "تواصل مع الدعم" : "Contact support"}</Link>
                 </aside>
               </div>
-
               <TrustStrip />
             </div>
           )}
