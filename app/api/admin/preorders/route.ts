@@ -18,7 +18,7 @@ type ProductRow = {
 };
 
 function authorised(request: NextRequest) {
-  return isAdminAuthenticated(request) && hasAdminPermission(request, "products");
+  return isAdminAuthenticated(request) && hasAdminPermission(request, "inventory");
 }
 
 export async function GET(request: NextRequest) {
