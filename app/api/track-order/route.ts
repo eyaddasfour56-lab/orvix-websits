@@ -1,26 +1,35 @@
 import { NextResponse } from "next/server";
+import { postgrestValue, supabaseAdminJson } from "@/lib/supabase-admin";
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseSecretKey =
-  process.env.SUPABASE_SECRET_KEY;
-
-type TrackOrderRequest = {
-  orderNumber?: string;
-  phone?: string;
-};
+type TrackOrderRequest = { orderNumber?: string; phone?: string };
 
 type OrderRow = {
+  id: string;
   order_number: string;
+  customer_name?: string | null;
   phone: string;
   governorate: string;
+  address?: string | null;
+  product_name?: string | null;
+  product_slug?: string | null;
   colour: string;
   quantity: number;
-  products_total: number;
-  delivery_fee: number;
-  discount_amount: number;
-  total_price: number;
+  product_price?: number | string | null;
+  products_total: number | string;
+  delivery_fee: number | string;
+  discount_amount: number | string;
+  total_price: number | string;
   status: string;
+  payment_status?: string | null;
+  order_type?: string | null;
+  item_count?: number | null;
+  estimated_delivery_from?: string | null;
+  estimated_delivery_to?: string | null;
   created_at: string;
+  confirmed_at?: string | null;
+  shipped_at?: string | null;
+  out_for_delivery_at?: string | null;
+  delivered_at?: string | null;
   shipping_status: string | null;
   bosta_tracking_number: string | null;
   bosta_state_name: string | null;
@@ -28,193 +37,159 @@ type OrderRow = {
   bosta_status_updated_at: string | null;
 };
 
-const privateResponseHeaders = {
-  "Cache-Control":
-    "private, no-store, max-age=0",
+type OrderItemRow = {
+  id: string;
+  product_slug: string;
+  product_name: string;
+  variant_key?: string | null;
+  variant_label?: string | null;
+  colour: string;
+  quantity: number;
+  unit_price: number | string;
+  line_total: number | string;
+  is_preorder: boolean;
+  estimated_delivery_from?: string | null;
+  estimated_delivery_to?: string | null;
 };
 
-function trackOrderResponse(
-  body: Record<string, unknown>,
-  status = 200
-) {
-  return NextResponse.json(body, {
-    status,
-    headers: privateResponseHeaders,
-  });
+type EventRow = {
+  id: number;
+  event_type: string;
+  title: string;
+  details?: string | null;
+  status?: string | null;
+  created_at: string;
+};
+
+const privateResponseHeaders = { "Cache-Control": "private, no-store, max-age=0" };
+
+function response(body: Record<string, unknown>, status = 200) {
+  return NextResponse.json(body, { status, headers: privateResponseHeaders });
 }
 
 function normalizePhone(phone: string) {
-  let digits = String(phone || "").replace(
-    /\D/g,
-    ""
-  );
-
-  if (digits.startsWith("0020")) {
-    digits = digits.slice(2);
-  }
-
-  if (digits.startsWith("20")) {
-    return `0${digits.slice(2)}`;
-  }
-
-  if (digits.startsWith("1")) {
-    return `0${digits}`;
-  }
-
+  let digits = String(phone || "").replace(/\D/g, "");
+  if (digits.startsWith("0020")) digits = digits.slice(2);
+  if (digits.startsWith("20")) return `0${digits.slice(2)}`;
+  if (digits.startsWith("1")) return `0${digits}`;
   return digits;
 }
 
 export async function POST(request: Request) {
   try {
-    if (!supabaseUrl || !supabaseSecretKey) {
-      return trackOrderResponse(
-        {
-          success: false,
-          code: "CONFIGURATION_ERROR",
-          message:
-            "Server configuration is incomplete.",
-        },
-        500
-      );
-    }
-
-    const body =
-      (await request.json()) as TrackOrderRequest;
-
-    const orderNumber = String(
-      body.orderNumber || ""
-    )
-      .trim()
-      .toUpperCase();
-
-    const phone = normalizePhone(
-      String(body.phone || "")
-    );
+    const body = (await request.json()) as TrackOrderRequest;
+    const orderNumber = String(body.orderNumber || "").trim().toUpperCase();
+    const phone = normalizePhone(String(body.phone || ""));
 
     if (!orderNumber || !phone) {
-      return trackOrderResponse(
-        {
-          success: false,
-          code: "MISSING_DETAILS",
-          message:
-            "Please enter your order number and phone number.",
-        },
-        400
-      );
+      return response({ success: false, code: "MISSING_DETAILS", message: "Please enter your order number and phone number." }, 400);
+    }
+    if (orderNumber.length > 80 || phone.length < 10 || phone.length > 15) {
+      return response({ success: false, code: "INVALID_DETAILS", message: "Please check your order number and phone number." }, 400);
     }
 
-    if (
-      orderNumber.length > 80 ||
-      phone.length < 10 ||
-      phone.length > 15
-    ) {
-      return trackOrderResponse(
-        {
-          success: false,
-          code: "INVALID_DETAILS",
-          message:
-            "Please check your order number and phone number.",
-        },
-        400
-      );
-    }
-
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/orders?order_number=eq.${encodeURIComponent(
-        orderNumber
-      )}&select=order_number,phone,governorate,colour,quantity,products_total,delivery_fee,discount_amount,total_price,status,created_at,shipping_status,bosta_tracking_number,bosta_state_name,bosta_submitted_at,bosta_status_updated_at&limit=1`,
-      {
-        method: "GET",
-        headers: {
-          apikey: supabaseSecretKey,
-          Authorization: `Bearer ${supabaseSecretKey}`,
-        },
-        cache: "no-store",
-      }
+    const orders = await supabaseAdminJson<OrderRow[]>(
+      `orders?order_number=eq.${postgrestValue(orderNumber)}&select=id,order_number,customer_name,phone,governorate,address,product_name,product_slug,colour,quantity,product_price,products_total,delivery_fee,discount_amount,total_price,status,payment_status,order_type,item_count,estimated_delivery_from,estimated_delivery_to,created_at,confirmed_at,shipped_at,out_for_delivery_at,delivered_at,shipping_status,bosta_tracking_number,bosta_state_name,bosta_submitted_at,bosta_status_updated_at&limit=1`
     );
-
-    if (!response.ok) {
-      console.error(
-        "Track order Supabase error:",
-        await response.text()
-      );
-
-      return trackOrderResponse(
-        {
-          success: false,
-          code: "LOOKUP_FAILED",
-          message:
-            "Could not check your order right now.",
-        },
-        500
-      );
-    }
-
-    const orders =
-      (await response.json()) as OrderRow[];
-
     const order = orders[0];
 
-    if (
-      !order ||
-      normalizePhone(order.phone) !== phone
-    ) {
-      return trackOrderResponse(
-        {
-          success: false,
-          code: "ORDER_NOT_FOUND",
-          message:
-            "No order was found with these details.",
-        },
-        404
-      );
+    if (!order || normalizePhone(order.phone) !== phone) {
+      return response({ success: false, code: "ORDER_NOT_FOUND", message: "No order was found with these details." }, 404);
     }
 
-    return trackOrderResponse({
+    const [items, events] = await Promise.all([
+      supabaseAdminJson<OrderItemRow[]>(
+        `order_items?order_id=eq.${postgrestValue(order.id)}&select=id,product_slug,product_name,variant_key,variant_label,colour,quantity,unit_price,line_total,is_preorder,estimated_delivery_from,estimated_delivery_to&order=created_at.asc,id.asc`
+      ),
+      supabaseAdminJson<EventRow[]>(
+        `order_events?order_id=eq.${postgrestValue(order.id)}&select=id,event_type,title,details,status,created_at&order=created_at.asc,id.asc`
+      ),
+    ]);
+
+    const safeItems = items.length
+      ? items.map((item) => ({
+          id: item.id,
+          productSlug: item.product_slug,
+          productName: item.product_name,
+          variantKey: item.variant_key || null,
+          variantLabel: item.variant_label || null,
+          colour: item.colour,
+          quantity: Number(item.quantity || 0),
+          unitPrice: Number(item.unit_price || 0),
+          lineTotal: Number(item.line_total || 0),
+          isPreorder: Boolean(item.is_preorder),
+          estimatedDeliveryFrom: item.estimated_delivery_from || null,
+          estimatedDeliveryTo: item.estimated_delivery_to || null,
+        }))
+      : [
+          {
+            id: `legacy-${order.id}`,
+            productSlug: order.product_slug || "google-fitbit-air",
+            productName: order.product_name || "ORVIX Product",
+            variantKey: null,
+            variantLabel: null,
+            colour: order.colour || "Standard",
+            quantity: Number(order.quantity || 1),
+            unitPrice: Number(order.product_price || 0),
+            lineTotal: Number(order.products_total || 0),
+            isPreorder: order.order_type === "preorder",
+            estimatedDeliveryFrom: order.estimated_delivery_from || null,
+            estimatedDeliveryTo: order.estimated_delivery_to || null,
+          },
+        ];
+
+    const safeEvents = events.length
+      ? events.map((event) => ({
+          id: event.id,
+          eventType: event.event_type,
+          title: event.title,
+          details: event.details || null,
+          status: event.status || null,
+          createdAt: event.created_at,
+        }))
+      : [
+          {
+            id: 0,
+            eventType: "order_placed",
+            title: "Order placed",
+            details: "Your order was received by ORVIX.",
+            status: order.status,
+            createdAt: order.created_at,
+          },
+        ];
+
+    return response({
       success: true,
       order: {
         orderNumber: order.order_number,
+        customerName: order.customer_name || null,
         governorate: order.governorate,
-        colour: order.colour,
-        quantity: order.quantity,
-        productsTotal: Number(
-          order.products_total || 0
-        ),
-        deliveryFee: Number(
-          order.delivery_fee || 0
-        ),
-        discountAmount: Number(
-          order.discount_amount || 0
-        ),
-        totalPrice: Number(
-          order.total_price || 0
-        ),
+        address: order.address || null,
+        productsTotal: Number(order.products_total || 0),
+        deliveryFee: Number(order.delivery_fee || 0),
+        discountAmount: Number(order.discount_amount || 0),
+        totalPrice: Number(order.total_price || 0),
         status: order.status,
+        paymentStatus: order.payment_status || "pending",
+        orderType: order.order_type || "standard",
+        itemCount: Number(order.item_count || safeItems.length),
+        estimatedDeliveryFrom: order.estimated_delivery_from || null,
+        estimatedDeliveryTo: order.estimated_delivery_to || null,
         createdAt: order.created_at,
-        shippingStatus:
-          order.shipping_status || null,
-        trackingNumber:
-          order.bosta_tracking_number ||
-          null,
-        carrierStatus:
-          order.bosta_state_name || null,
-        lastUpdatedAt:
-          order.bosta_status_updated_at ||
-          order.bosta_submitted_at ||
-          order.created_at,
+        confirmedAt: order.confirmed_at || null,
+        shippedAt: order.shipped_at || null,
+        outForDeliveryAt: order.out_for_delivery_at || null,
+        deliveredAt: order.delivered_at || null,
+        shippingStatus: order.shipping_status || null,
+        trackingNumber: order.bosta_tracking_number || null,
+        carrierStatus: order.bosta_state_name || null,
+        lastUpdatedAt: order.bosta_status_updated_at || order.bosta_submitted_at || order.delivered_at || order.created_at,
+        items: safeItems,
+        timeline: safeEvents,
       },
     });
   } catch (error) {
     console.error("Track order API error:", error);
-
-    return trackOrderResponse(
-      {
-        success: false,
-        code: "UNKNOWN_ERROR",
-        message:
-          "Could not check your order right now.",
-      },
-      500
-    );
+    return response({ success: false, code: "UNKNOWN_ERROR", message: "Could not check your order right now." }, 500);
   }
 }
