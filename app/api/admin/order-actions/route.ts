@@ -28,7 +28,9 @@ function authorised(request: NextRequest) {
 
 function idsFromBody(body: Record<string, unknown>) {
   const values = Array.isArray(body.orderIds) ? body.orderIds : body.orderId ? [body.orderId] : [];
-  return Array.from(new Set(values.map((value) => String(value || "").trim()))).filter((id) => /^[0-9a-f-]{36}$/i.test(id)).slice(0, 50);
+  return Array.from(new Set(values.map((value) => String(value || "").trim())))
+    .filter((id) => /^[0-9a-f-]{36}$/i.test(id))
+    .slice(0, 50);
 }
 
 export async function POST(request: NextRequest) {
@@ -70,7 +72,6 @@ export async function POST(request: NextRequest) {
           patch.payment_status = "refunded";
           patch.payment_updated_at = new Date().toISOString();
           patch.refunded_amount = Math.max(0, Number(existing.total_price || 0));
-          patch.return_status = "completed";
         } else if (action === "set_note") {
           patch.internal_notes = note;
         }
