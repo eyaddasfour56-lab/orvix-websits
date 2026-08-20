@@ -164,7 +164,7 @@ export default function OrvixAiPage() {
               id="orvix-ai-question"
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
-              placeholder="مثال: 3adl order b esm eyad rakm 01030250118 to deliverd"
+              placeholder="مثال: 3adl order rakm 01000000000 to deliverd"
               rows={4}
               className="w-full resize-none rounded-[22px] border border-white/10 bg-[#09090a] px-4 py-4 text-base font-semibold text-white outline-none transition placeholder:text-white/20 focus:border-violet-300/30 focus:ring-2 focus:ring-violet-500/10"
             />
@@ -175,7 +175,7 @@ export default function OrvixAiPage() {
             <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/25">Try it your way</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {[
-                "3adl order b esm eyad rakm 01030250118 to deliverd",
+                "3adl order rakm 01000000000 to deliverd",
                 "5aly ORVIX-123 etsh7n",
                 "add 120 tools paid by me",
                 "5aly google fitbit air 7400",
