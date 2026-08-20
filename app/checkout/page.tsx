@@ -1,596 +1,2270 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  FormEvent,
+  KeyboardEvent,
+  useId,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Navbar from "@/components/Navbar";
-import TrustStrip from "@/components/TrustStrip";
 import { useLanguage } from "@/components/LanguageProvider";
-import { getDeliveryAreaForBostaCity } from "@/lib/shipping-pricing";
-import { getCommerceIdentity, trackCommerceEvent } from "@/lib/commerce-analytics";
+import { checkoutCopy } from "@/lib/checkout-copy";
+import {
+  getDeliveryAreaForBostaCity,
+} from "@/lib/shipping-pricing";
+
+const PRODUCT_NAME = "Google Fitbit Air";
+const PRODUCT_SLUG = "google-fitbit-air";
+const FALLBACK_PRODUCT_PRICE = 8500;
+const CART_STORAGE_KEY = "orvixCart";
+
+const INSTAPAY_LOGO =
+  "data:image/webp;base64,UklGRpYEAABXRUJQVlA4IIoEAADQHQCdASqgAKAAPp1Mn0wlpCKiJTUJ0LATiU3cLlF/gIuekT0Pmn3ns1hkoV+3E8xvnAelj0AP6J1NW8+ftbhNVnnGn3JoPptQWL9uCxj36AlNUIKk6x788RawO9mkzhpNg/X1Xog17Mcb/qcokWN7fUK5xSXkwkK7rXdOD3AIJcb96/bZKQgmqcOrVBFLUjVQgLcPQTju688xmUBZLJ1WaZlMNhGVvgfMEicY/uwvZ+vwh8pSFZb8FeGHRio1wzPTi0qbQIx591DY4+MfKmfjLThbCTuxyCTazh5ciIsyXF6kO7970fyrySUEfvfoCU1QxftwWMdYAP7/LfgA7hYGEerK87IhgJUgJFS0xCb/g8N/udzPABaXg+cGWddzDkA/ii3q5/fH8v+AhcokpDm5x9FJUxLPGu9ivJe/bzTTHOjDzR95aVBrSxnpw32edjhslcRbVFwVnTETsgeFYXqdsC9XCK3rM8P2btemaHJuXzOTal1U2oT8j3/Mz3lK0/h6iae8Ex+ZBu3JAMicrRcXakrfS87FzILD624O9mTurRooi5Kl9S+WDxW7N9BnN3xVz1wySBmly/kMjuizbEm6EL4wghQG3QDNaZQ5bz/AsqSwJD0dJ/iGpVYR3cX7NqH4IUXkUCM9cNErz0vUPw20FansPbYacwjKeTYMxaourzlOkFUU3vl37Jegvgi3+xOSi6XvxBtHkeig2zm/yjhgqbMs+JQMfxOzAG8+nW6UYEfmNkdDPh1JdXVK0m5HEBx2lL2t56HYuTQaZ7oStvaTyih92yAmR6BgOiHerGoFIChPHpYFrY0gXvttDoZGUY/w+LtT6BV5ziCMPmT9XZMO9PtaHu0N4C+OphyyzQ3xO14/S0zfmXzRkJVvK95yewEi8FfmDxgzP2NzBRmffwO/97rmJetcx8ZpQ+GdCsHKo8EH5ePY+LqA8FgM6Ym2Rmy8N/ETj2cov5hPigzzMAK83sOHu9TQbVA237FGdrmrvNBonKlr+Lxgiipqi8XXiMyHl8/c3HOWX6SZgjUAk4H0hyMspVIAPQMfKNvbUepzw4jxm4Fmku6iK0POXN9xHg9pT32Xr+2iRtNyTqd44fyaAQASiWI0bQBAAAWO26VOYQkZsGOUEHiqAIEvz9ZYXkhFkMbJ1hpb/pbwG2l6aaODAvtAq97qV7fINf8VaiwjApmuzZ5XawZXi/vW8+yk9cdvbG/yyFrRl0h6PyMFGhh+wLQ0GCDa/jHzto9eQGG59aCBYr3fgf6cfj5GPCE33jFjj8NzKKNABHOEsAx8Y/XJeBTZIl4lWEL5RokBkWip3axl+aH/b2vBiLwUBTwJJyH0W2q25kDOmjiNlwrywjmOBxzYmfRQ9eNCU5eme4Nzac1pcIfWW8c4PVkP9lfeFbvrUVGDtPoYetO+2ltd1itantBIf+DhQ6eP4rwin2X5/BfznMST2LHTPUymtrSvRyzrYjRko1UbMEyxCDB1vbIw0jnJMdsrKzqQVQEpz7pNZw6Pbc/ES5+sCXHFr7E4MN9W4/0AAAAAAAAA";
+
+type Colour = {
+  name: string;
+  image: string;
+  buttonStyle: string;
+};
 
 type CartItem = {
-  id?: string;
-  name?: string;
-  slug: string;
-  price?: number;
-  image?: string;
-  colour?: string;
-  variantKey?: string | null;
-  quantity: number;
-};
-
-type Variant = {
-  id: string;
-  variantKey: string;
-  label: string;
-  stockQuantity: number;
-  allowPurchase: boolean;
-};
-
-type Product = {
   id: string;
   name: string;
-  slug: string;
-  price: number;
-  compareAtPrice?: number | null;
-  image: string;
-  status: "available" | "preorder" | "coming_soon" | "out_of_stock" | "hidden";
-  stockQuantity: number;
-  allowPurchase: boolean;
-  maxOrderQuantity?: number;
-  preorderMinDays?: number;
-  preorderMaxDays?: number;
-  variants?: Variant[];
-};
-
-type CheckoutItem = {
-  cart: CartItem;
-  product: Product;
-  variant: Variant | null;
-  quantity: number;
   colour: string;
-  variantKey: string | null;
+  image: string;
   price: number;
-  isPreorder: boolean;
-  maxQuantity: number;
+  quantity: number;
+  slug: string;
 };
 
-type City = { id: string; name: string; sector?: number | null };
-type District = { id: string; name: string };
-type Discount = { code: string; type: "free_delivery" | "fixed_amount" | "percentage"; value: number };
-type Step = 1 | 2 | 3 | 4;
+type DiscountType =
+  | "free_delivery"
+  | "fixed_amount"
+  | "percentage";
 
-const CART_KEY = "orvixCart";
-const DRAFT_KEY = "orvixCheckoutDraftV2";
-const ACCESS_KEY = "orvixLastOrderAccess";
+type AppliedDiscount = {
+  code: string;
+  type: DiscountType;
+  value: number;
+};
 
-const copy = {
-  en: {
-    eyebrow: "ORVIX SECURE CHECKOUT",
-    title: "Complete your order",
-    subtitle: "One checkout for your full cart. Stock, pricing and discounts are re-verified before confirmation.",
-    steps: ["Information", "Delivery", "Payment", "Review"],
-    cart: "Your cart",
-    empty: "Your cart is empty",
-    emptyText: "Add a product before opening checkout.",
-    browse: "Browse products",
-    preorder: "PRE-ORDER",
-    eta: (a: number, b: number) => `Estimated delivery ${a}–${b} days`,
-    qty: "Qty",
-    contactTitle: "Contact information",
-    deliveryTitle: "Delivery details",
-    paymentTitle: "Payment",
-    reviewTitle: "Review & place order",
-    fullName: "Full name",
-    phone: "Phone number",
-    email: "Email · optional",
-    city: "City / Governorate",
-    district: "District / Area",
-    address: "Full delivery address",
-    notes: "Order notes · optional",
-    paymentMethod: "InstaPay on delivery",
-    paymentText: "Pay the product amount through InstaPay when your order reaches the delivery stage. Delivery handling follows the order details shown here.",
-    continue: "Continue",
-    back: "Back",
-    summary: "Order summary",
-    products: "Products",
-    delivery: "Delivery",
-    discount: "Discount",
-    total: "Total",
-    code: "Discount code",
-    apply: "Apply",
-    selectCity: "Select city",
-    selectDistrict: "Select district",
-    placing: "Placing order…",
-    place: "Place order",
-    saved: "Your progress is saved on this device for this checkout session.",
+type DiscountApiResult = {
+  success?: boolean;
+  message?: string;
+
+  code?: string;
+
+  discountType?: string;
+  discount_type?: string;
+  type?: string;
+
+  discountValue?: number | string;
+  discount_value?: number | string;
+  value?: number | string;
+  amount?: number | string;
+  percentage?: number | string;
+
+  discount?: {
+    code?: string;
+
+    type?: string;
+    discountType?: string;
+    discount_type?: string;
+
+    value?: number | string;
+    discountValue?: number | string;
+    discount_value?: number | string;
+    amount?: number | string;
+    percentage?: number | string;
+  };
+};
+
+type DiscountMessageType =
+  | "success"
+  | "error"
+  | "neutral";
+
+type BostaCity = {
+  id: string;
+  name: string;
+  nameAr: string | null;
+  sector: number | null;
+};
+
+type BostaDistrict = {
+  id: string;
+  name: string;
+  nameAr: string | null;
+  zoneId: string | null;
+  zoneName: string | null;
+  dropOffAvailability: boolean;
+};
+
+type BostaLocationsResult = {
+  success?: boolean;
+  message?: string;
+  cities?: BostaCity[];
+  districts?: BostaDistrict[];
+};
+
+type LocationSearchOption = {
+  id: string;
+  name: string;
+  secondaryName?: string | null;
+  searchTerms?: string[];
+};
+
+type SearchableLocationPickerProps = {
+  value: string;
+  options: LocationSearchOption[];
+  onChange: (value: string) => void;
+  placeholder: string;
+  searchPlaceholder: string;
+  emptyMessage: string;
+  loadingMessage: string;
+  disabled?: boolean;
+  loading?: boolean;
+};
+
+const colours: Colour[] = [
+  {
+    name: "Black",
+    image: "/black.png",
+    buttonStyle: "bg-black",
   },
-  ar: {
-    eyebrow: "إتمام الطلب الآمن من ORVIX",
-    title: "كمّل طلبك",
-    subtitle: "طلب واحد لكل منتجات السلة، مع مراجعة السعر والمخزون والخصم قبل التأكيد.",
-    steps: ["البيانات", "التوصيل", "الدفع", "المراجعة"],
-    cart: "سلة التسوق",
-    empty: "سلة التسوق فارغة",
-    emptyText: "أضف منتجًا قبل فتح صفحة إتمام الطلب.",
-    browse: "تصفح المنتجات",
-    preorder: "طلب مسبق",
-    eta: (a: number, b: number) => `التوصيل المتوقع خلال ${a}–${b} يوم`,
-    qty: "الكمية",
-    contactTitle: "بيانات التواصل",
-    deliveryTitle: "بيانات التوصيل",
-    paymentTitle: "الدفع",
-    reviewTitle: "راجع الطلب وأكده",
-    fullName: "الاسم بالكامل",
-    phone: "رقم الهاتف",
-    email: "البريد الإلكتروني · اختياري",
-    city: "المحافظة / المدينة",
-    district: "المنطقة",
-    address: "عنوان التوصيل بالكامل",
-    notes: "ملاحظات الطلب · اختياري",
-    paymentMethod: "InstaPay عند التوصيل",
-    paymentText: "يتم دفع قيمة المنتج عبر InstaPay عند وصول الطلب لمرحلة التوصيل، وتظهر كل تفاصيل الطلب هنا قبل التأكيد.",
-    continue: "متابعة",
-    back: "رجوع",
-    summary: "ملخص الطلب",
-    products: "المنتجات",
-    delivery: "التوصيل",
-    discount: "الخصم",
-    total: "الإجمالي",
-    code: "كود الخصم",
-    apply: "تطبيق",
-    selectCity: "اختر المدينة",
-    selectDistrict: "اختر المنطقة",
-    placing: "جارٍ تسجيل الطلب…",
-    place: "تأكيد الطلب",
-    saved: "يتم حفظ تقدمك على هذا الجهاز خلال جلسة إتمام الطلب الحالية.",
+  {
+    name: "Lavender",
+    image: "/lavender.jpeg",
+    buttonStyle: "bg-violet-300",
   },
-} as const;
+  {
+    name: "Berry",
+    image: "/berry.jpeg",
+    buttonStyle: "bg-pink-600",
+  },
+];
 
-function money(value: number, ar: boolean) {
-  return `${Math.round(value).toLocaleString(ar ? "ar-EG" : "en-GB")} ${ar ? "ج.م" : "EGP"}`;
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    value.trim()
+  );
 }
 
-function readCart(): CartItem[] {
+function normaliseLocationSearch(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, "")
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9\u0600-\u06ff]+/g, " ")
+    .trim();
+}
+
+function getLocationOptionLabel(
+  option: LocationSearchOption
+) {
+  return option.secondaryName
+    ? `${option.name} — ${option.secondaryName}`
+    : option.name;
+}
+
+function SearchableLocationPicker({
+  value,
+  options,
+  onChange,
+  placeholder,
+  searchPlaceholder,
+  emptyMessage,
+  loadingMessage,
+  disabled = false,
+  loading = false,
+}: SearchableLocationPickerProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const listboxId = useId();
+
+  const selectedOption = options.find(
+    (option) => option.id === value
+  );
+
+  const filteredOptions = useMemo(() => {
+    const normalisedQuery =
+      normaliseLocationSearch(query);
+
+    if (!normalisedQuery) {
+      return options;
+    }
+
+    const queryParts = normalisedQuery.split(" ");
+
+    return options.filter((option) => {
+      const searchText = normaliseLocationSearch(
+        [
+          option.name,
+          option.secondaryName,
+          ...(option.searchTerms ?? []),
+        ]
+          .filter(Boolean)
+          .join(" ")
+      );
+
+      return queryParts.every((part) =>
+        searchText.includes(part)
+      );
+    });
+  }, [options, query]);
+
+  const safeActiveIndex = Math.min(
+    activeIndex,
+    Math.max(filteredOptions.length - 1, 0)
+  );
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    function closeOnOutsidePress(event: PointerEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(
+          event.target as Node
+        )
+      ) {
+        setIsOpen(false);
+        setQuery("");
+      }
+    }
+
+    document.addEventListener(
+      "pointerdown",
+      closeOnOutsidePress
+    );
+
+    return () => {
+      document.removeEventListener(
+        "pointerdown",
+        closeOnOutsidePress
+      );
+    };
+  }, [isOpen]);
+
+  function openPicker() {
+    if (disabled || loading) {
+      return;
+    }
+
+    setQuery("");
+    setActiveIndex(0);
+    setIsOpen(true);
+  }
+
+  function selectOption(option: LocationSearchOption) {
+    onChange(option.id);
+    setQuery("");
+    setIsOpen(false);
+  }
+
+  function handleSearchKeyDown(
+    event: KeyboardEvent<HTMLInputElement>
+  ) {
+    if (
+      filteredOptions.length === 0 &&
+      (event.key === "ArrowDown" ||
+        event.key === "ArrowUp" ||
+        event.key === "Enter")
+    ) {
+      event.preventDefault();
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveIndex((currentIndex) =>
+        Math.min(
+          currentIndex + 1,
+          filteredOptions.length - 1
+        )
+      );
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex((currentIndex) =>
+        Math.max(currentIndex - 1, 0)
+      );
+      return;
+    }
+
+    if (
+      event.key === "Enter" &&
+      filteredOptions[safeActiveIndex]
+    ) {
+      event.preventDefault();
+      selectOption(
+        filteredOptions[safeActiveIndex]
+      );
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setIsOpen(false);
+      setQuery("");
+    }
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative"
+      onBlur={(event) => {
+        if (
+          !event.currentTarget.contains(
+            event.relatedTarget
+          )
+        ) {
+          setIsOpen(false);
+          setQuery("");
+        }
+      }}
+    >
+      <button
+        type="button"
+        onClick={() =>
+          isOpen
+            ? setIsOpen(false)
+            : openPicker()
+        }
+        disabled={disabled || loading}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-controls={isOpen ? listboxId : undefined}
+        className="flex w-full items-center justify-between gap-4 rounded-2xl border border-white/15 bg-black px-5 py-4 text-start text-white outline-none transition hover:border-white/30 focus:border-white disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <span
+          className={
+            selectedOption
+              ? "min-w-0 truncate"
+              : "min-w-0 truncate text-gray-500"
+          }
+        >
+          {loading
+            ? loadingMessage
+            : selectedOption
+              ? getLocationOptionLabel(
+                  selectedOption
+                )
+              : placeholder}
+        </span>
+
+        <span
+          aria-hidden="true"
+          className={`shrink-0 text-sm text-gray-500 transition-transform ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        >
+          ▼
+        </span>
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-2xl border border-white/15 bg-[#111] shadow-2xl shadow-black/60">
+          <div className="border-b border-white/10 p-3">
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setActiveIndex(0);
+              }}
+              onKeyDown={handleSearchKeyDown}
+              placeholder={searchPlaceholder}
+              aria-label={searchPlaceholder}
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded="true"
+              aria-controls={listboxId}
+              aria-activedescendant={
+                filteredOptions[safeActiveIndex]
+                  ? `${listboxId}-${filteredOptions[safeActiveIndex].id}`
+                  : undefined
+              }
+              autoComplete="off"
+              autoFocus
+              className="w-full rounded-xl border border-white/15 bg-black px-4 py-3 text-white outline-none placeholder:text-gray-600 focus:border-white"
+            />
+          </div>
+
+          <div
+            id={listboxId}
+            role="listbox"
+            className="max-h-72 overflow-y-auto p-2"
+          >
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map(
+                (option, optionIndex) => {
+                  const isSelected =
+                    option.id === value;
+                  const isActive =
+                    optionIndex ===
+                    safeActiveIndex;
+
+                  return (
+                    <button
+                      key={option.id}
+                      id={`${listboxId}-${option.id}`}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      onMouseEnter={() =>
+                        setActiveIndex(
+                          optionIndex
+                        )
+                      }
+                      onClick={() =>
+                        selectOption(option)
+                      }
+                      className={`flex w-full items-start justify-between gap-3 rounded-xl px-4 py-3 text-left transition ${
+                        isActive
+                          ? "bg-white/10"
+                          : "hover:bg-white/5"
+                      }`}
+                    >
+                      <span className="min-w-0">
+                        <span className="block font-semibold text-white">
+                          {option.name}
+                        </span>
+
+                        {option.secondaryName && (
+                          <span
+                            dir="auto"
+                            className="mt-0.5 block text-sm text-gray-400"
+                          >
+                            {option.secondaryName}
+                          </span>
+                        )}
+                      </span>
+
+                      {isSelected && (
+                        <span
+                          aria-hidden="true"
+                          className="shrink-0 text-emerald-400"
+                        >
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  );
+                }
+              )
+            ) : (
+              <p className="px-4 py-6 text-center text-sm text-gray-500">
+                {emptyMessage}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function findColour(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  return (
+    colours.find(
+      (colour) =>
+        colour.name.toLowerCase() ===
+        value.toLowerCase()
+    ) ?? null
+  );
+}
+
+function parseQuantity(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const parsedQuantity = Number(value);
+
+  if (
+    !Number.isInteger(parsedQuantity) ||
+    parsedQuantity < 1 ||
+    parsedQuantity > 10
+  ) {
+    return null;
+  }
+
+  return parsedQuantity;
+}
+
+function readFirstCartItem(): CartItem | null {
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(CART_KEY) || "[]");
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map((item) => ({
-        ...item,
-        slug: String(item?.slug || "").trim(),
-        colour: String(item?.colour || "Standard").trim() || "Standard",
-        quantity: Math.max(1, Math.round(Number(item?.quantity || 1))),
-      }))
-      .filter((item) => item.slug);
+    const savedCart =
+      window.localStorage.getItem(
+        CART_STORAGE_KEY
+      );
+
+    if (!savedCart) {
+      return null;
+    }
+
+    const parsedCart = JSON.parse(savedCart);
+
+    if (
+      !Array.isArray(parsedCart) ||
+      parsedCart.length === 0
+    ) {
+      return null;
+    }
+
+    return parsedCart[0] as CartItem;
   } catch {
-    return [];
+    return null;
   }
 }
 
-function normaliseDiscount(value: unknown): Discount["type"] | null {
-  const type = String(value || "").toLowerCase();
-  if (type.includes("free") && type.includes("delivery")) return "free_delivery";
-  if (type.includes("percent")) return "percentage";
-  if (type.includes("fixed") || type.includes("amount")) return "fixed_amount";
+function normaliseDiscountType(
+  result: DiscountApiResult
+): DiscountType | null {
+  const rawType =
+    result.discountType ??
+    result.discount_type ??
+    result.type ??
+    result.discount?.discountType ??
+    result.discount?.discount_type ??
+    result.discount?.type ??
+    "";
+
+  const cleanType = String(rawType)
+    .trim()
+    .toLowerCase()
+    .replaceAll("-", "_")
+    .replaceAll(" ", "_");
+
+  if (
+    cleanType === "free_delivery" ||
+    cleanType === "free_shipping" ||
+    cleanType === "delivery" ||
+    cleanType === "shipping"
+  ) {
+    return "free_delivery";
+  }
+
+  if (
+    cleanType === "fixed_amount" ||
+    cleanType === "fixed" ||
+    cleanType === "amount" ||
+    cleanType === "cash" ||
+    cleanType === "money"
+  ) {
+    return "fixed_amount";
+  }
+
+  if (
+    cleanType === "percentage" ||
+    cleanType === "percent" ||
+    cleanType === "percentage_off"
+  ) {
+    return "percentage";
+  }
+
   return null;
+}
+
+function getDiscountValue(
+  result: DiscountApiResult
+) {
+  const rawValue =
+    result.discountValue ??
+    result.discount_value ??
+    result.value ??
+    result.amount ??
+    result.percentage ??
+    result.discount?.discountValue ??
+    result.discount?.discount_value ??
+    result.discount?.value ??
+    result.discount?.amount ??
+    result.discount?.percentage ??
+    0;
+
+  const parsedValue = Number(rawValue);
+
+  if (!Number.isFinite(parsedValue)) {
+    return 0;
+  }
+
+  return Math.max(parsedValue, 0);
+}
+
+function getReturnedDiscountCode(
+  result: DiscountApiResult,
+  fallbackCode: string
+) {
+  const returnedCode =
+    result.code ??
+    result.discount?.code ??
+    fallbackCode;
+
+  return String(returnedCode)
+    .trim()
+    .toUpperCase();
 }
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { language, isArabic } = useLanguage();
-  const t = copy[language];
-  const [step, setStep] = useState<Step>(1);
-  const [items, setItems] = useState<CheckoutItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [name, setName] = useState("");
+  const { language, isArabic } =
+    useLanguage();
+  const copy = checkoutCopy[language];
+  const numberLocale =
+    language === "ar" ? "ar-EG" : "en-GB";
+
+  function formatNumber(value: number) {
+    return value.toLocaleString(numberLocale);
+  }
+
+  function formatMoney(value: number) {
+    return `${formatNumber(value)} ${copy.currency}`;
+  }
+
+  const [selectedColour, setSelectedColour] =
+    useState<Colour>(colours[0]);
+
+  const [selectedCityId, setSelectedCityId] =
+    useState("");
+
+  const [
+    selectedDistrictId,
+    setSelectedDistrictId,
+  ] = useState("");
+
+  const [cities, setCities] = useState<
+    BostaCity[]
+  >([]);
+
+  const [districts, setDistricts] =
+    useState<BostaDistrict[]>([]);
+
+  const [locationsLoading, setLocationsLoading] =
+    useState(true);
+
+  const [districtsLoading, setDistrictsLoading] =
+    useState(false);
+
+  const [locationsError, setLocationsError] =
+    useState("");
+
+  const [quantity, setQuantity] = useState(1);
+
+  const [productPrice, setProductPrice] =
+    useState(FALLBACK_PRODUCT_PRICE);
+
+  const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
+
+  const [customerEmail, setCustomerEmail] =
+    useState("");
+
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
-  const [cities, setCities] = useState<City[]>([]);
-  const [districts, setDistricts] = useState<District[]>([]);
-  const [cityId, setCityId] = useState("");
-  const [districtId, setDistrictId] = useState("");
-  const [discountCode, setDiscountCode] = useState("");
-  const [discount, setDiscount] = useState<Discount | null>(null);
-  const [discountMessage, setDiscountMessage] = useState("");
-  const [checkingDiscount, setCheckingDiscount] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+
+  const [discountCode, setDiscountCode] =
+    useState("");
+
+  const [
+    appliedDiscount,
+    setAppliedDiscount,
+  ] = useState<AppliedDiscount | null>(null);
+
+  const [discountMessage, setDiscountMessage] =
+    useState("");
+
+  const [
+    discountMessageType,
+    setDiscountMessageType,
+  ] =
+    useState<DiscountMessageType>(
+      "neutral"
+    );
+
+  const [
+    checkingDiscount,
+    setCheckingDiscount,
+  ] = useState(false);
+
+  const [isSending, setIsSending] =
+    useState(false);
+
+  const [orderError, setOrderError] =
+    useState("");
+
+  const selectedCity = cities.find(
+    (city) => city.id === selectedCityId
+  );
+
+  const selectedDistrict = districts.find(
+    (district) =>
+      district.id === selectedDistrictId
+  );
+
+  const cityOptions = useMemo(
+    () =>
+      cities.map((city) => ({
+        id: city.id,
+        name:
+          language === "ar"
+            ? city.nameAr || city.name
+            : city.name,
+        secondaryName:
+          language === "ar" && city.nameAr
+            ? city.name
+            : city.nameAr,
+      })),
+    [cities, language]
+  );
+
+  const districtOptions = useMemo(
+    () =>
+      districts.map((district) => ({
+        id: district.id,
+        name:
+          language === "ar"
+            ? district.nameAr || district.name
+            : district.name,
+        secondaryName:
+          language === "ar" &&
+          district.nameAr
+            ? district.name
+            : district.nameAr,
+        searchTerms: [
+          district.zoneName ?? "",
+        ],
+      })),
+    [districts, language]
+  );
+
+  const selectedArea = selectedCity
+    ? getDeliveryAreaForBostaCity(
+        selectedCity
+      )
+    : null;
+
+  const deliveryFee = selectedArea?.fee ?? 0;
+
+  const productsTotal =
+    productPrice * quantity;
+
+  const hasAppliedDiscount =
+    appliedDiscount !== null;
+
+  let productDiscount = 0;
+  let deliveryDiscount = 0;
+
+  if (
+    appliedDiscount?.type === "free_delivery"
+  ) {
+    deliveryDiscount = deliveryFee;
+  }
+
+  if (
+    appliedDiscount?.type === "fixed_amount"
+  ) {
+    productDiscount = Math.min(
+      Math.round(appliedDiscount.value),
+      productsTotal
+    );
+  }
+
+  if (
+    appliedDiscount?.type === "percentage"
+  ) {
+    productDiscount = Math.min(
+      Math.round(
+        productsTotal *
+          (appliedDiscount.value / 100)
+      ),
+      productsTotal
+    );
+  }
+
+  const finalProductsTotal = Math.max(
+    productsTotal - productDiscount,
+    0
+  );
+
+  const finalDeliveryFee = Math.max(
+    deliveryFee - deliveryDiscount,
+    0
+  );
+
+  const totalDiscount =
+    productDiscount + deliveryDiscount;
+
+  const finalTotal = Math.max(
+    finalProductsTotal + finalDeliveryFee,
+    0
+  );
 
   useEffect(() => {
     let cancelled = false;
-    async function load() {
-      setLoading(true);
+
+    async function loadProductSettings() {
       try {
-        const cart = readCart();
-        if (!cart.length) return;
+        const response = await fetch(
+          `/api/products?slug=${encodeURIComponent(
+            PRODUCT_SLUG
+          )}`,
+          { cache: "no-store" }
+        );
 
-        const uniqueSlugs = Array.from(new Set(cart.map((item) => item.slug)));
-        const [productResults, locationResponse] = await Promise.all([
-          Promise.all(
-            uniqueSlugs.map(async (slug) => {
-              const response = await fetch(`/api/products?slug=${encodeURIComponent(slug)}`, { cache: "no-store" });
-              const result = await response.json();
-              if (!response.ok || !result.success || !result.product) throw new Error(result.message || "Could not load a cart product.");
-              return result.product as Product;
-            })
-          ),
-          fetch("/api/bosta/locations", { cache: "no-store" }),
-        ]);
+        const result = await response.json();
+        const livePrice = Number(
+          result?.product?.price
+        );
 
-        const locationResult = await locationResponse.json();
-        if (!locationResponse.ok || !locationResult.success) throw new Error(locationResult.message || "Could not load delivery locations.");
-        if (cancelled) return;
-
-        const productMap = new Map(productResults.map((product) => [product.slug, product]));
-        const normalised = cart.map((cartItem) => {
-          const product = productMap.get(cartItem.slug);
-          if (!product) throw new Error(`Could not load ${cartItem.slug}.`);
-          if (!product.allowPurchase || !["available", "preorder"].includes(product.status)) {
-            throw new Error(`${product.name} is not currently available for ordering.`);
-          }
-          const variant = product.variants?.find(
-            (candidate) =>
-              candidate.variantKey === cartItem.variantKey ||
-              candidate.label.toLowerCase() === String(cartItem.colour || "").toLowerCase()
-          ) || null;
-          if (product.variants?.length && (!variant || !variant.allowPurchase)) {
-            throw new Error(`Choose an available option for ${product.name}.`);
-          }
-          const isPreorder = product.status === "preorder";
-          const stockLimit = variant ? variant.stockQuantity : product.stockQuantity;
-          const maxQuantity = Math.max(
-            1,
-            Math.min(Number(product.maxOrderQuantity || 10), isPreorder ? 10 : Math.max(stockLimit, 0))
-          );
-          if (!isPreorder && maxQuantity < 1) throw new Error(`${product.name} is out of stock.`);
-          return {
-            cart: cartItem,
-            product,
-            variant,
-            quantity: Math.min(cartItem.quantity, maxQuantity),
-            colour: variant?.label || cartItem.colour || "Standard",
-            variantKey: variant?.variantKey || cartItem.variantKey || null,
-            price: Number(product.price || 0),
-            isPreorder,
-            maxQuantity,
-          } satisfies CheckoutItem;
-        });
-
-        setItems(normalised);
-        setCities(Array.isArray(locationResult.cities) ? locationResult.cities : []);
-
-        try {
-          const saved = JSON.parse(window.sessionStorage.getItem(DRAFT_KEY) || "null");
-          if (saved && typeof saved === "object") {
-            setName(String(saved.name || ""));
-            setPhone(String(saved.phone || ""));
-            setEmail(String(saved.email || ""));
-            setAddress(String(saved.address || ""));
-            setNotes(String(saved.notes || ""));
-            setCityId(String(saved.cityId || ""));
-            setDistrictId(String(saved.districtId || ""));
-            setStep([1, 2, 3, 4].includes(Number(saved.step)) ? (Number(saved.step) as Step) : 1);
-          }
-        } catch {
-          // Ignore a malformed session draft.
+        if (
+          !cancelled &&
+          response.ok &&
+          result?.success &&
+          Number.isFinite(livePrice) &&
+          livePrice > 0
+        ) {
+          setProductPrice(livePrice);
         }
-
-        void trackCommerceEvent("checkout_started", {
-          metadata: { itemCount: normalised.length, quantity: normalised.reduce((sum, item) => sum + item.quantity, 0) },
-        });
-      } catch (loadError) {
-        if (!cancelled) setError(loadError instanceof Error ? loadError.message : "Could not load checkout.");
-      } finally {
-        if (!cancelled) setLoading(false);
+      } catch (error) {
+        console.error(
+          "Could not load live checkout price:",
+          error
+        );
       }
     }
-    void load();
+
+    void loadProductSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Redirect non-Fitbit cart items to their generic checkout.
+  useEffect(() => {
+    const cartItem = readFirstCartItem();
+
+    if (
+      cartItem?.slug &&
+      cartItem.slug !== PRODUCT_SLUG
+    ) {
+      router.replace(
+        `/checkout/${encodeURIComponent(
+          cartItem.slug
+        )}?quantity=${Math.max(
+          1,
+          Number(cartItem.quantity || 1)
+        )}`
+      );
+    }
+  }, [router]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(
+      () => {
+        const searchParams =
+          new URLSearchParams(
+            window.location.search
+          );
+
+        const colourFromUrl = findColour(
+          searchParams.get("colour")
+        );
+
+        const quantityFromUrl =
+          parseQuantity(
+            searchParams.get("quantity")
+          );
+
+        if (colourFromUrl) {
+          setSelectedColour(
+            colourFromUrl
+          );
+        }
+
+        if (quantityFromUrl) {
+          setQuantity(quantityFromUrl);
+        }
+
+        if (
+          !colourFromUrl ||
+          !quantityFromUrl
+        ) {
+          const cartItem =
+            readFirstCartItem();
+
+          if (!cartItem) {
+            return;
+          }
+
+          if (!colourFromUrl) {
+            const cartColour = findColour(
+              cartItem.colour
+            );
+
+            if (cartColour) {
+              setSelectedColour(
+                cartColour
+              );
+            }
+          }
+
+          if (!quantityFromUrl) {
+            const cartQuantity =
+              parseQuantity(
+                String(
+                  cartItem.quantity
+                )
+              );
+
+            if (cartQuantity) {
+              setQuantity(cartQuantity);
+            }
+          }
+        }
+      },
+      0
+    );
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCities() {
+      setLocationsLoading(true);
+      setLocationsError("");
+
+      try {
+        const response = await fetch(
+          "/api/bosta/locations",
+          {
+            cache: "no-store",
+          }
+        );
+
+        const result =
+          (await response.json()) as BostaLocationsResult;
+
+        if (
+          !response.ok ||
+          !result.success
+        ) {
+          throw new Error(
+            result.message ||
+              "Could not load delivery cities."
+          );
+        }
+
+        if (!cancelled) {
+          setCities(
+            Array.isArray(result.cities)
+              ? result.cities
+              : []
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLocationsError(
+            error instanceof Error
+              ? error.message
+              : "Could not load delivery cities."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLocationsLoading(false);
+        }
+      }
+    }
+
+    void loadCities();
+
     return () => {
       cancelled = true;
     };
   }, []);
 
   useEffect(() => {
-    if (!cityId) {
-      setDistricts([]);
+    let cancelled = false;
+
+    if (!selectedCityId) {
       return;
     }
-    let cancelled = false;
-    void (async () => {
+
+    async function loadDistricts() {
+      setDistrictsLoading(true);
+      setLocationsError("");
+
       try {
-        const response = await fetch(`/api/bosta/locations?cityId=${encodeURIComponent(cityId)}`, { cache: "no-store" });
-        const result = await response.json();
-        if (!response.ok || !result.success) throw new Error(result.message || "Could not load districts.");
-        if (!cancelled) setDistricts(Array.isArray(result.districts) ? result.districts : []);
-      } catch (loadError) {
-        if (!cancelled) setError(loadError instanceof Error ? loadError.message : "Could not load districts.");
+        const response = await fetch(
+          `/api/bosta/locations?cityId=${encodeURIComponent(
+            selectedCityId
+          )}`,
+          {
+            cache: "no-store",
+          }
+        );
+
+        const result =
+          (await response.json()) as BostaLocationsResult;
+
+        if (
+          !response.ok ||
+          !result.success
+        ) {
+          throw new Error(
+            result.message ||
+              "Could not load delivery districts."
+          );
+        }
+
+        if (!cancelled) {
+          setDistricts(
+            Array.isArray(
+              result.districts
+            )
+              ? result.districts
+              : []
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLocationsError(
+            error instanceof Error
+              ? error.message
+              : "Could not load delivery districts."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setDistrictsLoading(false);
+        }
       }
-    })();
+    }
+
+    void loadDistricts();
+
     return () => {
       cancelled = true;
     };
-  }, [cityId]);
+  }, [selectedCityId]);
 
-  useEffect(() => {
-    if (loading) return;
-    window.sessionStorage.setItem(
-      DRAFT_KEY,
-      JSON.stringify({ name, phone, email, address, notes, cityId, districtId, step })
-    );
-  }, [address, cityId, districtId, email, loading, name, notes, phone, step]);
+  async function applyDiscountCode() {
+    const cleanCode = discountCode
+      .trim()
+      .toUpperCase();
 
-  const city = cities.find((candidate) => candidate.id === cityId) || null;
-  const productTotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const deliveryFee = city ? getDeliveryAreaForBostaCity(city).fee : 0;
-  const totals = useMemo(() => {
-    let productDiscount = 0;
-    let deliveryDiscount = 0;
-    if (discount?.type === "free_delivery") deliveryDiscount = deliveryFee;
-    if (discount?.type === "fixed_amount") productDiscount = Math.min(discount.value, productTotal);
-    if (discount?.type === "percentage") productDiscount = Math.min(Math.round((productTotal * discount.value) / 100), productTotal);
-    return {
-      productDiscount,
-      deliveryDiscount,
-      products: productTotal - productDiscount,
-      delivery: deliveryFee - deliveryDiscount,
-      total: productTotal - productDiscount + deliveryFee - deliveryDiscount,
-    };
-  }, [deliveryFee, discount, productTotal]);
+    if (!selectedArea) {
+      setAppliedDiscount(null);
 
-  function updateQuantity(index: number, next: number) {
-    setItems((current) =>
-      current.map((item, itemIndex) =>
-        itemIndex === index ? { ...item, quantity: Math.max(1, Math.min(item.maxQuantity, next)) } : item
-      )
-    );
-  }
-
-  function removeItem(index: number) {
-    setItems((current) => {
-      const next = current.filter((_, itemIndex) => itemIndex !== index);
-      window.localStorage.setItem(
-        CART_KEY,
-        JSON.stringify(next.map((item) => ({ ...item.cart, quantity: item.quantity, colour: item.colour, variantKey: item.variantKey })))
+      setDiscountMessage(
+        copy.selectDeliveryFirst
       );
-      window.dispatchEvent(new Event("orvix-cart-updated"));
-      return next;
-    });
-    void trackCommerceEvent("remove_from_cart");
-  }
 
-  function goTo(next: Step) {
-    setError("");
-    if (next > step) {
-      if (step === 1 && (!name.trim() || !phone.trim())) {
-        setError(language === "ar" ? "اكتب الاسم ورقم الهاتف للمتابعة." : "Enter your name and phone number to continue.");
-        return;
-      }
-      if (step === 2 && (!cityId || !districtId || !address.trim())) {
-        setError(language === "ar" ? "كمّل بيانات التوصيل للمتابعة." : "Complete your delivery details to continue.");
-        return;
-      }
-    }
-    setStep(next);
-    void trackCommerceEvent("checkout_step", { metadata: { step: next } });
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  async function applyDiscount() {
-    const code = discountCode.trim().toUpperCase();
-    if (!code || !city) {
-      setDiscount(null);
-      setDiscountMessage(language === "ar" ? "اختر المدينة واكتب الكود أولًا." : "Select your city and enter a code first.");
+      setDiscountMessageType("error");
       return;
     }
+
+    if (!cleanCode) {
+      setAppliedDiscount(null);
+
+      setDiscountMessage(
+        copy.enterDiscount
+      );
+
+      setDiscountMessageType("error");
+      return;
+    }
+
     setCheckingDiscount(true);
     setDiscountMessage("");
+    setDiscountMessageType("neutral");
+
     try {
-      const response = await fetch("/api/discounts/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, productsTotal: productTotal, deliveryFee, orderTotal: productTotal + deliveryFee }),
+      const response = await fetch(
+        "/api/discounts/validate",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            code: cleanCode,
+            productsTotal,
+            deliveryFee,
+
+            orderTotal:
+              productsTotal + deliveryFee,
+          }),
+        }
+      );
+
+      const result =
+        (await response.json()) as DiscountApiResult;
+
+      if (
+        !response.ok ||
+        !result.success
+      ) {
+        setAppliedDiscount(null);
+
+        setDiscountMessage(
+          language === "ar"
+            ? copy.invalidDiscount
+            : result.message ||
+              copy.invalidDiscount
+        );
+
+        setDiscountMessageType("error");
+        return;
+      }
+
+      const discountType =
+        normaliseDiscountType(result);
+
+      const discountValue =
+        getDiscountValue(result);
+
+      const returnedCode =
+        getReturnedDiscountCode(
+          result,
+          cleanCode
+        );
+
+      if (!discountType) {
+        setAppliedDiscount(null);
+
+        setDiscountMessage(
+          copy.unsupportedDiscount
+        );
+
+        setDiscountMessageType("error");
+        return;
+      }
+
+      if (
+        discountType === "fixed_amount" &&
+        discountValue <= 0
+      ) {
+        setAppliedDiscount(null);
+
+        setDiscountMessage(
+          copy.invalidDiscountAmount
+        );
+
+        setDiscountMessageType("error");
+        return;
+      }
+
+      if (
+        discountType === "percentage" &&
+        (discountValue <= 0 ||
+          discountValue > 100)
+      ) {
+        setAppliedDiscount(null);
+
+        setDiscountMessage(
+          copy.invalidPercentage
+        );
+
+        setDiscountMessageType("error");
+        return;
+      }
+
+      setAppliedDiscount({
+        code: returnedCode,
+        type: discountType,
+        value: discountValue,
       });
-      const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.message || "Invalid discount code.");
-      const type = normaliseDiscount(result.discountType || result.discount_type || result.type || result.discount?.type || result.discount?.discount_type);
-      const value = Number(result.discountValue || result.discount_value || result.value || result.discount?.value || result.discount?.discount_value || 0);
-      if (!type || !Number.isFinite(value)) throw new Error("Could not read discount.");
-      setDiscount({ code, type, value });
-      setDiscountCode(code);
-      setDiscountMessage(language === "ar" ? "تم تطبيق الخصم." : "Discount applied.");
-      void trackCommerceEvent("discount_applied", { metadata: { code } });
-    } catch (discountError) {
-      setDiscount(null);
-      setDiscountMessage(discountError instanceof Error ? discountError.message : "Invalid discount code.");
+
+      setDiscountCode(returnedCode);
+      setDiscountMessageType("success");
+
+      if (
+        discountType === "free_delivery"
+      ) {
+        setDiscountMessage(
+          copy.freeDeliveryApplied
+        );
+
+        return;
+      }
+
+      if (
+        discountType === "percentage"
+      ) {
+        setDiscountMessage(
+          copy.percentageApplied(
+            discountValue
+          )
+        );
+
+        return;
+      }
+
+      setDiscountMessage(
+        copy.amountApplied(
+          discountValue,
+          formatNumber(discountValue)
+        )
+      );
+    } catch {
+      setAppliedDiscount(null);
+
+      setDiscountMessage(
+        copy.discountCheckError
+      );
+
+      setDiscountMessageType("error");
     } finally {
       setCheckingDiscount(false);
     }
   }
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (submitting || !items.length || !city || !districtId || !name.trim() || !phone.trim() || !address.trim()) return;
-    setSubmitting(true);
-    setError("");
-    try {
-      const { visitorId, sessionId } = getCommerceIdentity();
-      const response = await fetch("/api/order-v4", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-orvix-visitor": visitorId,
-          "x-orvix-session": sessionId,
-        },
-        body: JSON.stringify({
-          fullName: name.trim(),
-          phone: phone.trim(),
-          customerEmail: email.trim() || null,
-          items: items.map((item) => ({
-            productSlug: item.product.slug,
-            variantKey: item.variantKey,
-            colour: item.colour,
-            quantity: item.quantity,
-          })),
-          bostaCityId: city.id,
-          bostaDistrictId: districtId,
-          address: address.trim(),
-          notes: notes.trim(),
-          discountCode: discount?.code || null,
-        }),
-      });
-      const result = await response.json();
-      if (!response.ok || !result.success || !result.orderNumber) throw new Error(result.message || "Could not place your order.");
+  function removeDiscountCode() {
+    setAppliedDiscount(null);
+    setDiscountCode("");
 
-      window.sessionStorage.setItem(ACCESS_KEY, JSON.stringify({ orderNumber: result.orderNumber, phone: phone.trim() }));
-      window.sessionStorage.removeItem(DRAFT_KEY);
-      window.localStorage.removeItem(CART_KEY);
-      window.dispatchEvent(new Event("orvix-cart-updated"));
-      router.push(`/order/${encodeURIComponent(result.orderNumber)}`);
-    } catch (submitError) {
-      const message = submitError instanceof Error ? submitError.message : "Could not place your order.";
-      setError(message);
-      setSubmitting(false);
-      void trackCommerceEvent("checkout_error", { metadata: { message } });
+    setDiscountMessage(
+      copy.discountRemoved
+    );
+
+    setDiscountMessageType("neutral");
+  }
+
+  async function handleOrderSubmit(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    if (
+      isSending ||
+      checkingDiscount
+    ) {
+      return;
+    }
+
+    setOrderError("");
+
+    if (
+      !selectedCity ||
+      !selectedArea
+    ) {
+      setOrderError(
+        copy.selectCityError
+      );
+
+      return;
+    }
+
+    if (!selectedDistrict) {
+      setOrderError(
+        copy.selectDistrictError
+      );
+
+      return;
+    }
+
+    if (!fullName.trim()) {
+      setOrderError(
+        copy.fullNameError
+      );
+
+      return;
+    }
+
+    if (!phone.trim()) {
+      setOrderError(
+        copy.phoneError
+      );
+
+      return;
+    }
+
+    const normalisedEmail = customerEmail
+      .trim()
+      .toLowerCase();
+
+    if (
+      normalisedEmail &&
+      !isValidEmail(normalisedEmail)
+    ) {
+      setOrderError(
+        copy.emailError
+      );
+
+      return;
+    }
+
+    if (!address.trim()) {
+      setOrderError(
+        copy.addressError
+      );
+
+      return;
+    }
+
+    /*
+      لو العميل كتب كود خصم
+      لكنه لم يضغط Apply.
+    */
+    if (
+      discountCode.trim() &&
+      !appliedDiscount
+    ) {
+      setOrderError(
+        copy.applyDiscountError
+      );
+
+      return;
+    }
+
+    /*
+      ناخد كود الخصم المطبق.
+
+      ولو حصلت مشكلة في appliedDiscount،
+      ناخده من خانة الخصم نفسها.
+    */
+    const submittedDiscountCode = String(
+      appliedDiscount?.code ||
+        discountCode ||
+        ""
+    )
+      .trim()
+      .toUpperCase();
+
+    setIsSending(true);
+
+    try {
+      const response = await fetch(
+        "/api/order",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body: JSON.stringify({
+            fullName: fullName.trim(),
+            phone: phone.trim(),
+
+            customerEmail:
+              normalisedEmail || null,
+
+            governorate:
+              selectedCity.name,
+
+            bostaCityId:
+              selectedCity.id,
+
+            bostaCityName:
+              selectedCity.name,
+
+            bostaCitySector:
+              selectedCity.sector,
+
+            bostaDistrictId:
+              selectedDistrict.id,
+
+            bostaDistrictName:
+              selectedDistrict.name,
+
+            bostaZoneId:
+              selectedDistrict.zoneId,
+
+            bostaZoneName:
+              selectedDistrict.zoneName,
+
+            address: address.trim(),
+            notes: notes.trim(),
+
+            productName: PRODUCT_NAME,
+            productSlug: PRODUCT_SLUG,
+
+            colour: selectedColour.name,
+            quantity,
+
+            productPrice,
+            productsTotal,
+
+            deliveryFee:
+              finalDeliveryFee,
+
+            originalDeliveryFee:
+              deliveryFee,
+
+            /*
+              إرسال الكود بأكثر من اسم
+              لضمان وصوله إلى الـAPI.
+            */
+            discountCode:
+              submittedDiscountCode ||
+              null,
+
+            discount_code:
+              submittedDiscountCode ||
+              null,
+
+            couponCode:
+              submittedDiscountCode ||
+              null,
+
+            coupon_code:
+              submittedDiscountCode ||
+              null,
+
+            appliedDiscount:
+              submittedDiscountCode
+                ? {
+                    code:
+                      submittedDiscountCode,
+
+                    type:
+                      appliedDiscount?.type ||
+                      null,
+
+                    value:
+                      appliedDiscount?.value ||
+                      0,
+                  }
+                : null,
+
+            discountType:
+              appliedDiscount?.type ||
+              null,
+
+            discountValue:
+              appliedDiscount?.value ||
+              0,
+
+            productDiscount,
+            deliveryDiscount,
+            totalDiscount,
+
+            discountedProductsTotal:
+              finalProductsTotal,
+
+            totalPrice: finalTotal,
+
+            paymentMethod:
+              "instapay_on_delivery",
+          }),
+        }
+      );
+
+      const result =
+        await response.json();
+
+      if (
+        !response.ok ||
+        !result.success
+      ) {
+        throw new Error(
+          result.message ||
+            "Could not place your order."
+        );
+      }
+
+      const createdOrderNumber =
+        result.orderNumber ||
+        result.order?.order_number;
+
+      if (!createdOrderNumber) {
+        throw new Error(
+          "Your order was saved, but the order number was not returned."
+        );
+      }
+
+      sessionStorage.setItem(
+        "orvixLastOrderPhone",
+        phone.trim()
+      );
+
+      if (normalisedEmail) {
+        sessionStorage.setItem(
+          "orvixLastOrderEmail",
+          normalisedEmail
+        );
+      } else {
+        sessionStorage.removeItem(
+          "orvixLastOrderEmail"
+        );
+      }
+
+      window.localStorage.removeItem(
+        CART_STORAGE_KEY
+      );
+
+      window.dispatchEvent(
+        new Event(
+          "orvix-cart-updated"
+        )
+      );
+
+      router.push(
+        `/order-success/${encodeURIComponent(
+          createdOrderNumber
+        )}`
+      );
+    } catch (error) {
+      setOrderError(
+        error instanceof Error
+          ? language === "ar"
+            ? copy.orderError
+            : error.message
+          : copy.orderError
+      );
+
+      setIsSending(false);
     }
   }
 
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-[#070707] text-white">
-        <Navbar />
-        <div className="flex min-h-[70vh] items-center justify-center">
-          <div className="text-center"><div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-white" /><p className="mt-4 text-sm text-white/35">Loading secure checkout…</p></div>
-        </div>
-      </main>
-    );
-  }
-
-  if (!items.length) {
-    return (
-      <main lang={language} dir={isArabic ? "rtl" : "ltr"} className="min-h-screen bg-[#070707] text-white">
-        <Navbar />
-        <section className="mx-auto flex min-h-[70vh] max-w-xl items-center px-5 text-center">
-          <div className="w-full rounded-[32px] border border-white/10 bg-white/[0.04] p-8 sm:p-10">
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-white/25">ORVIX</p>
-            <h1 className="mt-4 text-3xl font-black">{t.empty}</h1>
-            <p className="mt-3 text-white/40">{error || t.emptyText}</p>
-            <Link href="/#products" className="mt-7 inline-flex rounded-full bg-white px-6 py-3.5 font-black text-black">{t.browse}</Link>
-          </div>
-        </section>
-      </main>
-    );
-  }
-
   return (
-    <main lang={language} dir={isArabic ? "rtl" : "ltr"} className="min-h-screen bg-[#070707] text-white">
+    <main
+      lang={language}
+      dir={isArabic ? "rtl" : "ltr"}
+      className="min-h-screen bg-[#070707] text-white"
+    >
       <Navbar />
-      <section className="px-4 py-8 sm:px-6 sm:py-12">
+
+      <section className="px-4 py-12 sm:px-6 sm:py-20">
         <div className="mx-auto max-w-7xl">
-          <p className="text-[11px] font-black uppercase tracking-[0.28em] text-white/28">{t.eyebrow}</p>
-          <h1 className="mt-3 text-4xl font-black tracking-[-0.035em] sm:text-5xl">{t.title}</h1>
-          <p className="mt-3 max-w-3xl text-sm font-medium leading-6 text-white/38">{t.subtitle}</p>
+          <div className="mb-12">
+            <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
+              {copy.eyebrow}
+            </p>
 
-          <ol className="mt-7 grid grid-cols-4 gap-2" aria-label="Checkout progress">
-            {t.steps.map((label, index) => {
-              const number = (index + 1) as Step;
-              const active = step === number;
-              const complete = step > number;
-              return (
-                <li key={label}>
-                  <button type="button" onClick={() => number < step && goTo(number)} className={`w-full rounded-2xl border px-2 py-3 text-center text-[10px] font-black sm:text-xs ${active ? "border-white bg-white text-black" : complete ? "border-emerald-300/25 bg-emerald-400/10 text-emerald-200" : "border-white/8 bg-white/[0.025] text-white/28"}`}>
-                    <span className="block">{complete ? "✓" : number}</span><span className="mt-1 hidden sm:block">{label}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
+            <h1 className="mt-4 text-4xl font-black sm:text-6xl">
+              {copy.title}
+            </h1>
 
-          <form onSubmit={submit} className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_390px] lg:items-start">
-            <div className="space-y-5">
-              <section className="rounded-[28px] border border-white/10 bg-white/[0.035] p-5 sm:p-6">
-                <div className="flex items-center justify-between gap-3"><h2 className="text-xl font-black">{t.cart}</h2><span className="rounded-full bg-white/8 px-3 py-1 text-xs font-bold text-white/40">{items.length} item{items.length === 1 ? "" : "s"}</span></div>
-                <div className="mt-4 divide-y divide-white/8">
-                  {items.map((item, index) => (
-                    <article key={`${item.product.slug}-${item.variantKey || item.colour}-${index}`} className="grid gap-4 py-4 first:pt-1 sm:grid-cols-[90px_1fr_auto] sm:items-center">
-                      <div className="rounded-2xl bg-white p-2"><Image src={item.product.image || "/black.png"} alt={item.product.name} width={180} height={180} unoptimized className="aspect-square w-full object-contain" /></div>
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2"><h3 className="font-black">{item.product.name}</h3>{item.isPreorder ? <span className="rounded-full border border-violet-300/25 bg-violet-400/10 px-2 py-1 text-[9px] font-black text-violet-200">{t.preorder}</span> : null}</div>
-                        <p className="mt-1 text-xs text-white/35">{item.colour}</p>
-                        {item.isPreorder ? <p className="mt-2 text-xs font-semibold text-violet-200/70">{t.eta(Number(item.product.preorderMinDays || 25), Number(item.product.preorderMaxDays || 45))}</p> : null}
-                        <p className="mt-2 font-black">{money(item.price * item.quantity, isArabic)}</p>
-                      </div>
-                      <div className="flex items-center gap-2 sm:flex-col sm:items-end">
-                        <div className="flex items-center rounded-full border border-white/10 bg-black/20 p-1"><button type="button" aria-label="Decrease quantity" onClick={() => updateQuantity(index, item.quantity - 1)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-white/10">−</button><span className="min-w-8 text-center text-sm font-black">{item.quantity}</span><button type="button" aria-label="Increase quantity" disabled={item.quantity >= item.maxQuantity} onClick={() => updateQuantity(index, item.quantity + 1)} className="grid h-8 w-8 place-items-center rounded-full bg-white text-black disabled:opacity-30">+</button></div>
-                        <button type="button" onClick={() => removeItem(index)} className="text-[10px] font-bold text-red-300/70 hover:text-red-200">Remove</button>
-                      </div>
-                    </article>
-                  ))}
+            <p className="mt-5 max-w-2xl leading-7 text-gray-400">
+              {copy.intro}
+            </p>
+          </div>
+
+          <form
+            onSubmit={handleOrderSubmit}
+            className="grid items-start gap-10 lg:grid-cols-[1fr_0.85fr]"
+          >
+            <div className="space-y-8">
+              <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
+                <h2 className="text-2xl font-black">
+                  {copy.yourProduct}
+                </h2>
+
+                <div className="mt-6 grid gap-6 sm:grid-cols-[180px_1fr] sm:items-center">
+                  <div className="rounded-[24px] bg-white p-4">
+                    <Image
+                      key={selectedColour.name}
+                      src={selectedColour.image}
+                      alt={`${PRODUCT_NAME} - ${
+                        copy.colours[
+                          selectedColour.name as keyof typeof copy.colours
+                        ]
+                      }`}
+                      width={500}
+                      height={500}
+                      priority
+                      className="h-auto w-full object-contain"
+                    />
+                  </div>
+
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.3em] text-gray-500">
+                      {copy.fitnessTracker}
+                    </p>
+
+                    <h3 className="mt-3 text-3xl font-black">
+                      {PRODUCT_NAME}
+                    </h3>
+
+                    <p className="mt-3 text-gray-400">
+                      {formatMoney(
+                        productPrice
+                      )} {copy.each}
+                    </p>
+
+                    <p className="mt-2 text-sm text-gray-500">
+                      {
+                        copy.colours[
+                          selectedColour.name as keyof typeof copy.colours
+                        ]
+                      } · {copy.quantityInline} {quantity.toLocaleString(
+                        numberLocale
+                      )}
+                    </p>
+                  </div>
                 </div>
               </section>
 
-              {step === 1 ? (
-                <section className="rounded-[28px] border border-white/10 bg-white/[0.035] p-5 sm:p-6">
-                  <h2 className="text-xl font-black">{t.contactTitle}</h2>
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    <input required autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} placeholder={t.fullName} className="rounded-2xl border border-white/10 bg-black/30 px-4 py-4 outline-none focus:border-white/30" />
-                    <input required type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder={t.phone} className="rounded-2xl border border-white/10 bg-black/30 px-4 py-4 outline-none focus:border-white/30" />
-                    <input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={t.email} className="rounded-2xl border border-white/10 bg-black/30 px-4 py-4 outline-none focus:border-white/30 sm:col-span-2" />
+              <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
+                <h2 className="text-2xl font-black">
+                  {copy.chooseColour}
+                </h2>
+
+                <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                  {colours.map((colour) => {
+                    const selected =
+                      selectedColour.name ===
+                      colour.name;
+
+                    return (
+                      <button
+                        key={colour.name}
+                        type="button"
+                        onClick={() =>
+                          setSelectedColour(
+                            colour
+                          )
+                        }
+                        disabled={isSending}
+                        className={`flex items-center gap-3 rounded-2xl border p-4 text-start font-bold transition disabled:opacity-50 ${
+                          selected
+                            ? "border-white bg-white text-black"
+                            : "border-white/15 bg-black/20 text-white hover:border-white/30"
+                        }`}
+                      >
+                        <span
+                          className={`h-6 w-6 rounded-full border ${
+                            selected
+                              ? "border-black/20"
+                              : "border-white/20"
+                          } ${
+                            colour.buttonStyle
+                          }`}
+                        />
+
+                        {
+                          copy.colours[
+                            colour.name as keyof typeof copy.colours
+                          ]
+                        }
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
+                <h2 className="text-2xl font-black">
+                  {copy.quantity}
+                </h2>
+
+                <div className="mt-6 flex w-fit items-center rounded-full border border-white/15 bg-black/30 p-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setQuantity((current) =>
+                        Math.max(
+                          1,
+                          current - 1
+                        )
+                      )
+                    }
+                    disabled={isSending}
+                    aria-label={copy.decreaseQuantity}
+                    className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-2xl disabled:opacity-50"
+                  >
+                    −
+                  </button>
+
+                  <span className="min-w-16 text-center text-xl font-bold">
+                    {quantity.toLocaleString(
+                      numberLocale
+                    )}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setQuantity((current) =>
+                        Math.min(
+                          10,
+                          current + 1
+                        )
+                      )
+                    }
+                    disabled={isSending}
+                    aria-label={copy.increaseQuantity}
+                    className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-2xl text-black disabled:opacity-50"
+                  >
+                    +
+                  </button>
+                </div>
+              </section>
+
+              <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
+                <h2 className="text-2xl font-black">
+                  {copy.contactInformation}
+                </h2>
+
+                <div className="mt-6 grid gap-5">
+                  <label>
+                    <span className="mb-2 block text-sm font-bold text-gray-300">
+                      {copy.fullName}
+                    </span>
+
+                    <input
+                      type="text"
+                      value={fullName}
+                      onChange={(event) =>
+                        setFullName(
+                          event.target.value
+                        )
+                      }
+                      placeholder={copy.fullNamePlaceholder}
+                      autoComplete="name"
+                      disabled={isSending}
+                      required
+                      className="w-full rounded-2xl border border-white/15 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
+                    />
+                  </label>
+
+                  <label>
+                    <span className="mb-2 block text-sm font-bold text-gray-300">
+                      {copy.phoneNumber}
+                    </span>
+
+                    <input
+                      type="tel"
+                      dir="ltr"
+                      value={phone}
+                      onChange={(event) =>
+                        setPhone(
+                          event.target.value
+                        )
+                      }
+                      placeholder="01XXXXXXXXX"
+                      autoComplete="tel"
+                      inputMode="tel"
+                      disabled={isSending}
+                      required
+                      className="w-full rounded-2xl border border-white/15 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
+                    />
+                  </label>
+
+                  <label>
+                    <span className="mb-2 block text-sm font-bold text-gray-300">
+                      {copy.emailOptional}
+                    </span>
+
+                    <input
+                      type="email"
+                      dir="ltr"
+                      value={customerEmail}
+                      onChange={(event) =>
+                        setCustomerEmail(
+                          event.target.value
+                        )
+                      }
+                      placeholder="name@example.com"
+                      autoComplete="email"
+                      inputMode="email"
+                      disabled={isSending}
+                      className="w-full rounded-2xl border border-white/15 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
+                    />
+
+                    <p className="mt-2 text-sm leading-6 text-gray-500">
+                      {copy.emailNote}
+                    </p>
+                  </label>
+                </div>
+              </section>
+
+              <section className="rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-7">
+                <h2 className="text-2xl font-black">
+                  {copy.deliveryInformation}
+                </h2>
+
+                <div className="mt-6 grid gap-5">
+                  <div>
+                    <span className="mb-2 block text-sm font-bold text-gray-300">
+                      {copy.city}
+                    </span>
+
+                    <SearchableLocationPicker
+                      value={selectedCityId}
+                      onChange={(cityId) => {
+                        setSelectedCityId(
+                          cityId
+                        );
+                        setSelectedDistrictId("");
+                        setDistricts([]);
+                        setLocationsError("");
+                        setAppliedDiscount(null);
+                        setDiscountMessage("");
+                        setDiscountMessageType(
+                          "neutral"
+                        );
+                        setDiscountCode("");
+                      }}
+                      options={cityOptions}
+                      placeholder={copy.cityPlaceholder}
+                      searchPlaceholder={copy.citySearch}
+                      emptyMessage={copy.cityEmpty}
+                      loadingMessage={copy.citiesLoading}
+                      disabled={
+                        isSending
+                      }
+                      loading={locationsLoading}
+                    />
+
+                    {selectedArea && (
+                      <p className="mt-2 text-sm text-gray-500">
+                        {copy.deliveryFee}: {formatMoney(
+                          selectedArea.fee
+                        )}
+                      </p>
+                    )}
                   </div>
-                </section>
-              ) : null}
 
-              {step === 2 ? (
-                <section className="rounded-[28px] border border-white/10 bg-white/[0.035] p-5 sm:p-6">
-                  <h2 className="text-xl font-black">{t.deliveryTitle}</h2>
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    <select required value={cityId} onChange={(event) => { setCityId(event.target.value); setDistrictId(""); setDiscount(null); }} className="rounded-2xl border border-white/10 bg-[#111] px-4 py-4 outline-none"><option value="">{t.selectCity}</option>{cities.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}</select>
-                    <select required disabled={!cityId} value={districtId} onChange={(event) => setDistrictId(event.target.value)} className="rounded-2xl border border-white/10 bg-[#111] px-4 py-4 outline-none disabled:opacity-40"><option value="">{t.selectDistrict}</option>{districts.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}</select>
-                    <textarea required rows={3} value={address} onChange={(event) => setAddress(event.target.value)} placeholder={t.address} className="resize-none rounded-2xl border border-white/10 bg-black/30 px-4 py-4 outline-none focus:border-white/30 sm:col-span-2" />
-                    <textarea rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder={t.notes} className="resize-none rounded-2xl border border-white/10 bg-black/30 px-4 py-4 outline-none focus:border-white/30 sm:col-span-2" />
+                  <div>
+                    <span className="mb-2 block text-sm font-bold text-gray-300">
+                      {copy.district}
+                    </span>
+
+                    <SearchableLocationPicker
+                      value={selectedDistrictId}
+                      onChange={(districtId) =>
+                        setSelectedDistrictId(
+                          districtId
+                        )
+                      }
+                      options={districtOptions}
+                      placeholder={
+                        selectedCity
+                          ? copy.districtPlaceholder
+                          : copy.selectCityFirst
+                      }
+                      searchPlaceholder={copy.districtSearch}
+                      emptyMessage={copy.districtEmpty}
+                      loadingMessage={copy.districtsLoading}
+                      disabled={
+                        isSending ||
+                        !selectedCity
+                      }
+                      loading={districtsLoading}
+                    />
+
+                    <p className="mt-2 text-sm text-gray-500">
+                      {copy.bilingualSearch}
+                    </p>
                   </div>
-                </section>
-              ) : null}
 
-              {step === 3 ? (
-                <section className="rounded-[28px] border border-white/10 bg-white/[0.035] p-5 sm:p-6">
-                  <h2 className="text-xl font-black">{t.paymentTitle}</h2>
-                  <div className="mt-5 rounded-2xl border border-emerald-300/20 bg-emerald-400/[0.06] p-5"><div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-300 font-black text-black">✓</span><div><p className="font-black text-emerald-100">{t.paymentMethod}</p><p className="mt-2 text-sm font-medium leading-6 text-emerald-100/55">{t.paymentText}</p></div></div></div>
-                  <div className="mt-5 flex gap-2"><input value={discountCode} onChange={(event) => { setDiscountCode(event.target.value.toUpperCase()); setDiscount(null); setDiscountMessage(""); }} placeholder={t.code} className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 py-4 uppercase outline-none" /><button type="button" disabled={checkingDiscount || !city} onClick={() => void applyDiscount()} className="rounded-2xl bg-white px-5 py-4 text-sm font-black text-black disabled:opacity-30">{checkingDiscount ? "…" : t.apply}</button></div>
-                  {discountMessage ? <p className={`mt-2 text-xs font-semibold ${discount ? "text-emerald-300" : "text-red-300"}`}>{discountMessage}</p> : null}
-                </section>
-              ) : null}
+                  {locationsError && (
+                    <p className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+                      {language === "ar"
+                        ? copy.cityLoadError
+                        : locationsError} {copy.refreshLocations}
+                    </p>
+                  )}
 
-              {step === 4 ? (
-                <section className="rounded-[28px] border border-white/10 bg-white/[0.035] p-5 sm:p-6">
-                  <h2 className="text-xl font-black">{t.reviewTitle}</h2>
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2"><div className="rounded-2xl bg-black/25 p-4"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/25">Contact</p><p className="mt-2 font-black">{name}</p><p className="mt-1 text-sm text-white/45">{phone}</p>{email ? <p className="mt-1 text-sm text-white/45">{email}</p> : null}</div><div className="rounded-2xl bg-black/25 p-4"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/25">Delivery</p><p className="mt-2 font-black">{city?.name}</p><p className="mt-1 text-sm leading-5 text-white/45">{districts.find((candidate) => candidate.id === districtId)?.name}<br />{address}</p></div></div>
-                </section>
-              ) : null}
+                  <label>
+                    <span className="mb-2 block text-sm font-bold text-gray-300">
+                      {copy.fullAddress}
+                    </span>
 
-              {error ? <div role="alert" className="rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm font-semibold text-red-100">{error}</div> : null}
+                    <textarea
+                      value={address}
+                      onChange={(event) =>
+                        setAddress(
+                          event.target.value
+                        )
+                      }
+                      placeholder={copy.addressPlaceholder}
+                      rows={4}
+                      autoComplete="street-address"
+                      disabled={isSending}
+                      required
+                      className="w-full resize-none rounded-2xl border border-white/15 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
+                    />
+                  </label>
 
-              <div className="flex items-center justify-between gap-3">
-                <button type="button" disabled={step === 1} onClick={() => goTo((step - 1) as Step)} className="rounded-full border border-white/12 px-6 py-3.5 text-sm font-black disabled:invisible">{t.back}</button>
-                {step < 4 ? <button type="button" onClick={() => goTo((step + 1) as Step)} className="rounded-full bg-white px-7 py-3.5 text-sm font-black text-black">{t.continue}</button> : <button disabled={submitting} className="rounded-full bg-white px-7 py-3.5 text-sm font-black text-black disabled:opacity-40">{submitting ? t.placing : `${t.place} · ${money(totals.total, isArabic)}`}</button>}
-              </div>
-              <p className="text-center text-[11px] text-white/25">{t.saved}</p>
-              <TrustStrip />
+                  <label>
+                    <span className="mb-2 block text-sm font-bold text-gray-300">
+                      {copy.notes}
+                    </span>
+
+                    <textarea
+                      value={notes}
+                      onChange={(event) =>
+                        setNotes(
+                          event.target.value
+                        )
+                      }
+                      placeholder={copy.notesPlaceholder}
+                      rows={3}
+                      disabled={isSending}
+                      className="w-full resize-none rounded-2xl border border-white/15 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
+                    />
+                  </label>
+                </div>
+              </section>
             </div>
 
-            <aside className="rounded-[28px] border border-white/10 bg-[#111214] p-5 lg:sticky lg:top-24">
-              <h2 className="text-xl font-black">{t.summary}</h2>
-              <div className="mt-5 space-y-3 text-sm"><div className="flex justify-between gap-4"><span className="text-white/38">{t.products}</span><b>{money(productTotal, isArabic)}</b></div><div className="flex justify-between gap-4"><span className="text-white/38">{t.delivery}</span><b>{city ? money(totals.delivery, isArabic) : "—"}</b></div>{discount ? <div className="flex justify-between gap-4 text-emerald-300"><span>{t.discount}</span><b>-{money(totals.productDiscount + totals.deliveryDiscount, isArabic)}</b></div> : null}</div>
-              <div className="mt-5 flex items-end justify-between gap-4 border-t border-white/10 pt-5"><span className="font-black">{t.total}</span><b className="text-3xl tracking-tight">{money(totals.total, isArabic)}</b></div>
-              {items.some((item) => item.isPreorder) ? <div className="mt-5 rounded-2xl border border-violet-300/20 bg-violet-400/[0.07] p-4"><p className="text-xs font-black text-violet-100">{language === "ar" ? "الطلب يحتوي على منتج طلب مسبق" : "Your order contains a pre-order item"}</p><p className="mt-1 text-[11px] leading-5 text-violet-100/50">{language === "ar" ? "سيظهر موعد التوصيل المتوقع في صفحة الطلب بعد التأكيد." : "The estimated delivery window will appear on your order page after confirmation."}</p></div> : null}
+            <aside className="rounded-[32px] border border-white/10 bg-[#111111] p-5 sm:p-7 lg:sticky lg:top-28">
+              <h2 className="text-2xl font-black">
+                {copy.orderSummary}
+              </h2>
+
+              <div className="mt-7 space-y-5">
+                <div className="flex justify-between gap-5">
+                  <span className="text-gray-400">
+                    {copy.product}
+                  </span>
+
+                  <strong className="text-end">
+                    {PRODUCT_NAME}
+                  </strong>
+                </div>
+
+                <div className="flex justify-between gap-5">
+                  <span className="text-gray-400">
+                    {copy.colour}
+                  </span>
+
+                  <strong>
+                    {
+                      copy.colours[
+                        selectedColour.name as keyof typeof copy.colours
+                      ]
+                    }
+                  </strong>
+                </div>
+
+                <div className="flex justify-between gap-5">
+                  <span className="text-gray-400">
+                    {copy.quantity}
+                  </span>
+
+                  <strong>
+                    {quantity.toLocaleString(
+                      numberLocale
+                    )}
+                  </strong>
+                </div>
+
+                <div className="flex justify-between gap-5">
+                  <span className="text-gray-400">
+                    {copy.productsTotal}
+                  </span>
+
+                  <strong>
+                    {formatMoney(productsTotal)}
+                  </strong>
+                </div>
+
+                {productDiscount > 0 && (
+                  <div className="flex justify-between gap-5 text-green-400">
+                    <span>
+                      {copy.productDiscount}
+                    </span>
+
+                    <strong>
+                      -
+                      {formatMoney(
+                        productDiscount
+                      )}
+                    </strong>
+                  </div>
+                )}
+
+                <div className="flex justify-between gap-5">
+                  <span className="text-gray-400">
+                    {copy.delivery}
+                  </span>
+
+                  <strong>
+                    {!selectedArea
+                      ? copy.selectCity
+                      : finalDeliveryFee === 0
+                        ? copy.free
+                        : formatMoney(
+                            finalDeliveryFee
+                          )}
+                  </strong>
+                </div>
+
+                {deliveryDiscount > 0 && (
+                  <div className="flex justify-between gap-5 text-green-400">
+                    <span>
+                      {copy.deliveryDiscount}
+                    </span>
+
+                    <strong>
+                      -
+                      {formatMoney(
+                        deliveryDiscount
+                      )}
+                    </strong>
+                  </div>
+                )}
+
+                {appliedDiscount && (
+                  <div className="flex justify-between gap-5">
+                    <span className="text-gray-400">
+                      {copy.discountCode}
+                    </span>
+
+                    <strong className="text-green-400">
+                      {appliedDiscount.code}
+                    </strong>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-8 border-t border-white/10 pt-8">
+                <p className="text-sm uppercase tracking-[0.25em] text-gray-500">
+                  {copy.discountCode}
+                </p>
+
+                <div className="mt-4 flex gap-3">
+                  <input
+                    type="text"
+                    value={discountCode}
+                    onChange={(event) => {
+                      setDiscountCode(
+                        event.target.value.toUpperCase()
+                      );
+
+                      setAppliedDiscount(null);
+                      setDiscountMessage("");
+
+                      setDiscountMessageType(
+                        "neutral"
+                      );
+                    }}
+                    placeholder={copy.discountPlaceholder}
+                    disabled={
+                      !selectedArea ||
+                      isSending
+                    }
+                    className="min-w-0 flex-1 rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={
+                      hasAppliedDiscount
+                        ? removeDiscountCode
+                        : applyDiscountCode
+                    }
+                    disabled={
+                      checkingDiscount ||
+                      !selectedArea ||
+                      isSending
+                    }
+                    className="rounded-2xl bg-white px-5 py-4 font-bold text-black disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {checkingDiscount
+                      ? copy.checking
+                      : hasAppliedDiscount
+                        ? copy.remove
+                        : copy.apply}
+                  </button>
+                </div>
+
+                {!selectedArea && (
+                  <p className="mt-3 text-sm text-gray-500">
+                    {copy.selectCityBeforeDiscount}
+                  </p>
+                )}
+
+                {discountMessage && (
+                  <p
+                    className={`mt-3 text-sm ${
+                      discountMessageType ===
+                      "success"
+                        ? "text-green-400"
+                        : discountMessageType ===
+                            "error"
+                          ? "text-red-400"
+                          : "text-gray-400"
+                    }`}
+                  >
+                    {discountMessage}
+                  </p>
+                )}
+              </div>
+
+              <div className="my-8 h-px bg-white/10" />
+
+              {totalDiscount > 0 && (
+                <div className="mb-5 flex justify-between gap-5 text-green-400">
+                  <span className="font-bold">
+                    {copy.totalSaved}
+                  </span>
+
+                  <strong>
+                    -
+                    {formatMoney(totalDiscount)}
+                  </strong>
+                </div>
+              )}
+
+              <div className="flex items-end justify-between gap-5">
+                <span className="text-xl font-black">
+                  {copy.finalTotal}
+                </span>
+
+                <strong className="text-3xl">
+                  {formatMoney(finalTotal)}
+                </strong>
+              </div>
+
+              <div className="mt-7 rounded-3xl border border-violet-500/25 bg-violet-500/10 p-5">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black p-1">
+                    <Image
+                      src={INSTAPAY_LOGO}
+                      alt="InstaPay"
+                      width={80}
+                      height={80}
+                      unoptimized
+                      className="h-full w-full object-contain"
+                    />
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="text-xs font-black uppercase tracking-[0.22em] text-violet-300">
+                      {copy.paymentHow}
+                    </p>
+
+                    <p className="mt-2 text-lg font-black text-white">
+                      {copy.twoPayments}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5 space-y-3">
+                  <div className="rounded-2xl border border-violet-400/20 bg-black/40 p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-black text-violet-200">
+                          {copy.instapayToOrvix}
+                        </p>
+
+                        <p className="mt-1 text-xs leading-5 text-gray-400">
+                          {copy.productsOnly}
+                        </p>
+                      </div>
+
+                      <strong className="shrink-0 text-lg text-violet-300">
+                        {formatMoney(
+                          finalProductsTotal
+                        )}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-blue-400/20 bg-blue-500/10 p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-black text-blue-200">
+                          {copy.cashToCourier}
+                        </p>
+
+                        <p className="mt-1 text-xs leading-5 text-gray-400">
+                          {copy.deliveryOnly}
+                        </p>
+                      </div>
+
+                      <strong className="shrink-0 text-lg text-blue-300">
+                        {selectedArea
+                          ? formatMoney(
+                              finalDeliveryFee
+                            )
+                          : copy.selectCity}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 border-t border-white/10 pt-4">
+                  <p className="text-xs font-semibold leading-5 text-gray-400">
+                    {copy.paymentSafety}
+                  </p>
+                </div>
+              </div>
+
+              {orderError && (
+                <p
+                  role="alert"
+                  className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm leading-6 text-red-300"
+                >
+                  {orderError}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={
+                  isSending ||
+                  checkingDiscount ||
+                  !selectedCity ||
+                  !selectedDistrict
+                }
+                className="mt-8 flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-bold text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSending
+                  ? copy.placing
+                  : checkingDiscount
+                    ? copy.checkingDiscount
+                    : copy.placeOrder(
+                        formatNumber(finalTotal)
+                      )}
+              </button>
+
+              <p className="mt-4 text-center text-xs leading-5 text-gray-500">
+                {copy.confirmation}
+              </p>
+
+              {isSending && (
+                <p className="mt-4 text-center text-sm text-gray-500">
+                  {copy.keepPageOpen}
+                </p>
+              )}
             </aside>
           </form>
         </div>
       </section>
+
+      <footer className="border-t border-white/10 py-8">
+        <p className="text-center text-sm text-gray-600">
+          © 2026 ORVIX. {copy.rights}
+        </p>
+      </footer>
     </main>
   );
 }
