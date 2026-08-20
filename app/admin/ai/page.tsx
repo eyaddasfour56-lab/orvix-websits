@@ -38,13 +38,15 @@ type AssistantResult = {
   message?: string;
   ai?: boolean;
   action?: AssistantAction;
+  understoodAs?: string | null;
 };
 
 export default function OrvixAiPage() {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState(
-    "اكتب أي حاجة بطريقتك — عربي، English أو Franco. مثال: make google fitbit air price 7400"
+    "اكتب زي ما بتكلمني بالظبط — عربي، Franco، English، اختصارات أو غلطات كتابة. أنا هفهم المقصود وأحدد الأوردر بالـ order number أو رقم الموبايل أو الاسم."
   );
+  const [understoodAs, setUnderstoodAs] = useState("");
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"ai" | "fallback" | "action" | "">("");
   const [lastAction, setLastAction] = useState<AssistantAction | null>(null);
@@ -56,9 +58,10 @@ export default function OrvixAiPage() {
 
     setLoading(true);
     setLastAction(null);
+    setUnderstoodAs("");
 
     try {
-      const response = await fetch("/api/admin/os/copilot", {
+      const response = await fetch("/api/admin/os/copilot-v2", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -71,6 +74,7 @@ export default function OrvixAiPage() {
       }
 
       setAnswer(result.answer || "No answer available.");
+      setUnderstoodAs(result.understoodAs || "");
       setLastAction(result.action || null);
 
       if (
@@ -94,6 +98,7 @@ export default function OrvixAiPage() {
       setAnswer(error instanceof Error ? error.message : "ORVIX AI could not answer right now.");
       setMode("");
       setLastAction(null);
+      setUnderstoodAs("");
     } finally {
       setLoading(false);
     }
@@ -106,16 +111,14 @@ export default function OrvixAiPage() {
           <p className="text-[11px] font-black uppercase tracking-[0.34em] text-violet-200/50">ORVIX ADMIN</p>
           <h1 className="mt-3 text-4xl font-black tracking-tight text-white sm:text-5xl">ORVIX AI</h1>
           <p className="mt-3 max-w-3xl text-sm font-medium leading-6 text-white/38 sm:text-base">
-            Full Admin Copilot. Talk naturally in Arabic, English or Franco and ORVIX AI can read live dashboard data or execute supported actions across the admin.
+            Talk naturally in Egyptian Arabic, Franco, English or any mix. ORVIX AI normalizes what you meant first, then safely reads or updates live admin data.
           </p>
         </div>
 
-        <Link
-          href="/admin/command-center"
-          className="inline-flex h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.035] px-4 text-xs font-black text-white/65 transition hover:bg-white/[0.07] hover:text-white"
-        >
-          Back to Dashboard
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/admin/business-os" className="inline-flex h-11 items-center justify-center rounded-2xl bg-white px-4 text-xs font-black text-black">Business OS</Link>
+          <Link href="/admin/command-center" className="inline-flex h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.035] px-4 text-xs font-black text-white/65 transition hover:bg-white/[0.07] hover:text-white">Dashboard</Link>
+        </div>
       </div>
 
       <section className="mt-8 overflow-hidden rounded-[30px] border border-violet-300/15 bg-[#101013] shadow-2xl shadow-black/30">
@@ -123,117 +126,70 @@ export default function OrvixAiPage() {
           <div className="flex items-center gap-3">
             <span className="grid h-10 w-10 place-items-center rounded-2xl border border-violet-300/20 bg-violet-500/[0.12] text-lg text-violet-100">✦</span>
             <div>
-              <p className="text-xs font-black text-white">FULL ADMIN COPILOT + LIVE ORVIX DATA</p>
-              <p className="mt-0.5 text-[11px] font-semibold text-white/28">
-                Orders · Products · Inventory · Cash Flow · Discounts · Reviews · Waitlist · Chats · Bosta · Commerce · Analytics · Features · Maintenance
-              </p>
+              <p className="text-xs font-black text-white">NATURAL LANGUAGE ADMIN COPILOT</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-white/28">Orders · Products · Inventory · Cash Flow · Discounts · Reviews · Chats · Commerce · Analytics · Maintenance</p>
             </div>
           </div>
         </div>
 
         <div className="p-4 sm:p-7">
-          <div
-            className={`min-h-[190px] whitespace-pre-wrap rounded-[24px] border p-5 text-sm font-bold leading-7 sm:min-h-[230px] sm:p-6 sm:text-base ${
-              mode === "action"
-                ? "border-emerald-300/15 bg-emerald-500/[0.07] text-emerald-50"
-                : "border-violet-300/10 bg-violet-500/[0.05] text-violet-50"
-            }`}
-          >
+          <div className={`min-h-[190px] whitespace-pre-wrap rounded-[24px] border p-5 text-sm font-bold leading-7 sm:min-h-[230px] sm:p-6 sm:text-base ${mode === "action" ? "border-emerald-300/15 bg-emerald-500/[0.07] text-emerald-50" : "border-violet-300/10 bg-violet-500/[0.05] text-violet-50"}`}>
             {answer}
           </div>
 
+          {understoodAs ? (
+            <div className="mt-3 rounded-2xl border border-white/[0.07] bg-black/20 px-4 py-3">
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/25">Understood as</p>
+              <p className="mt-1 text-xs font-bold text-white/55">{understoodAs}</p>
+            </div>
+          ) : null}
+
           {lastAction?.type === "confirmation_required" && lastAction.command && (
-            <button
-              type="button"
-              onClick={() => setQuestion(lastAction.command || "")}
-              className="mt-3 rounded-full border border-amber-300/20 bg-amber-500/[0.08] px-4 py-2 text-[11px] font-black text-amber-100"
-            >
-              Load confirmed command
-            </button>
+            <button type="button" onClick={() => setQuestion(lastAction.command || "")} className="mt-3 rounded-full border border-amber-300/20 bg-amber-500/[0.08] px-4 py-2 text-[11px] font-black text-amber-100">Load confirmed command</button>
           )}
 
           {mode && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-white/38">
-                {mode === "action" ? "Action complete" : mode === "ai" ? "AI + live data" : "Live data / safe action"}
-              </span>
-
-              {lastAction?.type === "order_status_update" && (
-                <Link href="/admin/orders" className="rounded-full border border-emerald-300/20 bg-emerald-500/[0.08] px-3 py-1.5 text-[10px] font-black text-emerald-100">
-                  View Orders
-                </Link>
-              )}
-
-              {lastAction?.type === "commerce_update" && (
-                <Link href="/admin/commerce" className="rounded-full border border-emerald-300/20 bg-emerald-500/[0.08] px-3 py-1.5 text-[10px] font-black text-emerald-100">
-                  Open Commerce Control
-                </Link>
-              )}
-
-              {lastAction?.type === "cashflow_entry_created" && (
-                <Link href="/admin/cashflow" className="rounded-full border border-emerald-300/20 bg-emerald-500/[0.08] px-3 py-1.5 text-[10px] font-black text-emerald-100">
-                  Open Cash Flow
-                </Link>
-              )}
-
-              {lastAction?.type === "admin_action" && lastAction.href && (
-                <Link href={lastAction.href} className="rounded-full border border-emerald-300/20 bg-emerald-500/[0.08] px-3 py-1.5 text-[10px] font-black text-emerald-100">
-                  Open {lastAction.section || "Admin"}
-                </Link>
-              )}
+              <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-white/38">{mode === "action" ? "Action complete" : mode === "ai" ? "AI + live data" : "Live data / safe action"}</span>
+              {lastAction?.type === "order_status_update" && <Link href="/admin/orders-v2" className="rounded-full border border-emerald-300/20 bg-emerald-500/[0.08] px-3 py-1.5 text-[10px] font-black text-emerald-100">View Orders</Link>}
+              {lastAction?.type === "commerce_update" && <Link href="/admin/commerce" className="rounded-full border border-emerald-300/20 bg-emerald-500/[0.08] px-3 py-1.5 text-[10px] font-black text-emerald-100">Open Commerce</Link>}
+              {lastAction?.type === "cashflow_entry_created" && <Link href="/admin/cashflow" className="rounded-full border border-emerald-300/20 bg-emerald-500/[0.08] px-3 py-1.5 text-[10px] font-black text-emerald-100">Open Cash Flow</Link>}
+              {lastAction?.type === "admin_action" && lastAction.href && <Link href={lastAction.href} className="rounded-full border border-emerald-300/20 bg-emerald-500/[0.08] px-3 py-1.5 text-[10px] font-black text-emerald-100">Open {lastAction.section || "Admin"}</Link>}
             </div>
           )}
 
           <form onSubmit={ask} className="mt-5">
-            <label htmlFor="orvix-ai-question" className="mb-2 block text-[10px] font-black uppercase tracking-[0.16em] text-white/28">
-              Message ORVIX AI
-            </label>
+            <label htmlFor="orvix-ai-question" className="mb-2 block text-[10px] font-black uppercase tracking-[0.16em] text-white/28">Message ORVIX AI</label>
             <textarea
               id="orvix-ai-question"
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
-              placeholder="اكتب اللي عايزه بطريقتك... مثال: 5aly google fitbit air 7400"
+              placeholder="مثال: 3adl order rakm 01000000000 to deliverd"
               rows={4}
               className="w-full resize-none rounded-[22px] border border-white/10 bg-[#09090a] px-4 py-4 text-base font-semibold text-white outline-none transition placeholder:text-white/20 focus:border-violet-300/30 focus:ring-2 focus:ring-violet-500/10"
             />
-
-            <button
-              type="submit"
-              disabled={loading || !question.trim()}
-              className="mt-3 h-12 w-full rounded-2xl bg-violet-300 px-5 text-sm font-black text-black transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-35 sm:w-auto sm:min-w-[150px]"
-            >
-              {loading ? "Working..." : "Send"}
-            </button>
+            <button type="submit" disabled={loading || !question.trim()} className="mt-3 h-12 w-full rounded-2xl bg-violet-300 px-5 text-sm font-black text-black transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-35 sm:w-auto sm:min-w-[150px]">{loading ? "Working..." : "Send"}</button>
           </form>
 
           <div className="mt-5">
-            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/25">Try anything</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/25">Try it your way</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {[
-                "add to expenses 120 tools paid by me",
-                "make google fitbit air price 7400",
+                "3adl order rakm 01000000000 to deliverd",
+                "5aly ORVIX-123 etsh7n",
+                "add 120 tools paid by me",
+                "5aly google fitbit air 7400",
                 "approve latest review",
-                "turn ORVIX15 off",
-                "close the website",
-                "show me all low stock products",
-                "how much did i spend this month?",
-                "reply to latest waiting customer tell him his order is confirmed",
+                "orvix15 off",
+                "kam profit elnharda?",
+                "show me delayed orders",
               ].map((prompt) => (
-                <button
-                  key={prompt}
-                  type="button"
-                  onClick={() => setQuestion(prompt)}
-                  className="rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-2 text-[11px] font-black text-white/52 transition hover:bg-white/[0.07] hover:text-white"
-                >
-                  {prompt}
-                </button>
+                <button key={prompt} type="button" onClick={() => setQuestion(prompt)} className="rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-2 text-[11px] font-black text-white/52 transition hover:bg-white/[0.07] hover:text-white">{prompt}</button>
               ))}
             </div>
           </div>
 
-          <p className="mt-5 text-[10px] font-semibold leading-5 text-white/25">
-            Normal admin actions execute immediately when the intent and target are clear. Delete/reset actions require one explicit confirmation before ORVIX AI executes them.
-          </p>
+          <p className="mt-5 text-[10px] font-semibold leading-5 text-white/25">Clear normal admin actions execute immediately. Destructive delete/reset actions keep the existing explicit confirmation protection.</p>
         </div>
       </section>
     </main>
