@@ -14,11 +14,12 @@ import CustomerSupportModeGate from "@/components/CustomerSupportModeGate";
 import CustomerOrderCancellation from "@/components/CustomerOrderCancellation";
 import PreorderPurchaseBar from "@/components/PreorderPurchaseBar";
 import CommerceCartAnalytics from "@/components/CommerceCartAnalytics";
+import CommerceExperienceV3 from "@/components/CommerceExperienceV3";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
-const BRAND_VERSION = "orvix-20260818-orders-v2";
+const BRAND_VERSION = "orvix-20260820-business-v3";
 
 export const metadata: Metadata = {
   title: { default: "ORVIX", template: "%s | ORVIX" },
@@ -66,6 +67,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <LanguageProvider>
           <Suspense fallback={null}><SiteAnalytics /></Suspense>
           <CommerceCartAnalytics />
+          <CommerceExperienceV3 />
           <PromoBanner />
           <HomepageQuickOrder />
           <CheckoutCompactPolish />
