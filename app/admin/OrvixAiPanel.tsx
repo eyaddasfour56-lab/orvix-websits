@@ -21,6 +21,7 @@ type AssistantResult = {
   message?: string;
   ai?: boolean;
   action?: AssistantAction;
+  understoodAs?: string | null;
 };
 
 type Props = {
@@ -32,6 +33,7 @@ export default function OrvixAiPanel({ onActionComplete }: Props) {
   const [answer, setAnswer] = useState(
     "اكتب أي أمر بطريقتك — عربي، English أو Franco. أنا متوصل بكل الـAdmin وممكن أنفذ أو أقرأ البيانات Live."
   );
+  const [understoodAs, setUnderstoodAs] = useState("");
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"ai" | "fallback" | "action" | "">("");
   const [lastAction, setLastAction] = useState<AssistantAction | null>(null);
@@ -43,9 +45,10 @@ export default function OrvixAiPanel({ onActionComplete }: Props) {
 
     setLoading(true);
     setLastAction(null);
+    setUnderstoodAs("");
 
     try {
-      const response = await fetch("/api/admin/os/copilot", {
+      const response = await fetch("/api/admin/os/copilot-v2", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -58,6 +61,7 @@ export default function OrvixAiPanel({ onActionComplete }: Props) {
       }
 
       setAnswer(result.answer || "Done.");
+      setUnderstoodAs(result.understoodAs || "");
       setLastAction(result.action || null);
 
       const actionCompleted =
@@ -87,6 +91,7 @@ export default function OrvixAiPanel({ onActionComplete }: Props) {
       );
       setMode("");
       setLastAction(null);
+      setUnderstoodAs("");
     } finally {
       setLoading(false);
     }
@@ -123,6 +128,13 @@ export default function OrvixAiPanel({ onActionComplete }: Props) {
         >
           {answer}
         </div>
+
+        {understoodAs ? (
+          <div className="mt-3 rounded-2xl border border-white/[0.07] bg-black/20 px-4 py-3">
+            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-white/25">Understood as</p>
+            <p className="mt-1 text-xs font-bold text-white/55">{understoodAs}</p>
+          </div>
+        ) : null}
 
         {lastAction?.type === "confirmation_required" && lastAction.command && (
           <button
@@ -168,7 +180,7 @@ export default function OrvixAiPanel({ onActionComplete }: Props) {
                 id="main-admin-orvix-ai"
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
-                placeholder="مثال: 5aly order ORVIX-123 confirmed / 7ot 120 tools expenses 3alaya / make fitbit 7400"
+                placeholder="مثال: 3adl order ely b rakm 01XXXXXXXXX to deliverd"
                 rows={3}
                 className="w-full resize-none rounded-[20px] border border-white/10 bg-black/45 px-4 py-3.5 text-sm font-semibold text-white outline-none transition placeholder:text-white/20 focus:border-violet-300/35 focus:ring-2 focus:ring-violet-500/10"
               />
