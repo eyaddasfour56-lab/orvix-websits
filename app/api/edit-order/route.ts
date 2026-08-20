@@ -133,8 +133,10 @@ export async function POST(request: NextRequest) {
           order_id: order.id,
           event_type: "customer_edit",
           title: "Customer updated order details",
-          description: changed.length ? `Updated: ${changed.join(", ")}` : "Customer saved order details.",
+          details: changed.length ? `Updated: ${changed.join(", ")}` : "Customer saved order details.",
+          status: order.status,
           metadata: { changed },
+          created_by: "customer",
         }),
       });
     } catch (eventError) {
