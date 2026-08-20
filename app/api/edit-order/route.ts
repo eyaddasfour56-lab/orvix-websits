@@ -14,8 +14,22 @@ type OrderRow = {
   notes?: string | null;
   status: string;
   created_at: string;
+  product_slug?: string | null;
+  colour?: string | null;
+  variant_key?: string | null;
+  item_count?: number | null;
   bosta_delivery_id?: string | null;
   bosta_tracking_number?: string | null;
+};
+
+type ProductRow = { id: string; slug: string; status: string };
+type VariantRow = {
+  id: string;
+  variant_key: string;
+  label: string;
+  stock_quantity: number;
+  allow_purchase: boolean;
+  active: boolean;
 };
 
 function normalisePhone(value: string) {
@@ -35,8 +49,10 @@ function editableState(order: OrderRow) {
   const stillInWindow = Number.isFinite(created) && Date.now() <= created + EDIT_WINDOW_MS;
   const safeStatus = ["new", "confirmed"].includes(String(order.status || "").toLowerCase());
   const alreadyShipped = Boolean(order.bosta_delivery_id || order.bosta_tracking_number);
+  const canEdit = stillInWindow && safeStatus && !alreadyShipped;
   return {
-    canEdit: stillInWindow && safeStatus && !alreadyShipped,
+    canEdit,
+    canEditColour: canEdit && order.status === "new" && Number(order.item_count || 1) <= 1 && Boolean(order.product_slug),
     editableUntil,
     reason: !stillInWindow
       ? "The 30-minute edit window has ended."
@@ -48,9 +64,25 @@ function editableState(order: OrderRow) {
 
 async function findOrder(orderNumber: string) {
   const rows = await supabaseAdminJson<OrderRow[]>(
-    `orders?select=id,order_number,customer_name,phone,address,notes,status,created_at,bosta_delivery_id,bosta_tracking_number&order_number=eq.${postgrestValue(orderNumber)}&limit=1`
+    `orders?select=id,order_number,customer_name,phone,address,notes,status,created_at,product_slug,colour,variant_key,item_count,bosta_delivery_id,bosta_tracking_number&order_number=eq.${postgrestValue(orderNumber)}&limit=1`
   );
   return rows?.[0] || null;
+}
+
+async function resolveVariant(order: OrderRow, variantKey: string) {
+  if (!order.product_slug || !variantKey) return null;
+  const products = await supabaseAdminJson<ProductRow[]>(
+    `products?select=id,slug,status&slug=eq.${postgrestValue(order.product_slug)}&limit=1`
+  );
+  const product = products?.[0];
+  if (!product) return null;
+  const variants = await supabaseAdminJson<VariantRow[]>(
+    `product_variants?select=id,variant_key,label,stock_quantity,allow_purchase,active&product_id=eq.${postgrestValue(product.id)}&variant_key=eq.${postgrestValue(variantKey)}&active=eq.true&limit=1`
+  );
+  const variant = variants?.[0];
+  if (!variant || !variant.allow_purchase) return null;
+  if (product.status !== "preorder" && Number(variant.stock_quantity || 0) < 1) return null;
+  return variant;
 }
 
 export async function POST(request: NextRequest) {
@@ -75,6 +107,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         canEdit: edit.canEdit,
+        canEditColour: edit.canEditColour,
         editableUntil: edit.editableUntil,
         reason: edit.reason,
         order: {
@@ -84,6 +117,9 @@ export async function POST(request: NextRequest) {
           address: order.address,
           notes: order.notes || "",
           status: order.status,
+          productSlug: order.product_slug || "",
+          colour: order.colour || "",
+          variantKey: order.variant_key || "",
         },
       });
     }
@@ -99,9 +135,26 @@ export async function POST(request: NextRequest) {
     const newPhone = String(body.newPhone || order.phone).trim().slice(0, 40);
     const address = String(body.address || "").trim().slice(0, 500);
     const notes = String(body.notes || "").trim().slice(0, 1000);
+    const requestedVariantKey = String(body.newVariantKey || "").trim().slice(0, 120);
 
     if (!customerName || !normalisePhone(newPhone) || !address) {
       return NextResponse.json({ success: false, message: "Name, phone and delivery address are required." }, { status: 400 });
+    }
+
+    let nextColour = order.colour || "";
+    let nextVariantKey = order.variant_key || "";
+    const variantChanged = Boolean(requestedVariantKey) && requestedVariantKey !== String(order.variant_key || "");
+
+    if (variantChanged) {
+      if (!edit.canEditColour) {
+        return NextResponse.json({ success: false, message: "Colour can only be changed before the order is confirmed and before fulfillment starts." }, { status: 409 });
+      }
+      const variant = await resolveVariant(order, requestedVariantKey);
+      if (!variant) {
+        return NextResponse.json({ success: false, message: "That colour is not currently available for this order." }, { status: 409 });
+      }
+      nextVariantKey = variant.variant_key;
+      nextColour = variant.label;
     }
 
     const changed: string[] = [];
@@ -109,6 +162,15 @@ export async function POST(request: NextRequest) {
     if (normalisePhone(newPhone) !== normalisePhone(order.phone)) changed.push("phone");
     if (address !== order.address) changed.push("address");
     if (notes !== String(order.notes || "")) changed.push("notes");
+    if (variantChanged) changed.push("colour");
+
+    if (variantChanged) {
+      await supabaseAdminJson(`order_items?order_id=eq.${postgrestValue(order.id)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ variant_key: nextVariantKey, variant_label: nextColour, colour: nextColour }),
+      });
+    }
 
     const updated = await supabaseAdminJson<OrderRow[]>(
       `orders?id=eq.${postgrestValue(order.id)}`,
@@ -120,6 +182,7 @@ export async function POST(request: NextRequest) {
           phone: newPhone,
           address,
           notes,
+          ...(variantChanged ? { colour: nextColour, variant_key: nextVariantKey } : {}),
           last_workflow_at: new Date().toISOString(),
         }),
       }
@@ -135,7 +198,7 @@ export async function POST(request: NextRequest) {
           title: "Customer updated order details",
           details: changed.length ? `Updated: ${changed.join(", ")}` : "Customer saved order details.",
           status: order.status,
-          metadata: { changed },
+          metadata: { changed, colour: variantChanged ? nextColour : undefined },
           created_by: "customer",
         }),
       });
@@ -165,6 +228,8 @@ export async function POST(request: NextRequest) {
       success: true,
       message: "Order details updated successfully.",
       phone: row?.phone || newPhone,
+      colour: nextColour,
+      variantKey: nextVariantKey,
       changed,
     });
   } catch (error) {
