@@ -1,247 +1,109 @@
 "use client";
 
-import Link from "next/link";
-import {
-  FormEvent,
-  useEffect,
-  useState,
-} from "react";
+import { FormEvent, useMemo, useState } from "react";
 import Navbar from "@/components/Navbar";
-import {
-  Language,
-  useLanguage,
-} from "@/components/LanguageProvider";
+import { Language, useLanguage } from "@/components/LanguageProvider";
+
+type TimelineEvent = {
+  id: number | string;
+  eventType: string;
+  title: string;
+  details?: string | null;
+  status?: string | null;
+  createdAt: string;
+};
+
+type OrderItem = {
+  id: string;
+  productName: string;
+  variantLabel?: string | null;
+  colour?: string | null;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+};
 
 type TrackedOrder = {
   orderNumber: string;
   governorate: string;
-  productName?: string;
-  colour: string;
-  quantity: number;
-  productsTotal: number;
-  deliveryFee: number;
-  discountAmount: number;
   totalPrice: number;
   status: string;
+  paymentStatus: string;
   createdAt: string;
-  shippingStatus?: string | null;
+  lastUpdatedAt: string;
+  estimatedDeliveryFrom?: string | null;
+  estimatedDeliveryTo?: string | null;
   trackingNumber?: string | null;
   carrierStatus?: string | null;
-  lastUpdatedAt: string;
+  items: OrderItem[];
+  timeline: TimelineEvent[];
 };
 
 type TrackingResult = {
-  success: boolean;
-  code?: string;
+  success?: boolean;
   message?: string;
-  order?: TrackedOrder;
+  code?: string;
+  orders?: TrackedOrder[];
 };
 
-const ORVIX_SUPPORT_URL =
-  "https://www.instagram.com/orvix_tech/";
-
-const copyByLanguage = {
+const copy = {
   en: {
-    languageLabel: "Choose language",
-    loadingTracking: "Loading tracking details...",
-    eyebrow: "ORVIX Order Tracking",
-    title: "Track Your Order",
-    subtitle:
-      "Enter the order number and phone number used during checkout to view the latest status of your order.",
-    orderNumber: "Order Number",
-    phoneNumber: "Phone Number",
-    checkingOrder: "Checking Order...",
-    trackYourOrder: "Track Your Order",
-    privacyNote:
-      "For your privacy, your phone number and full address are never displayed on this page.",
-    latestUpdate: "Latest update",
-    cairoTime: "Cairo time",
-    orderCancelled: "Order Cancelled",
-    orderCancelledDescription:
-      "This order has been cancelled. Contact ORVIX support if you believe this was a mistake.",
-    orderProgress: "Order Progress",
+    eyebrow: "ORVIX ORDER TRACKING",
+    title: "Track your order",
+    subtitle: "Enter only the phone number used at checkout. We’ll find every order linked to it.",
+    phone: "Phone Number",
+    placeholder: "01xxxxxxxxx",
+    button: "Track Orders",
+    checking: "Checking…",
+    found: "Orders found",
     currentStatus: "Current Status",
-    completed: "Completed",
-    shippingUpdate: "Shipping update",
-    cancelledShipmentHeadline:
-      "This order is cancelled",
-    cancelledShipmentDescription:
-      "Contact ORVIX support if you need help with this order.",
-    shippingIssueDescription:
-      "This shipment needs attention. Contact ORVIX support and mention your order number.",
-    shipmentInProgress:
-      "Shipment in progress with Bosta",
-    trackingDescription:
-      "Follow the latest carrier movement using the official Bosta tracking page.",
-    preparingShipment: "Preparing your shipment",
-    preparingDescription:
-      "Your Bosta tracking number will appear here as soon as the shipment is created.",
-    trackOnBosta: "Track Live on Bosta",
-    contactSupport: "Contact ORVIX Support",
-    bostaTrackingNumber:
-      "Bosta tracking number",
-    notAssigned: "Not assigned yet",
-    latestAvailableUpdate:
-      "Latest available update",
-    howWasExperience: "How was your experience?",
-    reviewDescription:
-      "Your order has been delivered. Share your experience and help other customers shop with confidence.",
-    leaveReview: "Leave a Review",
-    orderDetails: "Order Details",
-    product: "Product",
-    deliveryArea: "Delivery Area",
-    instapayOnDelivery: "InstaPay on Delivery",
-    productsTotal: "Products Total",
-    delivery: "Delivery",
-    free: "FREE",
-    discount: "Discount",
+    courier: "Courier Update",
+    trackingNumber: "Tracking Number",
+    estimated: "Estimated Arrival",
+    placed: "Order Placed",
     total: "Total",
-    orderPlacedOn: "Order placed on",
-    trackAnother: "Track Another Order",
-    rightsReserved: "All rights reserved.",
-    invalidDate: "Update time unavailable",
-    missingDetails:
-      "Please enter your order number and phone number.",
-    invalidDetails:
-      "Please check your order number and phone number.",
-    lookupFailed:
-      "Could not check your order right now.",
-    orderNotFound:
-      "No order was found with these details.",
+    items: "Items",
+    timeline: "Order Timeline",
+    choose: "Choose an order",
+    chooseHint: "Tap any order below to view its tracking details.",
+    noCourier: "Courier tracking has not started yet.",
+    privacy: "Only order tracking details linked to this phone number are shown.",
+    missing: "Please enter your phone number.",
+    invalid: "Please enter a valid Egyptian mobile number.",
+    notFound: "No orders were found for this phone number.",
+    failed: "Could not check your orders right now.",
   },
   ar: {
-    languageLabel: "اختر اللغة",
-    loadingTracking: "جارٍ تحميل بيانات التتبع...",
     eyebrow: "تتبّع طلبات ORVIX",
     title: "تتبّع طلبك",
-    subtitle:
-      "أدخل رقم الطلب ورقم الهاتف المستخدم أثناء الشراء لعرض أحدث حالة لطلبك.",
-    orderNumber: "رقم الطلب",
-    phoneNumber: "رقم الهاتف",
-    checkingOrder: "جارٍ التحقق من الطلب...",
-    trackYourOrder: "تتبّع طلبك",
-    privacyNote:
-      "حرصًا على خصوصيتك، لن نعرض رقم هاتفك أو عنوانك بالكامل في هذه الصفحة.",
-    latestUpdate: "آخر تحديث",
-    cairoTime: "بتوقيت القاهرة",
-    orderCancelled: "تم إلغاء الطلب",
-    orderCancelledDescription:
-      "تم إلغاء هذا الطلب. تواصل مع دعم ORVIX إذا كنت تعتقد أن ذلك حدث بالخطأ.",
-    orderProgress: "مراحل الطلب",
-    currentStatus: "الحالة الحالية",
-    completed: "مكتمل",
-    shippingUpdate: "تحديث الشحن",
-    cancelledShipmentHeadline:
-      "هذا الطلب ملغي",
-    cancelledShipmentDescription:
-      "تواصل مع دعم ORVIX إذا كنت تحتاج إلى مساعدة بخصوص هذا الطلب.",
-    shippingIssueDescription:
-      "تحتاج هذه الشحنة إلى متابعة. تواصل مع دعم ORVIX واذكر رقم طلبك.",
-    shipmentInProgress:
-      "الشحنة قيد التوصيل مع بوسطة",
-    trackingDescription:
-      "تابع آخر تحركات الشحنة من خلال صفحة التتبع الرسمية لدى بوسطة.",
-    preparingShipment: "جارٍ تجهيز شحنتك",
-    preparingDescription:
-      "سيظهر رقم تتبع بوسطة هنا فور إنشاء الشحنة.",
-    trackOnBosta: "تتبّع الشحنة على بوسطة",
-    contactSupport: "تواصل مع دعم ORVIX",
-    bostaTrackingNumber: "رقم تتبع بوسطة",
-    notAssigned: "لم يتم تعيينه بعد",
-    latestAvailableUpdate: "آخر تحديث متاح",
-    howWasExperience: "كيف كانت تجربتك؟",
-    reviewDescription:
-      "تم توصيل طلبك. شاركنا تجربتك وساعد العملاء الآخرين على التسوق بثقة.",
-    leaveReview: "أضف تقييمك",
-    orderDetails: "تفاصيل الطلب",
-    product: "المنتج",
-    deliveryArea: "منطقة التوصيل",
-    instapayOnDelivery:
-      "الدفع عبر InstaPay عند الاستلام",
-    productsTotal: "إجمالي المنتجات",
-    delivery: "التوصيل",
-    free: "مجاني",
-    discount: "الخصم",
+    subtitle: "اكتب فقط رقم الموبايل المستخدم في الطلب، وسنعرض كل الطلبات المرتبطة به.",
+    phone: "رقم الموبايل",
+    placeholder: "01xxxxxxxxx",
+    button: "تتبّع الطلبات",
+    checking: "جارٍ البحث…",
+    found: "الطلبات الموجودة",
+    currentStatus: "حالة الطلب",
+    courier: "تحديث الشحن",
+    trackingNumber: "رقم التتبع",
+    estimated: "الوصول المتوقع",
+    placed: "تاريخ الطلب",
     total: "الإجمالي",
-    orderPlacedOn: "تم إنشاء الطلب في",
-    trackAnother: "تتبّع طلبًا آخر",
-    rightsReserved: "جميع الحقوق محفوظة.",
-    invalidDate: "وقت التحديث غير متاح",
-    missingDetails:
-      "من فضلك أدخل رقم الطلب ورقم الهاتف.",
-    invalidDetails:
-      "من فضلك راجع رقم الطلب ورقم الهاتف.",
-    lookupFailed:
-      "تعذر التحقق من طلبك الآن. حاول مرة أخرى لاحقًا.",
-    orderNotFound:
-      "لم يتم العثور على طلب بهذه البيانات.",
+    items: "المنتجات",
+    timeline: "مراحل الطلب",
+    choose: "اختر طلبًا",
+    chooseHint: "اضغط على أي طلب لعرض تفاصيل التتبع الخاصة به.",
+    noCourier: "تتبع شركة الشحن لم يبدأ بعد.",
+    privacy: "يتم عرض تفاصيل التتبع المرتبطة بهذا الرقم فقط.",
+    missing: "من فضلك أدخل رقم الموبايل.",
+    invalid: "من فضلك أدخل رقم موبايل مصري صحيح.",
+    notFound: "لم يتم العثور على طلبات مرتبطة بهذا الرقم.",
+    failed: "تعذر التحقق من طلباتك الآن.",
   },
 } as const;
 
-const orderSteps = [
-  {
-    status: "new",
-    title: {
-      en: "Order Placed",
-      ar: "تم استلام الطلب",
-    },
-    description: {
-      en: "Your order has been received successfully by ORVIX.",
-      ar: "تم استلام طلبك بنجاح لدى ORVIX.",
-    },
-  },
-  {
-    status: "confirmed",
-    title: {
-      en: "Order Confirmed",
-      ar: "تم تأكيد الطلب",
-    },
-    description: {
-      en: "Your order details have been reviewed and confirmed.",
-      ar: "تمت مراجعة بيانات طلبك وتأكيده.",
-    },
-  },
-  {
-    status: "shipped",
-    title: {
-      en: "Shipped",
-      ar: "تم الشحن",
-    },
-    description: {
-      en: "Your order has left our facility and is on its way.",
-      ar: "غادر طلبك مركز التجهيز وهو في طريقه إليك.",
-    },
-  },
-  {
-    status: "out_for_delivery",
-    title: {
-      en: "Out for Delivery",
-      ar: "خرج للتوصيل",
-    },
-    description: {
-      en: "The courier is delivering your order to your address.",
-      ar: "مندوب الشحن في طريقه لتوصيل الطلب إلى عنوانك.",
-    },
-  },
-  {
-    status: "delivered",
-    title: {
-      en: "Delivered",
-      ar: "تم التوصيل",
-    },
-    description: {
-      en: "Your order has been delivered successfully.",
-      ar: "تم توصيل طلبك بنجاح.",
-    },
-  },
-] as const;
-
-const statusLabels: Record<
-  Language,
-  Record<string, string>
-> = {
+const statusLabels: Record<Language, Record<string, string>> = {
   en: {
-    new: "New",
+    new: "Pre-Order",
     confirmed: "Confirmed",
     shipped: "Shipped",
     out_for_delivery: "Out for Delivery",
@@ -249,7 +111,7 @@ const statusLabels: Record<
     cancelled: "Cancelled",
   },
   ar: {
-    new: "جديد",
+    new: "طلب مسبق",
     confirmed: "تم التأكيد",
     shipped: "تم الشحن",
     out_for_delivery: "خرج للتوصيل",
@@ -258,968 +120,209 @@ const statusLabels: Record<
   },
 };
 
-const arabicBostaStatuses: Record<
-  string,
-  string
-> = {
-  "pickup requested": "تم طلب الاستلام",
-  "waiting for route": "في انتظار تحديد خط السير",
-  "route assigned": "تم تحديد خط السير",
-  "picked up from business": "تم الاستلام من ORVIX",
-  "picking up from consignee": "جارٍ الاستلام من العميل",
-  "picked up from consignee": "تم الاستلام من العميل",
-  "received at warehouse": "تم الاستلام في المخزن",
-  fulfilled: "تم تجهيز الشحنة",
-  "in transit between hubs": "قيد النقل بين مراكز الشحن",
-  "picking up": "جارٍ الاستلام",
-  "out for delivery": "خرجت للتوصيل",
-  delivered: "تم التوصيل",
-  "returned to business": "تمت الإعادة إلى ORVIX",
-  exception: "توجد مشكلة في الشحنة",
-  terminated: "تم إنهاء الشحنة",
-  canceled: "تم إلغاء الشحنة",
-  "returned to stock": "تمت الإعادة إلى المخزون",
-  lost: "الشحنة مفقودة",
-  damaged: "الشحنة تالفة",
-  investigation: "الشحنة قيد المراجعة",
-  "awaiting your action": "في انتظار إجراء مطلوب",
-  archived: "تمت الأرشفة",
-  "on hold": "الشحنة معلقة مؤقتًا",
-};
+const progressStatuses = ["new", "confirmed", "shipped", "out_for_delivery", "delivered"];
 
-function normaliseStatus(status: string) {
-  const cleanStatus = status
-    .trim()
-    .toLowerCase()
-    .replaceAll(" ", "_")
-    .replaceAll("-", "_");
-
-  if (cleanStatus === "pending") {
-    return "new";
-  }
-
-  if (
-    cleanStatus === "outfordelivery" ||
-    cleanStatus === "out_for_delivery"
-  ) {
-    return "out_for_delivery";
-  }
-
-  return cleanStatus;
+function cleanStatus(value: string) {
+  const status = String(value || "new").trim().toLowerCase().replaceAll(" ", "_").replaceAll("-", "_");
+  if (status === "pending") return "new";
+  return status;
 }
 
-function getStatusIndex(status: string) {
-  const normalisedStatus =
-    normaliseStatus(status);
-
-  const index = orderSteps.findIndex(
-    (step) =>
-      step.status === normalisedStatus
-  );
-
-  return index >= 0 ? index : 0;
+function formatStatus(value: string, language: Language) {
+  const status = cleanStatus(value);
+  return statusLabels[language][status] || status.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function formatStatus(
-  status: string,
-  language: Language
-) {
-  const normalisedStatus =
-    normaliseStatus(status);
-
-  return (
-    statusLabels[language][
-      normalisedStatus
-    ] ||
-    normalisedStatus
-      .replaceAll("_", " ")
-      .replace(/\b\w/g, (letter) =>
-        letter.toUpperCase()
-      )
-  );
-}
-
-function formatMoney(
-  value: number,
-  language: Language
-) {
-  const locale =
-    language === "ar" ? "ar-EG" : "en-GB";
-
-  const currencyLabel =
-    language === "ar" ? "ج.م" : "EGP";
-
-  return `${Number(value || 0).toLocaleString(
-    locale
-  )} ${currencyLabel}`;
-}
-
-function formatTrackingDate(
-  value: string,
-  language: Language
-) {
+function formatDate(value: string | null | undefined, language: Language) {
+  if (!value) return "—";
   const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return copyByLanguage[language].invalidDate;
-  }
-
-  return new Intl.DateTimeFormat(
-    language === "ar" ? "ar-EG" : "en-GB",
-    {
-      dateStyle: "medium",
-      timeStyle: "short",
-      timeZone: "Africa/Cairo",
-    }
-  ).format(date);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat(language === "ar" ? "ar-EG" : "en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Africa/Cairo",
+  }).format(date);
 }
 
-function formatCarrierStatus(
-  status: string,
-  language: Language
-) {
-  if (language === "en") {
-    return status;
-  }
-
-  const normalizedStatus = status
-    .trim()
-    .toLowerCase();
-
-  if (
-    arabicBostaStatuses[normalizedStatus]
-  ) {
-    return arabicBostaStatuses[
-      normalizedStatus
-    ];
-  }
-
-  const stateNumber = status.match(
-    /^Bosta state (\d+)$/i
-  );
-
-  return stateNumber
-    ? `حالة بوسطة ${stateNumber[1]}`
-    : status;
+function money(value: number, language: Language) {
+  const locale = language === "ar" ? "ar-EG" : "en-GB";
+  return `${Number(value || 0).toLocaleString(locale)} ${language === "ar" ? "ج.م" : "EGP"}`;
 }
 
-function getTrackingErrorMessage(
-  result: TrackingResult,
-  language: Language
-) {
-  const copy = copyByLanguage[language];
-
-  const messages: Record<string, string> = {
-    CONFIGURATION_ERROR: copy.lookupFailed,
-    MISSING_DETAILS: copy.missingDetails,
-    INVALID_DETAILS: copy.invalidDetails,
-    LOOKUP_FAILED: copy.lookupFailed,
-    ORDER_NOT_FOUND: copy.orderNotFound,
-    UNKNOWN_ERROR: copy.lookupFailed,
-  };
-
-  return (
-    (result.code && messages[result.code]) ||
-    (language === "en" && result.message) ||
-    copy.lookupFailed
-  );
-}
-
-function getBostaTrackingLink(
-  trackingNumber: string
-) {
-  return `https://bosta.co/ar-eg/tracking-shipments?shipment-number=${encodeURIComponent(
-    trackingNumber
-  )}`;
+function statusTone(statusValue: string) {
+  const status = cleanStatus(statusValue);
+  if (status === "delivered") return "border-emerald-400/20 bg-emerald-400/10 text-emerald-200";
+  if (status === "cancelled") return "border-red-400/20 bg-red-400/10 text-red-200";
+  if (status === "out_for_delivery" || status === "shipped") return "border-blue-400/20 bg-blue-400/10 text-blue-200";
+  return "border-violet-400/20 bg-violet-400/10 text-violet-100";
 }
 
 export default function TrackOrderPage() {
-  const { language, isArabic } =
-    useLanguage();
-
-  const [orderNumber, setOrderNumber] =
-    useState("");
-
+  const { language } = useLanguage();
+  const t = copy[language];
+  const rtl = language === "ar";
   const [phone, setPhone] = useState("");
+  const [orders, setOrders] = useState<TrackedOrder[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const [order, setOrder] =
-    useState<TrackedOrder | null>(null);
+  const selected = orders[selectedIndex] || null;
+  const currentProgressIndex = useMemo(() => {
+    if (!selected || cleanStatus(selected.status) === "cancelled") return -1;
+    return Math.max(0, progressStatuses.indexOf(cleanStatus(selected.status)));
+  }, [selected]);
 
-  const [message, setMessage] =
-    useState("");
-
-  const [loading, setLoading] =
-    useState(false);
-
-  const [detailsLoaded, setDetailsLoaded] =
-    useState(false);
-
-  const copy = copyByLanguage[language];
-  useEffect(() => {
-    const animationFrame =
-      window.requestAnimationFrame(() => {
-        const searchParams =
-          new URLSearchParams(
-            window.location.search
-          );
-
-        const orderNumberFromUrl =
-          searchParams.get(
-            "orderNumber"
-          ) || "";
-
-        const savedPhone =
-          sessionStorage.getItem(
-            "orvixLastOrderPhone"
-          ) || "";
-
-        if (orderNumberFromUrl) {
-          setOrderNumber(
-            orderNumberFromUrl
-              .trim()
-              .toUpperCase()
-          );
-        }
-
-        if (savedPhone) {
-          setPhone(savedPhone);
-        }
-
-        setDetailsLoaded(true);
-      });
-
-    return () =>
-      window.cancelAnimationFrame(
-        animationFrame
-      );
-  }, []);
-
-  async function trackOrder(
-    submittedOrderNumber: string,
-    submittedPhone: string
-  ) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (loading) return;
     setLoading(true);
-    setMessage("");
-    setOrder(null);
+    setError("");
+    setOrders([]);
+    setSelectedIndex(0);
 
     try {
-      const response = await fetch(
-        "/api/track-order",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            orderNumber:
-              submittedOrderNumber
-                .trim()
-                .toUpperCase(),
-
-            phone: submittedPhone.trim(),
-          }),
-        }
-      );
-
-      const result =
-        (await response.json()) as TrackingResult;
-
-      if (
-        !response.ok ||
-        !result.success ||
-        !result.order
-      ) {
-        throw new Error(
-          getTrackingErrorMessage(
-            result,
-            language
-          )
-        );
+      const response = await fetch("/api/track-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone }),
+      });
+      const result = (await response.json()) as TrackingResult;
+      if (!response.ok || !result.success) {
+        if (result.code === "MISSING_PHONE") throw new Error(t.missing);
+        if (result.code === "INVALID_PHONE") throw new Error(t.invalid);
+        if (result.code === "ORDER_NOT_FOUND") throw new Error(t.notFound);
+        throw new Error(result.message || t.failed);
       }
-
-      setOrder(result.order);
-
-      sessionStorage.setItem(
-        "orvixLastOrderPhone",
-        submittedPhone.trim()
-      );
-
-      window.history.replaceState(
-        {},
-        "",
-        `/track-order?orderNumber=${encodeURIComponent(
-          submittedOrderNumber
-            .trim()
-            .toUpperCase()
-        )}`
-      );
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : copy.lookupFailed
-      );
+      setOrders(Array.isArray(result.orders) ? result.orders : []);
+    } catch (lookupError) {
+      setError(lookupError instanceof Error ? lookupError.message : t.failed);
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleSubmit(
-    event: FormEvent<HTMLFormElement>
-  ) {
-    event.preventDefault();
-
-    if (
-      !orderNumber.trim() ||
-      !phone.trim()
-    ) {
-      setMessage(
-        copy.missingDetails
-      );
-
-      return;
-    }
-
-    await trackOrder(orderNumber, phone);
-  }
-
-  function resetTracking() {
-    setOrder(null);
-    setMessage("");
-    setOrderNumber("");
-    setPhone("");
-
-    sessionStorage.removeItem(
-      "orvixLastOrderPhone"
-    );
-
-    window.history.replaceState(
-      {},
-      "",
-      "/track-order"
-    );
-  }
-
-  const normalisedOrderStatus = order
-    ? normaliseStatus(order.status)
-    : "new";
-
-  const activeStatusIndex = order
-    ? getStatusIndex(order.status)
-    : 0;
-
-  const isCancelled =
-    normalisedOrderStatus === "cancelled";
-
-  const isDelivered =
-    normalisedOrderStatus === "delivered";
-
-  const normalisedShippingStatus = order
-    ? normaliseStatus(
-        order.shippingStatus || ""
-      )
-    : "";
-
-  const hasShippingIssue = [
-    "returned",
-    "cancelled",
-    "exception",
-    "shipping_issue",
-  ].includes(normalisedShippingStatus);
-
-  const trackingNumber =
-    order?.trackingNumber?.trim() || "";
-
-  const shippingHeadline = isCancelled
-    ? copy.cancelledShipmentHeadline
-    : trackingNumber
-      ? order?.carrierStatus
-        ? formatCarrierStatus(
-            order.carrierStatus,
-            language
-          )
-        : copy.shipmentInProgress
-      : copy.preparingShipment;
-
-  const shippingDescription = isCancelled
-    ? copy.cancelledShipmentDescription
-    : hasShippingIssue
-      ? copy.shippingIssueDescription
-      : trackingNumber
-        ? copy.trackingDescription
-        : copy.preparingDescription;
-
-  const reviewLink = order
-    ? `/leave-review?orderNumber=${encodeURIComponent(
-        order.orderNumber
-      )}`
-    : "/leave-review";
-
-  if (!detailsLoaded) {
-    return (
-      <main
-        lang={language}
-        dir={isArabic ? "rtl" : "ltr"}
-        className="min-h-screen bg-[#070707] text-white"
-      >
-        <Navbar />
-
-        <div className="flex min-h-[70vh] items-center justify-center px-4">
-          <div className="text-center">
-            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-
-            <p className="mt-5 text-gray-400">
-              {copy.loadingTracking}
-            </p>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
   return (
-    <main
-      lang={language}
-      dir={isArabic ? "rtl" : "ltr"}
-      className="min-h-screen bg-[#070707] text-white"
-    >
+    <main dir={rtl ? "rtl" : "ltr"} className="min-h-screen bg-[#090a0c] text-white">
       <Navbar />
-
-      <section className="px-4 py-14 sm:px-6 sm:py-20">
-        <div className="mx-auto max-w-4xl">
-          <div className="text-center">
-            <p className="text-sm uppercase tracking-[0.4em] text-gray-500">
-              {copy.eyebrow}
-            </p>
-
-            <h1 className="mt-4 text-4xl font-black sm:text-6xl">
-              {copy.title}
-            </h1>
-
-            <p className="mx-auto mt-5 max-w-xl leading-7 text-gray-400">
-              {copy.subtitle}
-            </p>
-          </div>
-
-          <form
-            onSubmit={handleSubmit}
-            className="mt-10 rounded-[32px] border border-white/10 bg-white/5 p-5 sm:p-8"
-          >
-            <div className="grid gap-5 sm:grid-cols-2">
-              <label>
-                <span className="mb-2 block text-sm font-bold text-gray-300">
-                  {copy.orderNumber}
-                </span>
-
-                <input
-                  type="text"
-                  dir="ltr"
-                  value={orderNumber}
-                  onChange={(event) => {
-                    setOrderNumber(
-                      event.target.value.toUpperCase()
-                    );
-
-                    setMessage("");
-                    setOrder(null);
-                  }}
-                  placeholder="ORVIX-..."
-                  autoComplete="off"
-                  disabled={loading}
-                  className="w-full rounded-2xl border border-white/15 bg-black/50 px-5 py-4 uppercase text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
-                />
-              </label>
-
-              <label>
-                <span className="mb-2 block text-sm font-bold text-gray-300">
-                  {copy.phoneNumber}
-                </span>
-
-                <input
-                  type="tel"
-                  dir="ltr"
-                  value={phone}
-                  onChange={(event) => {
-                    setPhone(event.target.value);
-
-                    setMessage("");
-                    setOrder(null);
-                  }}
-                  placeholder="01XXXXXXXXX"
-                  autoComplete="tel"
-                  inputMode="tel"
-                  disabled={loading}
-                  className="w-full rounded-2xl border border-white/15 bg-black/50 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
-                />
-              </label>
-            </div>
-
-            {message && (
-              <p
-                role="alert"
-                className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm leading-6 text-red-300"
-              >
-                {message}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={
-                loading ||
-                !orderNumber.trim() ||
-                !phone.trim()
-              }
-              className="mt-6 flex w-full items-center justify-center rounded-full bg-white px-8 py-5 text-lg font-black text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {loading
-                ? copy.checkingOrder
-                : copy.trackYourOrder}
-            </button>
-          </form>
-
-          {order && (
-            <section className="mt-8 overflow-hidden rounded-[36px] border border-white/10 bg-white/5">
-              <div className="p-5 sm:p-8">
-                <div className="flex flex-col gap-5 border-b border-white/10 pb-7 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.25em] text-gray-500">
-                      {copy.orderNumber}
-                    </p>
-
-                    <h2 className="mt-2 break-words text-2xl font-black sm:text-3xl">
-                      {order.orderNumber}
-                    </h2>
-
-                    <p className="mt-3 max-w-xl text-sm leading-6 text-gray-500">
-                      {copy.privacyNote}
-                    </p>
-                  </div>
-
-                  <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end">
-                    <div
-                      className={`w-fit rounded-full border px-5 py-3 text-sm font-black ${
-                        isCancelled
-                          ? "border-red-500/20 bg-red-500/10 text-red-300"
-                          : isDelivered
-                            ? "border-green-500/20 bg-green-500/10 text-green-300"
-                            : "border-white bg-white text-black"
-                      }`}
-                    >
-                      {formatStatus(
-                        order.status,
-                        language
-                      )}
-                    </div>
-
-                    <p className="text-xs text-gray-500">
-                      {copy.latestUpdate} ·{" "}
-                      {formatTrackingDate(
-                        order.lastUpdatedAt,
-                        language
-                      )}{" "}
-                      {copy.cairoTime}
-                    </p>
-                  </div>
-                </div>
-
-                {isCancelled ? (
-                  <div className="mt-8 rounded-[28px] border border-red-500/20 bg-red-500/10 p-6">
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-red-400 font-black text-black">
-                        ×
-                      </div>
-
-                      <div>
-                        <h3 className="text-xl font-black text-red-200">
-                          {copy.orderCancelled}
-                        </h3>
-
-                        <p className="mt-2 leading-7 text-red-200/70">
-                          {
-                            copy.orderCancelledDescription
-                          }
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-9">
-                    <p className="text-sm font-black uppercase tracking-[0.3em] text-gray-500">
-                      {copy.orderProgress}
-                    </p>
-
-                    <div className="mt-8">
-                      {orderSteps.map(
-                        (step, index) => {
-                          const completed =
-                            index <
-                            activeStatusIndex;
-
-                          const current =
-                            index ===
-                            activeStatusIndex;
-
-                          const reached =
-                            index <=
-                            activeStatusIndex;
-
-                          const isLast =
-                            index ===
-                            orderSteps.length - 1;
-
-                          return (
-                            <div
-                              key={step.status}
-                              className="relative flex gap-5"
-                            >
-                              {!isLast && (
-                                <div
-                                  className={`absolute top-12 h-[calc(100%-4px)] w-px ${
-                                    isArabic
-                                      ? "right-[23px]"
-                                      : "left-[23px]"
-                                  } ${
-                                    index <
-                                    activeStatusIndex
-                                      ? "bg-white"
-                                      : "bg-white/10"
-                                  }`}
-                                />
-                              )}
-
-                              <div
-                                className={`relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 font-black transition ${
-                                  completed
-                                    ? "border-white bg-white text-black"
-                                    : current
-                                      ? "border-white bg-black text-white shadow-[0_0_0_6px_rgba(255,255,255,0.08)]"
-                                      : "border-white/15 bg-[#070707] text-gray-600"
-                                }`}
-                              >
-                                {completed
-                                  ? "✓"
-                                  : index + 1}
-                              </div>
-
-                              <div
-                                className={`min-w-0 flex-1 ${
-                                  isLast
-                                    ? "pb-0"
-                                    : "pb-9"
-                                }`}
-                              >
-                                <div className="flex flex-wrap items-center gap-3">
-                                  <h3
-                                    className={`text-lg font-black ${
-                                      reached
-                                        ? "text-white"
-                                        : "text-gray-600"
-                                    }`}
-                                  >
-                                    {
-                                      step.title[
-                                        language
-                                      ]
-                                    }
-                                  </h3>
-
-                                  {current && (
-                                    <span className="rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-green-400">
-                                      {
-                                        copy.currentStatus
-                                      }
-                                    </span>
-                                  )}
-
-                                  {completed && (
-                                    <span className="text-xs font-bold text-gray-500">
-                                      {copy.completed}
-                                    </span>
-                                  )}
-                                </div>
-
-                                <p
-                                  className={`mt-2 text-sm leading-6 ${
-                                    reached
-                                      ? "text-gray-400"
-                                      : "text-gray-600"
-                                  }`}
-                                >
-                                  {
-                                    step.description[
-                                      language
-                                    ]
-                                  }
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        }
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <div
-                  className={`mt-9 rounded-[28px] border p-5 sm:p-6 ${
-                    isCancelled ||
-                    hasShippingIssue
-                      ? "border-red-500/20 bg-red-500/10"
-                      : trackingNumber
-                        ? "border-blue-500/20 bg-blue-500/10"
-                        : "border-white/10 bg-black/40"
-                  }`}
-                >
-                  <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="max-w-2xl">
-                      <p
-                        className={`text-xs font-black uppercase tracking-[0.28em] ${
-                          isCancelled ||
-                          hasShippingIssue
-                            ? "text-red-300/70"
-                            : trackingNumber
-                              ? "text-blue-300/70"
-                              : "text-gray-500"
-                        }`}
-                      >
-                        {copy.shippingUpdate}
-                      </p>
-
-                      <h3 className="mt-3 text-xl font-black sm:text-2xl">
-                        {shippingHeadline}
-                      </h3>
-
-                      <p className="mt-3 leading-7 text-gray-300/80">
-                        {shippingDescription}
-                      </p>
-                    </div>
-
-                    <div className="flex shrink-0 flex-col gap-3 sm:flex-row lg:flex-col">
-                      {trackingNumber && (
-                        <a
-                          href={getBostaTrackingLink(
-                            trackingNumber
-                          )}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-center rounded-full bg-white px-6 py-3 text-center text-sm font-black text-black transition hover:bg-gray-200"
-                        >
-                          {copy.trackOnBosta} ↗
-                        </a>
-                      )}
-
-                      <a
-                        href={ORVIX_SUPPORT_URL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center rounded-full border border-white/15 px-6 py-3 text-center text-sm font-black text-white transition hover:bg-white/10"
-                      >
-                        {copy.contactSupport}
-                      </a>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                      <p className="text-xs uppercase tracking-wider text-gray-500">
-                        {
-                          copy.bostaTrackingNumber
-                        }
-                      </p>
-
-                      <p
-                        dir="ltr"
-                        className={`mt-2 break-all font-black ${
-                          isArabic
-                            ? "text-right"
-                            : "text-left"
-                        }`}
-                      >
-                        {trackingNumber ||
-                          copy.notAssigned}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                      <p className="text-xs uppercase tracking-wider text-gray-500">
-                        {
-                          copy.latestAvailableUpdate
-                        }
-                      </p>
-
-                      <p className="mt-2 font-black">
-                        {formatTrackingDate(
-                          order.lastUpdatedAt,
-                          language
-                        )}
-                      </p>
-
-                      <p className="mt-1 text-xs text-gray-500">
-                        {copy.cairoTime}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {isDelivered && (
-                  <div className="mt-9 rounded-[28px] border border-yellow-400/20 bg-yellow-400/10 p-6 text-center">
-                    <div className="text-4xl">
-                      ★★★★★
-                    </div>
-
-                    <h3 className="mt-4 text-2xl font-black">
-                      {copy.howWasExperience}
-                    </h3>
-
-                    <p className="mx-auto mt-3 max-w-xl leading-7 text-gray-300">
-                      {copy.reviewDescription}
-                    </p>
-
-                    <Link
-                      href={reviewLink}
-                      className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-white px-8 py-4 font-black text-black transition hover:bg-gray-200 sm:w-auto"
-                    >
-                      {copy.leaveReview}
-                    </Link>
-                  </div>
-                )}
-
-                <div className="mt-9 border-t border-white/10 pt-8">
-                  <h3 className="text-xl font-black">
-                    {copy.orderDetails}
-                  </h3>
-
-                  <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                    <div className="rounded-3xl border border-white/10 bg-black/40 p-5">
-                      <p className="text-sm text-gray-500">
-                        {copy.product}
-                      </p>
-
-                      <p className="mt-2 font-black">
-                        {order.productName ||
-                          "Google Fitbit Air"}
-                      </p>
-
-                      <p className="mt-2 text-sm text-gray-400">
-                        {order.colour} ×{" "}
-                        {order.quantity}
-                      </p>
-                    </div>
-
-                    <div className="rounded-3xl border border-white/10 bg-black/40 p-5">
-                      <p className="text-sm text-gray-500">
-                        {copy.deliveryArea}
-                      </p>
-
-                      <p className="mt-2 font-black">
-                        {order.governorate}
-                      </p>
-
-                      <p className="mt-2 text-sm text-gray-500">
-                        {copy.instapayOnDelivery}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 rounded-3xl border border-white/10 bg-black/40 p-5 sm:p-6">
-                  <div className="flex justify-between gap-5 text-gray-400">
-                    <span>{copy.productsTotal}</span>
-
-                    <span>
-                      {formatMoney(
-                        order.productsTotal,
-                        language
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="mt-4 flex justify-between gap-5 text-gray-400">
-                    <span>{copy.delivery}</span>
-
-                    <span>
-                      {order.deliveryFee === 0
-                        ? copy.free
-                        : formatMoney(
-                            order.deliveryFee,
-                            language
-                          )}
-                    </span>
-                  </div>
-
-                  {order.discountAmount > 0 && (
-                    <div className="mt-4 flex justify-between gap-5 text-green-400">
-                      <span>{copy.discount}</span>
-
-                      <span>
-                        -
-                        {formatMoney(
-                          order.discountAmount,
-                          language
-                        )}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="mt-6 flex items-end justify-between gap-5 border-t border-white/10 pt-6">
-                    <strong className="text-lg">
-                      {copy.total}
-                    </strong>
-
-                    <strong className="text-2xl sm:text-3xl">
-                      {formatMoney(
-                        order.totalPrice,
-                        language
-                      )}
-                    </strong>
-                  </div>
-                </div>
-
-                <p className="mt-6 text-center text-sm text-gray-600">
-                  {copy.orderPlacedOn}{" "}
-                  {formatTrackingDate(
-                    order.createdAt,
-                    language
-                  )}
-                </p>
-
-                <div
-                  className={`mt-7 grid gap-3 ${
-                    isDelivered
-                      ? "sm:grid-cols-2"
-                      : "sm:grid-cols-1"
-                  }`}
-                >
-                  {isDelivered && (
-                    <Link
-                      href={reviewLink}
-                      className="flex items-center justify-center rounded-full bg-white px-7 py-4 text-center font-black text-black transition hover:bg-gray-200"
-                    >
-                      {copy.leaveReview}
-                    </Link>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={resetTracking}
-                    className="flex items-center justify-center rounded-full border border-white/15 px-7 py-4 font-black text-white transition hover:bg-white/10"
-                  >
-                    {copy.trackAnother}
-                  </button>
-                </div>
-              </div>
-            </section>
-          )}
+      <section className="mx-auto max-w-6xl px-4 pb-20 pt-28 sm:px-6">
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/30">{t.eyebrow}</p>
+          <h1 className="mt-4 text-4xl font-black tracking-[-0.04em] sm:text-5xl">{t.title}</h1>
+          <p className="mx-auto mt-4 max-w-xl text-sm font-medium leading-7 text-white/40">{t.subtitle}</p>
         </div>
-      </section>
 
-      <footer className="border-t border-white/10 px-4 py-8">
-        <p className="text-center text-sm text-gray-600">
-          © 2026 ORVIX. {copy.rightsReserved}
-        </p>
-      </footer>
+        <form onSubmit={submit} className="mx-auto mt-8 max-w-xl rounded-[26px] border border-white/10 bg-white/[0.035] p-4 shadow-2xl sm:p-5">
+          <label className="text-[10px] font-black uppercase tracking-[0.14em] text-white/35">{t.phone}</label>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+            <input
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              placeholder={t.placeholder}
+              className="h-12 min-w-0 flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 text-base font-bold outline-none placeholder:text-white/20 focus:border-white/25"
+            />
+            <button disabled={loading || !phone.trim()} className="h-12 rounded-2xl bg-white px-6 text-sm font-black text-black disabled:opacity-40">
+              {loading ? t.checking : t.button}
+            </button>
+          </div>
+          <p className="mt-3 text-[10px] font-medium text-white/25">{t.privacy}</p>
+          {error ? <p className="mt-4 rounded-xl border border-red-400/20 bg-red-400/[0.07] p-3 text-xs font-bold text-red-100">{error}</p> : null}
+        </form>
+
+        {orders.length ? (
+          <div className="mt-10 grid gap-5 lg:grid-cols-[330px_minmax(0,1fr)] lg:items-start">
+            <aside className="rounded-[24px] border border-white/8 bg-white/[0.025] p-3 lg:sticky lg:top-24">
+              <div className="px-2 pb-3 pt-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/25">{t.found}</p>
+                <p className="mt-1 text-sm font-black">{t.choose}</p>
+                <p className="mt-1 text-[10px] text-white/30">{t.chooseHint}</p>
+              </div>
+              <div className="space-y-2">
+                {orders.map((order, index) => (
+                  <button
+                    key={order.orderNumber}
+                    type="button"
+                    onClick={() => setSelectedIndex(index)}
+                    className={`w-full rounded-2xl border p-3 text-left transition ${index === selectedIndex ? "border-white/20 bg-white/[0.08]" : "border-white/[0.06] bg-black/10 hover:bg-white/[0.04]"}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-xs font-black">{order.orderNumber}</p>
+                      <span className={`rounded-full border px-2 py-1 text-[8px] font-black ${statusTone(order.status)}`}>{formatStatus(order.status, language)}</span>
+                    </div>
+                    <p className="mt-2 text-[10px] text-white/30">{formatDate(order.createdAt, language)}</p>
+                    <p className="mt-1 text-[10px] font-black text-white/55">{money(order.totalPrice, language)}</p>
+                  </button>
+                ))}
+              </div>
+            </aside>
+
+            {selected ? (
+              <section className="space-y-4">
+                <article className="rounded-[28px] border border-white/10 bg-white/[0.035] p-5 sm:p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/25">{selected.orderNumber}</p>
+                      <h2 className="mt-2 text-2xl font-black">{t.currentStatus}</h2>
+                    </div>
+                    <span className={`rounded-full border px-3 py-2 text-[10px] font-black ${statusTone(selected.status)}`}>{formatStatus(selected.status, language)}</span>
+                  </div>
+
+                  {cleanStatus(selected.status) !== "cancelled" ? (
+                    <div className="mt-6 grid grid-cols-5 gap-2">
+                      {progressStatuses.map((status, index) => (
+                        <div key={status} className="min-w-0">
+                          <div className={`h-1.5 rounded-full ${index <= currentProgressIndex ? "bg-white" : "bg-white/10"}`} />
+                          <p className={`mt-2 truncate text-[8px] font-black ${index <= currentProgressIndex ? "text-white/65" : "text-white/20"}`}>{formatStatus(status, language)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-2xl bg-black/20 p-3"><p className="text-[9px] font-black uppercase text-white/25">{t.placed}</p><p className="mt-1 text-xs font-black">{formatDate(selected.createdAt, language)}</p></div>
+                    <div className="rounded-2xl bg-black/20 p-3"><p className="text-[9px] font-black uppercase text-white/25">{t.total}</p><p className="mt-1 text-xs font-black">{money(selected.totalPrice, language)}</p></div>
+                    <div className="rounded-2xl bg-black/20 p-3"><p className="text-[9px] font-black uppercase text-white/25">{t.estimated}</p><p className="mt-1 text-xs font-black">{selected.estimatedDeliveryFrom || "—"}{selected.estimatedDeliveryTo ? ` → ${selected.estimatedDeliveryTo}` : ""}</p></div>
+                    <div className="rounded-2xl bg-black/20 p-3"><p className="text-[9px] font-black uppercase text-white/25">{t.trackingNumber}</p><p className="mt-1 truncate text-xs font-black">{selected.trackingNumber || "—"}</p></div>
+                  </div>
+                </article>
+
+                <article className="rounded-[26px] border border-white/8 bg-white/[0.025] p-5">
+                  <p className="text-[9px] font-black uppercase tracking-[0.15em] text-white/25">{t.courier}</p>
+                  <p className="mt-2 text-base font-black">{selected.carrierStatus || t.noCourier}</p>
+                  <p className="mt-1 text-[10px] text-white/30">{formatDate(selected.lastUpdatedAt, language)}</p>
+                </article>
+
+                <article className="rounded-[26px] border border-white/8 bg-white/[0.025] p-5">
+                  <p className="text-[9px] font-black uppercase tracking-[0.15em] text-white/25">{t.items}</p>
+                  <div className="mt-3 divide-y divide-white/[0.07]">
+                    {selected.items.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                        <div><p className="text-xs font-black text-white/75">{item.productName}</p><p className="mt-1 text-[10px] text-white/30">{item.variantLabel || item.colour || "Standard"} · {item.quantity}×</p></div>
+                        <p className="text-xs font-black">{money(item.lineTotal, language)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="rounded-[26px] border border-white/8 bg-white/[0.025] p-5">
+                  <p className="text-[9px] font-black uppercase tracking-[0.15em] text-white/25">{t.timeline}</p>
+                  <div className="mt-4 space-y-3">
+                    {selected.timeline.slice().reverse().map((event) => (
+                      <div key={String(event.id)} className="grid grid-cols-[10px_1fr] gap-3">
+                        <span className="mt-1.5 h-2.5 w-2.5 rounded-full bg-white/55" />
+                        <div><p className="text-xs font-black text-white/70">{event.title}</p>{event.details ? <p className="mt-1 text-[10px] leading-5 text-white/30">{event.details}</p> : null}<p className="mt-1 text-[9px] text-white/20">{formatDate(event.createdAt, language)}</p></div>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              </section>
+            ) : null}
+          </div>
+        ) : null}
+      </section>
     </main>
   );
 }
