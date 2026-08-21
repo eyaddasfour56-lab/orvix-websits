@@ -1,157 +1,206 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type {
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
+} from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import ConversionBoost from "@/components/ConversionBoost";
 
 const ADMIN_ANALYTICS_POSITION_KEY = "orvix-admin-analytics-button-position";
 
-function DraggableAdminConversion() {
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
+type ButtonPosition = {
+  left: number;
+  top: number;
+};
+
+type DragState = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  startLeft: number;
+  startTop: number;
+  moved: boolean;
+};
+
+function clampButtonPosition(
+  left: number,
+  top: number,
+  width: number,
+  height: number
+): ButtonPosition {
+  const padding = 8;
+  const maxLeft = Math.max(padding, window.innerWidth - width - padding);
+  const maxTop = Math.max(padding, window.innerHeight - height - padding);
+
+  return {
+    left: Math.min(Math.max(left, padding), maxLeft),
+    top: Math.min(Math.max(top, padding), maxTop),
+  };
+}
+
+function DraggableAdminAnalyticsButton() {
+  const buttonRef = useRef<HTMLAnchorElement | null>(null);
+  const dragRef = useRef<DragState | null>(null);
+  const suppressClickRef = useRef(false);
+  const [position, setPosition] = useState<ButtonPosition | null>(null);
 
   useEffect(() => {
-    const button = wrapperRef.current?.querySelector<HTMLAnchorElement>(
-      'a[href="/admin/analytics"]'
-    );
+    const button = buttonRef.current;
     if (!button) return;
-
-    button.draggable = false;
-    button.style.touchAction = "none";
-    button.style.userSelect = "none";
-    button.style.cursor = "grab";
-
-    let drag:
-      | {
-          pointerId: number;
-          startX: number;
-          startY: number;
-          startLeft: number;
-          startTop: number;
-          moved: boolean;
-        }
-      | null = null;
-    let suppressNextClick = false;
-
-    function clampAndPlace(left: number, top: number) {
-      const rect = button.getBoundingClientRect();
-      const padding = 8;
-      const maxLeft = Math.max(padding, window.innerWidth - rect.width - padding);
-      const maxTop = Math.max(padding, window.innerHeight - rect.height - padding);
-      const nextLeft = Math.min(Math.max(left, padding), maxLeft);
-      const nextTop = Math.min(Math.max(top, padding), maxTop);
-
-      button.style.left = `${nextLeft}px`;
-      button.style.top = `${nextTop}px`;
-      button.style.right = "auto";
-      button.style.bottom = "auto";
-    }
-
-    function savePosition() {
-      const rect = button.getBoundingClientRect();
-      window.localStorage.setItem(
-        ADMIN_ANALYTICS_POSITION_KEY,
-        JSON.stringify({ left: rect.left, top: rect.top })
-      );
-    }
 
     try {
       const saved = window.localStorage.getItem(ADMIN_ANALYTICS_POSITION_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved) as { left?: number; top?: number };
-        if (Number.isFinite(parsed.left) && Number.isFinite(parsed.top)) {
+        const parsed = JSON.parse(saved) as Partial<ButtonPosition>;
+        if (typeof parsed.left === "number" && typeof parsed.top === "number") {
           window.requestAnimationFrame(() => {
-            clampAndPlace(parsed.left as number, parsed.top as number);
+            const currentButton = buttonRef.current;
+            if (!currentButton) return;
+            const rect = currentButton.getBoundingClientRect();
+            setPosition(
+              clampButtonPosition(parsed.left as number, parsed.top as number, rect.width, rect.height)
+            );
           });
         }
       }
     } catch {
-      // Keep the normal bottom-right position if stored data is invalid.
+      // Ignore invalid stored position and keep the default bottom-right position.
     }
 
-    function onPointerDown(event: PointerEvent) {
-      if (event.pointerType === "mouse" && event.button !== 0) return;
+    function handleResize() {
+      const currentButton = buttonRef.current;
+      if (!currentButton) return;
 
-      const rect = button.getBoundingClientRect();
-      drag = {
-        pointerId: event.pointerId,
-        startX: event.clientX,
-        startY: event.clientY,
-        startLeft: rect.left,
-        startTop: rect.top,
-        moved: false,
-      };
-      suppressNextClick = false;
-      button.style.cursor = "grabbing";
-      button.setPointerCapture(event.pointerId);
+      setPosition((current) => {
+        if (!current) return current;
+        const rect = currentButton.getBoundingClientRect();
+        const next = clampButtonPosition(current.left, current.top, rect.width, rect.height);
+        try {
+          window.localStorage.setItem(ADMIN_ANALYTICS_POSITION_KEY, JSON.stringify(next));
+        } catch {
+          // Local storage can be unavailable in some private browsing modes.
+        }
+        return next;
+      });
     }
 
-    function onPointerMove(event: PointerEvent) {
-      if (!drag || event.pointerId !== drag.pointerId) return;
-
-      const deltaX = event.clientX - drag.startX;
-      const deltaY = event.clientY - drag.startY;
-
-      if (!drag.moved && Math.hypot(deltaX, deltaY) >= 4) {
-        drag.moved = true;
-      }
-
-      if (!drag.moved) return;
-
-      event.preventDefault();
-      clampAndPlace(drag.startLeft + deltaX, drag.startTop + deltaY);
-    }
-
-    function finishDrag(event: PointerEvent) {
-      if (!drag || event.pointerId !== drag.pointerId) return;
-
-      if (drag.moved) {
-        suppressNextClick = true;
-        savePosition();
-      }
-
-      if (button.hasPointerCapture(event.pointerId)) {
-        button.releasePointerCapture(event.pointerId);
-      }
-      button.style.cursor = "grab";
-      drag = null;
-    }
-
-    function onClick(event: MouseEvent) {
-      if (!suppressNextClick) return;
-      event.preventDefault();
-      event.stopPropagation();
-      suppressNextClick = false;
-    }
-
-    function onResize() {
-      if (!button.style.left || !button.style.top) return;
-      const rect = button.getBoundingClientRect();
-      clampAndPlace(rect.left, rect.top);
-      savePosition();
-    }
-
-    button.addEventListener("pointerdown", onPointerDown);
-    button.addEventListener("pointermove", onPointerMove);
-    button.addEventListener("pointerup", finishDrag);
-    button.addEventListener("pointercancel", finishDrag);
-    button.addEventListener("click", onClick, true);
-    window.addEventListener("resize", onResize);
-
-    return () => {
-      button.removeEventListener("pointerdown", onPointerDown);
-      button.removeEventListener("pointermove", onPointerMove);
-      button.removeEventListener("pointerup", finishDrag);
-      button.removeEventListener("pointercancel", finishDrag);
-      button.removeEventListener("click", onClick, true);
-      window.removeEventListener("resize", onResize);
-    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  function handlePointerDown(event: ReactPointerEvent<HTMLAnchorElement>) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startLeft: rect.left,
+      startTop: rect.top,
+      moved: false,
+    };
+    suppressClickRef.current = false;
+    event.currentTarget.style.cursor = "grabbing";
+
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture is optional; dragging still works when unsupported.
+    }
+  }
+
+  function handlePointerMove(event: ReactPointerEvent<HTMLAnchorElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    const deltaX = event.clientX - drag.startX;
+    const deltaY = event.clientY - drag.startY;
+
+    if (!drag.moved && Math.hypot(deltaX, deltaY) >= 3) {
+      drag.moved = true;
+    }
+
+    if (!drag.moved) return;
+
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    setPosition(
+      clampButtonPosition(
+        drag.startLeft + deltaX,
+        drag.startTop + deltaY,
+        rect.width,
+        rect.height
+      )
+    );
+  }
+
+  function finishDrag(event: ReactPointerEvent<HTMLAnchorElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    if (drag.moved) {
+      suppressClickRef.current = true;
+      const rect = event.currentTarget.getBoundingClientRect();
+      const next = clampButtonPosition(rect.left, rect.top, rect.width, rect.height);
+      setPosition(next);
+      try {
+        window.localStorage.setItem(ADMIN_ANALYTICS_POSITION_KEY, JSON.stringify(next));
+      } catch {
+        // Moving the button should still work even if local storage is unavailable.
+      }
+    }
+
+    try {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    } catch {
+      // Ignore release errors on browsers without pointer capture support.
+    }
+
+    event.currentTarget.style.cursor = "grab";
+    dragRef.current = null;
+  }
+
+  function handleClick(event: ReactMouseEvent<HTMLAnchorElement>) {
+    if (!suppressClickRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    suppressClickRef.current = false;
+  }
+
   return (
-    <div ref={wrapperRef}>
-      <ConversionBoost />
-    </div>
+    <a
+      ref={buttonRef}
+      href="/admin/analytics"
+      draggable={false}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={finishDrag}
+      onPointerCancel={finishDrag}
+      onClick={handleClick}
+      onDragStart={(event) => event.preventDefault()}
+      className="fixed bottom-5 right-5 z-[190] rounded-full border border-white/15 bg-white px-5 py-3 text-sm font-black text-black shadow-2xl select-none active:scale-[0.99]"
+      style={
+        position
+          ? {
+              left: position.left,
+              top: position.top,
+              right: "auto",
+              bottom: "auto",
+              touchAction: "none",
+              cursor: "grab",
+            }
+          : { touchAction: "none", cursor: "grab" }
+      }
+      aria-label="Conversion analytics"
+    >
+      Conversion analytics
+    </a>
   );
 }
 
@@ -202,7 +251,8 @@ export default function ConversionMount() {
   }
 
   if (isAdmin) {
-    return <DraggableAdminConversion />;
+    if (pathname.startsWith("/admin/analytics")) return null;
+    return <DraggableAdminAnalyticsButton />;
   }
 
   if (!host) {
