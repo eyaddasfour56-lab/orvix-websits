@@ -15,18 +15,21 @@ const actionToStatus: Record<string, string> = {
 
 const allowedDirectStatuses = new Set([
   "new",
+  "confirmed",
+  "shipped",
+  "out_for_delivery",
+  "delivered",
+  "cancelled",
+]);
+
+const allowedJourneyStatuses = new Set([
+  "new",
   "international_transit",
   "arrived_egypt",
   "in_customs",
   "customs_cleared",
   "received_at_orvix",
   "ready_for_courier",
-  "courier_requested",
-  "confirmed",
-  "shipped",
-  "out_for_delivery",
-  "delivered",
-  "cancelled",
 ]);
 
 const actionToSupplierStatus: Record<string, string> = {
@@ -42,12 +45,14 @@ type OrderRow = {
   id: string;
   order_number?: string | null;
   status?: string | null;
+  journey_status?: string | null;
   payment_status?: string | null;
   total_price?: number | string | null;
   internal_notes?: string | null;
   supplier_name?: string | null;
   supplier_status?: string | null;
   order_type?: string | null;
+  bosta_tracking_number?: string | null;
 };
 
 function authorised(request: NextRequest) {
@@ -61,20 +66,10 @@ function idsFromBody(body: Record<string, unknown>) {
     .slice(0, 50);
 }
 
-function isImportJourneyStatus(status: string) {
-  return [
-    "new",
-    "international_transit",
-    "arrived_egypt",
-    "in_customs",
-    "customs_cleared",
-    "received_at_orvix",
-    "ready_for_courier",
-  ].includes(status);
-}
-
 export async function POST(request: NextRequest) {
-  if (!authorised(request)) return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
+  if (!authorised(request)) {
+    return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
+  }
 
   try {
     const body = (await request.json()) as Record<string, unknown>;
@@ -83,11 +78,13 @@ export async function POST(request: NextRequest) {
     const note = String(body.note || "").trim().slice(0, 4000);
     const supplierName = String(body.supplierName || "").trim().slice(0, 120);
     const requestedStatus = String(body.status || "").trim().toLowerCase();
+    const requestedJourneyStatus = String(body.journeyStatus || body.status || "").trim().toLowerCase();
 
     const allowedActions = [
       ...Object.keys(actionToStatus),
       ...Object.keys(actionToSupplierStatus),
       "set_status",
+      "set_journey_status",
       "mark_paid",
       "mark_pending",
       "mark_refunded",
@@ -95,15 +92,24 @@ export async function POST(request: NextRequest) {
       "set_supplier",
     ];
 
-    if (!orderIds.length) return NextResponse.json({ success: false, message: "Select at least one valid order." }, { status: 400 });
+    if (!orderIds.length) {
+      return NextResponse.json({ success: false, message: "Select at least one valid order." }, { status: 400 });
+    }
     if (!allowedActions.includes(action)) {
       return NextResponse.json({ success: false, message: "Unsupported order action." }, { status: 400 });
     }
     if (action === "set_status" && !allowedDirectStatuses.has(requestedStatus)) {
-      return NextResponse.json({ success: false, message: "Choose a valid order status." }, { status: 400 });
+      return NextResponse.json({ success: false, message: "Choose a valid order state." }, { status: 400 });
     }
-    if (action === "set_note" && !note) return NextResponse.json({ success: false, message: "Enter an internal note first." }, { status: 400 });
-    if (action === "set_supplier" && !supplierName) return NextResponse.json({ success: false, message: "Enter a supplier name first." }, { status: 400 });
+    if (action === "set_journey_status" && !allowedJourneyStatuses.has(requestedJourneyStatus)) {
+      return NextResponse.json({ success: false, message: "Choose a valid journey stage." }, { status: 400 });
+    }
+    if (action === "set_note" && !note) {
+      return NextResponse.json({ success: false, message: "Enter an internal note first." }, { status: 400 });
+    }
+    if (action === "set_supplier" && !supplierName) {
+      return NextResponse.json({ success: false, message: "Enter a supplier name first." }, { status: 400 });
+    }
 
     const updated: OrderRow[] = [];
     const failures: Array<{ id: string; message: string }> = [];
@@ -111,25 +117,36 @@ export async function POST(request: NextRequest) {
     for (const orderId of orderIds) {
       try {
         const existingRows = await supabaseAdminJson<OrderRow[]>(
-          `orders?id=eq.${postgrestValue(orderId)}&select=id,order_number,status,payment_status,total_price,internal_notes,supplier_name,supplier_status,order_type&limit=1`
+          `orders?id=eq.${postgrestValue(orderId)}&select=id,order_number,status,journey_status,payment_status,total_price,internal_notes,supplier_name,supplier_status,order_type,bosta_tracking_number&limit=1`
         );
         const existing = existingRows[0];
         if (!existing) throw new Error("Order not found.");
 
         const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
-        if (action === "set_status") {
+        if (action === "set_journey_status") {
+          if (existing.bosta_tracking_number) {
+            throw new Error("Courier tracking is live. Journey stages are now updated automatically by Bosta.");
+          }
+          if (existing.status === "cancelled") {
+            throw new Error("This order is cancelled. Its last journey stage is preserved and cannot be overwritten.");
+          }
+          if (existing.status === "delivered") {
+            throw new Error("Delivered orders cannot be moved back into the import journey.");
+          }
+          patch.journey_status = requestedJourneyStatus;
+          patch.order_type = "preorder";
+          if (requestedJourneyStatus === "received_at_orvix") patch.supplier_status = "received_at_orvix";
+          if (requestedJourneyStatus === "ready_for_courier") patch.supplier_status = "ready_for_courier";
+        } else if (action === "set_status") {
           patch.status = requestedStatus;
-          if (isImportJourneyStatus(requestedStatus)) patch.order_type = "preorder";
-          if (requestedStatus === "received_at_orvix") patch.supplier_status = "received_at_orvix";
-          if (requestedStatus === "ready_for_courier") patch.supplier_status = "ready_for_courier";
         } else if (actionToStatus[action]) {
           patch.status = actionToStatus[action];
         } else if (actionToSupplierStatus[action]) {
           patch.order_type = "preorder";
           patch.supplier_status = actionToSupplierStatus[action];
-          if (action === "receive_at_orvix") patch.status = "received_at_orvix";
-          if (action === "ready_for_courier") patch.status = "ready_for_courier";
+          if (action === "receive_at_orvix") patch.journey_status = "received_at_orvix";
+          if (action === "ready_for_courier") patch.journey_status = "ready_for_courier";
         } else if (action === "set_supplier") {
           patch.supplier_name = supplierName;
           patch.order_type = "preorder";
@@ -159,6 +176,8 @@ export async function POST(request: NextRequest) {
           orderNumber: existing.order_number,
           fromStatus: existing.status,
           toStatus: action === "set_status" ? requestedStatus : actionToStatus[action],
+          fromJourneyStatus: existing.journey_status,
+          toJourneyStatus: action === "set_journey_status" ? requestedJourneyStatus : undefined,
           fromPaymentStatus: existing.payment_status,
           fromSupplierStatus: existing.supplier_status,
           supplierName: action === "set_supplier" ? supplierName : existing.supplier_name,
@@ -176,7 +195,9 @@ export async function POST(request: NextRequest) {
         partial: updated.length > 0 && failures.length > 0,
         updated,
         failures,
-        message: failures.length ? `${updated.length} updated, ${failures.length} failed.` : `${updated.length} order${updated.length === 1 ? "" : "s"} updated.`,
+        message: failures.length
+          ? `${updated.length} updated, ${failures.length} failed.`
+          : `${updated.length} order${updated.length === 1 ? "" : "s"} updated.`,
       },
       { status: updated.length ? 200 : 400 }
     );

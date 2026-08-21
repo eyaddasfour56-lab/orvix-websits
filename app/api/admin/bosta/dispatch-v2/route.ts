@@ -6,6 +6,7 @@ type OrderSnapshot = {
   id: string | number;
   order_number?: string | null;
   status?: string | null;
+  journey_status?: string | null;
   supplier_status?: string | null;
   bosta_tracking_number?: string | null;
   payment_method?: string | null;
@@ -29,10 +30,12 @@ async function queryOrders(filter: string) {
   const authHeaders = headers();
   if (!supabaseUrl || !authHeaders) return [] as OrderSnapshot[];
   const response = await fetch(
-    `${supabaseUrl}/rest/v1/orders?select=id,order_number,status,supplier_status,bosta_tracking_number,payment_method,delivery_fee,total_price&${filter}`,
+    `${supabaseUrl}/rest/v1/orders?select=id,order_number,status,journey_status,supplier_status,bosta_tracking_number,payment_method,delivery_fee,total_price&${filter}`,
     { headers: authHeaders, cache: "no-store" }
   );
-  if (!response.ok) throw new Error(`Could not load order data for courier dispatch: ${await response.text()}`);
+  if (!response.ok) {
+    throw new Error(`Could not load order data for courier dispatch: ${await response.text()}`);
+  }
   return (await response.json()) as OrderSnapshot[];
 }
 
@@ -60,7 +63,9 @@ async function patchOrder(id: string | number, values: Record<string, unknown>) 
     body: JSON.stringify(values),
     cache: "no-store",
   });
-  if (!response.ok) throw new Error(`Could not prepare order for courier dispatch: ${await response.text()}`);
+  if (!response.ok) {
+    throw new Error(`Could not prepare order for courier dispatch: ${await response.text()}`);
+  }
 }
 
 function money(value: unknown) {
@@ -111,21 +116,34 @@ export async function POST(request: NextRequest) {
 
     for (const order of snapshots) {
       if (order.status === "cancelled") {
-        return NextResponse.json({ success: false, message: `${order.order_number || "This order"} is cancelled.` }, { status: 400 });
-      }
-      if (!order.bosta_tracking_number && !["received_at_orvix", "ready_for_courier", "confirmed"].includes(String(order.status || ""))) {
         return NextResponse.json(
-          { success: false, message: `${order.order_number || "This order"} must be "Received at ORVIX" before it can be sent to the courier.` },
+          { success: false, message: `${order.order_number || "This order"} is cancelled.` },
+          { status: 400 }
+        );
+      }
+      if (
+        !order.bosta_tracking_number &&
+        !["received_at_orvix", "ready_for_courier"].includes(String(order.journey_status || "new"))
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `${order.order_number || "This order"} must reach "Received at ORVIX" before it can be sent to the courier.`,
+          },
           { status: 400 }
         );
       }
     }
 
+    // The original Bosta integration validates lifecycle status=confirmed.
+    // Keep that implementation detail internal; journey_status remains the
+    // customer-facing import milestone and is never overwritten by dispatch.
     for (const order of snapshots) {
       if (!order.bosta_tracking_number) {
         await patchOrder(order.id, {
           order_type: "preorder",
           supplier_status: "ready_for_courier",
+          journey_status: "ready_for_courier",
           status: "confirmed",
           ready_for_courier_at: new Date().toISOString(),
         });
@@ -149,26 +167,7 @@ export async function POST(request: NextRequest) {
     });
 
     try {
-      const dispatchResponse = await originalDispatch(forwardedRequest);
-      let dispatchPayload: Record<string, unknown> | null = null;
-      try {
-        dispatchPayload = await dispatchResponse.clone().json() as Record<string, unknown>;
-      } catch {
-        dispatchPayload = null;
-      }
-
-      if (dispatchResponse.ok && dispatchPayload?.success !== false) {
-        for (const order of snapshots) {
-          if (!order.bosta_tracking_number) {
-            await patchOrder(order.id, {
-              status: "courier_requested",
-              supplier_status: "ready_for_courier",
-            });
-          }
-        }
-      }
-
-      return dispatchResponse;
+      return await originalDispatch(forwardedRequest);
     } finally {
       for (const order of changedCod) {
         try {
