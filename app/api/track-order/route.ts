@@ -18,6 +18,8 @@ type OrderRow = {
   discount_amount: number | string;
   total_price: number | string;
   status: string;
+  journey_status?: string | null;
+  journey_updated_at?: string | null;
   payment_status?: string | null;
   order_type?: string | null;
   item_count?: number | null;
@@ -147,40 +149,48 @@ function bostaCustomerLabel(codeValue: unknown, fallback = "Courier Tracking") {
   return labels[status] || fallback;
 }
 
-function currentCustomerStatus(order: OrderRow) {
-  if (order.bosta_tracking_number) return bostaCustomerStatus(order.bosta_state_code);
-  if (order.status === "confirmed") return "received_at_orvix";
-  return order.status || "new";
+function orderState(order: OrderRow) {
+  if (order.status === "cancelled") return "cancelled";
+  if (order.status === "delivered") return "delivered";
+  return "active";
 }
 
-function latestStatusEvent(events: EventRow[], status: string) {
+function currentJourneyStatus(order: OrderRow) {
+  return String(order.journey_status || "new");
+}
+
+function latestJourneyEvent(events: EventRow[], status: string) {
+  return events
+    .filter((event) =>
+      ["journey_stage_changed", "status_changed"].includes(event.event_type) &&
+      String(event.status || "") === status
+    )
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+}
+
+function latestLifecycleEvent(events: EventRow[], status: string) {
   return events
     .filter((event) => event.event_type === "status_changed" && String(event.status || "") === status)
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
 }
 
 function buildCustomerTimeline(order: OrderRow, events: EventRow[]) {
-  const timeline: PublicTimelineEvent[] = [
-    {
-      id: `placed-${order.id}`,
-      eventType: "journey_milestone",
-      title: "Pre-Ordered",
-      details: "Your pre-order has been received and the import journey has started.",
-      status: "new",
-      createdAt: order.created_at,
-    },
-  ];
+  const timeline: PublicTimelineEvent[] = [];
+  const currentJourney = currentJourneyStatus(order);
+  const currentJourneyIndex = Math.max(0, importMilestones.findIndex((milestone) => milestone.status === currentJourney));
 
-  for (const milestone of importMilestones.slice(1)) {
-    const matching = latestStatusEvent(events, milestone.status);
-    if (!matching && order.status !== milestone.status) continue;
+  for (let index = 0; index <= currentJourneyIndex; index += 1) {
+    const milestone = importMilestones[index];
+    const matching = latestJourneyEvent(events, milestone.status);
     timeline.push({
       id: matching?.id ?? `${milestone.status}-${order.id}`,
       eventType: "journey_milestone",
       title: milestone.title,
       details: milestone.details,
       status: milestone.status,
-      createdAt: matching?.created_at || order.updated_at || order.created_at,
+      createdAt:
+        matching?.created_at ||
+        (milestone.status === "new" ? order.created_at : milestone.status === currentJourney ? order.journey_updated_at || order.updated_at || order.created_at : order.created_at),
     });
   }
 
@@ -221,18 +231,18 @@ function buildCustomerTimeline(order: OrderRow, events: EventRow[]) {
 
   const hasCourierCancellation = courierEvents.some((event) => [48, 49].includes(Number(event.metadata?.stateCode)));
   if (order.status === "cancelled" && !hasCourierCancellation) {
-    const cancelled = latestStatusEvent(events, "cancelled");
+    const cancelled = latestLifecycleEvent(events, "cancelled");
     timeline.push({
       id: cancelled?.id ?? `cancelled-${order.id}`,
-      eventType: "journey_cancelled",
+      eventType: "order_cancelled",
       title: "Order Cancelled",
-      details: "This order has been cancelled.",
+      details: "This order has been cancelled. The journey milestone above is preserved.",
       status: "cancelled",
       createdAt: cancelled?.created_at || order.updated_at || order.created_at,
     });
   }
 
-  return timeline;
+  return timeline.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 }
 
 async function safeOrder(order: OrderRow) {
@@ -260,27 +270,25 @@ async function safeOrder(order: OrderRow) {
         estimatedDeliveryFrom: item.estimated_delivery_from || order.estimated_delivery_from || null,
         estimatedDeliveryTo: item.estimated_delivery_to || order.estimated_delivery_to || null,
       }))
-    : [
-        {
-          id: `legacy-${order.id}`,
-          productSlug: order.product_slug || "google-fitbit-air",
-          productName: order.product_name || "ORVIX Product",
-          variantKey: null,
-          variantLabel: null,
-          colour: order.colour || "Standard",
-          quantity: Number(order.quantity || 1),
-          unitPrice: Number(order.product_price || 0),
-          lineTotal: Number(order.products_total || 0),
-          isPreorder: true,
-          estimatedDeliveryFrom: order.estimated_delivery_from || null,
-          estimatedDeliveryTo: order.estimated_delivery_to || null,
-        },
-      ];
+    : [{
+        id: `legacy-${order.id}`,
+        productSlug: order.product_slug || "google-fitbit-air",
+        productName: order.product_name || "ORVIX Product",
+        variantKey: null,
+        variantLabel: null,
+        colour: order.colour || "Standard",
+        quantity: Number(order.quantity || 1),
+        unitPrice: Number(order.product_price || 0),
+        lineTotal: Number(order.products_total || 0),
+        isPreorder: true,
+        estimatedDeliveryFrom: order.estimated_delivery_from || null,
+        estimatedDeliveryTo: order.estimated_delivery_to || null,
+      }];
 
-  const customerStatus = currentCustomerStatus(order);
   const carrierStatus = order.bosta_tracking_number
     ? bostaCustomerLabel(order.bosta_state_code, order.bosta_state_name || "Courier Tracking")
     : null;
+  const journeyStatus = currentJourneyStatus(order);
 
   return {
     orderNumber: order.order_number,
@@ -289,13 +297,16 @@ async function safeOrder(order: OrderRow) {
     deliveryFee: Number(order.delivery_fee || 0),
     discountAmount: Number(order.discount_amount || 0),
     totalPrice: Number(order.total_price || 0),
-    status: customerStatus,
+    status: journeyStatus,
+    journeyStatus,
+    orderState: orderState(order),
     paymentStatus: order.payment_status || "pending",
     orderType: "preorder",
     itemCount: Number(order.item_count || safeItems.length),
     estimatedDeliveryFrom: order.estimated_delivery_from || null,
     estimatedDeliveryTo: order.estimated_delivery_to || null,
     createdAt: order.created_at,
+    journeyUpdatedAt: order.journey_updated_at || order.updated_at || order.created_at,
     confirmedAt: order.confirmed_at || null,
     shippedAt: order.shipped_at || null,
     outForDeliveryAt: order.out_for_delivery_at || null,
@@ -303,7 +314,8 @@ async function safeOrder(order: OrderRow) {
     shippingStatus: order.shipping_status || null,
     trackingNumber: order.bosta_tracking_number || null,
     carrierStatus,
-    lastUpdatedAt: order.bosta_status_updated_at || order.bosta_submitted_at || order.updated_at || order.created_at,
+    courierStatus: order.bosta_tracking_number ? bostaCustomerStatus(order.bosta_state_code) : null,
+    lastUpdatedAt: order.bosta_status_updated_at || order.bosta_submitted_at || order.journey_updated_at || order.updated_at || order.created_at,
     items: safeItems,
     timeline: buildCustomerTimeline(order, events),
   };
@@ -324,7 +336,7 @@ export async function POST(request: Request) {
 
     const filter = candidates.map((value) => `phone.eq.${postgrestValue(value)}`).join(",");
     const orders = await supabaseAdminJson<OrderRow[]>(
-      `orders?or=(${filter})&select=id,order_number,phone,governorate,product_name,product_slug,colour,quantity,product_price,products_total,delivery_fee,discount_amount,total_price,status,payment_status,order_type,item_count,estimated_delivery_from,estimated_delivery_to,created_at,updated_at,confirmed_at,shipped_at,out_for_delivery_at,delivered_at,shipping_status,bosta_tracking_number,bosta_state_code,bosta_state_name,bosta_submitted_at,bosta_status_updated_at&order=created_at.desc&limit=20`
+      `orders?or=(${filter})&select=id,order_number,phone,governorate,product_name,product_slug,colour,quantity,product_price,products_total,delivery_fee,discount_amount,total_price,status,journey_status,journey_updated_at,payment_status,order_type,item_count,estimated_delivery_from,estimated_delivery_to,created_at,updated_at,confirmed_at,shipped_at,out_for_delivery_at,delivered_at,shipping_status,bosta_tracking_number,bosta_state_code,bosta_state_name,bosta_submitted_at,bosta_status_updated_at&order=created_at.desc&limit=20`
     );
 
     const matching = orders.filter((order) => normalizePhone(order.phone) === phone);
