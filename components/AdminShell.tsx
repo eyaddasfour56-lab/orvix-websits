@@ -17,7 +17,8 @@ const groups: NavGroup[] = [
     label: "Core",
     items: [
       { label: "Overview", href: "/admin", keywords: "home dashboard overview summary simple" },
-      { label: "Orders V2", href: "/admin/orders-v2", keywords: "orders customers search filter bulk status payment notes timeline bosta operations", badge: "NEW" },
+      { label: "Orders & Tracking", href: "/admin/fulfillment", keywords: "orders preorder supplier ahmed samy fulfillment courier bosta live tracking pickup warehouse transit delivery", badge: "LIVE" },
+      { label: "Orders V2", href: "/admin/orders-v2", keywords: "orders customers search filter bulk status payment notes timeline bosta operations" },
       { label: "Legacy Orders", href: "/admin/legacy-orders", keywords: "legacy orders labels printing shipping" },
       { label: "Products & Stock", href: "/admin/products", keywords: "products price catalog fitbit garmin stock inventory quantity availability sale" },
       { label: "Pre-orders", href: "/admin/preorders", keywords: "preorder preorder eta lead time availability coming soon" },
@@ -51,6 +52,7 @@ const groups: NavGroup[] = [
 
 const simpleHrefs = new Set([
   "/admin",
+  "/admin/fulfillment",
   "/admin/orders-v2",
   "/admin/legacy-orders",
   "/admin/products",
