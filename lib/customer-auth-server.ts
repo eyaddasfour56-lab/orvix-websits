@@ -80,20 +80,5 @@ export async function ensureCustomerProfile(user: User) {
     profile = inserted[0];
   }
 
-  if (email && user.email_confirmed_at) {
-    try {
-      await supabaseAdminJson(
-        `orders?customer_user_id=is.null&or=(customer_email.eq.${postgrestValue(email)},email.eq.${postgrestValue(email)})`,
-        {
-          method: "PATCH",
-          headers: { Prefer: "return=minimal" },
-          body: JSON.stringify({ customer_user_id: userId, updated_at: new Date().toISOString() }),
-        }
-      );
-    } catch (error) {
-      console.error("Customer historical order linking failed:", error);
-    }
-  }
-
   return profile;
 }
