@@ -136,7 +136,7 @@ const manualGroups = [
   { key: "orvix", statuses: ["received_at_orvix", "ready_for_courier"] },
 ] as const;
 
-const manualOrder = manualGroups.flatMap((group) => group.statuses);
+const manualOrder: string[] = manualGroups.flatMap((group) => [...group.statuses]);
 
 function clean(value: unknown) {
   return String(value || "new").trim().toLowerCase().replaceAll(" ", "_").replaceAll("-", "_");
