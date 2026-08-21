@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
 import { postgrestValue, supabaseAdminJson } from "@/lib/supabase-admin";
 
-type TrackOrderRequest = { orderNumber?: string; phone?: string };
+type TrackOrderRequest = { phone?: string };
 
 type OrderRow = {
   id: string;
   order_number: string;
-  customer_name?: string | null;
   phone: string;
   governorate: string;
-  address?: string | null;
   product_name?: string | null;
   product_slug?: string | null;
   colour: string;
@@ -47,7 +45,6 @@ type OrderItemRow = {
   quantity: number;
   unit_price: number | string;
   line_total: number | string;
-  is_preorder: boolean;
   estimated_delivery_from?: string | null;
   estimated_delivery_to?: string | null;
 };
@@ -75,125 +72,130 @@ function normalizePhone(phone: string) {
   return digits;
 }
 
+function phoneCandidates(phone: string) {
+  const local = normalizePhone(phone);
+  if (!/^01\d{9}$/.test(local)) return [];
+  const international = `20${local.slice(1)}`;
+  return Array.from(new Set([local, international, `+${international}`, `00${international}`]));
+}
+
+async function safeOrder(order: OrderRow) {
+  const [items, events] = await Promise.all([
+    supabaseAdminJson<OrderItemRow[]>(
+      `order_items?order_id=eq.${postgrestValue(order.id)}&select=id,product_slug,product_name,variant_key,variant_label,colour,quantity,unit_price,line_total,estimated_delivery_from,estimated_delivery_to&order=created_at.asc,id.asc`
+    ),
+    supabaseAdminJson<EventRow[]>(
+      `order_events?order_id=eq.${postgrestValue(order.id)}&select=id,event_type,title,details,status,created_at&order=created_at.asc,id.asc`
+    ),
+  ]);
+
+  const safeItems = items.length
+    ? items.map((item) => ({
+        id: item.id,
+        productSlug: item.product_slug,
+        productName: item.product_name,
+        variantKey: item.variant_key || null,
+        variantLabel: item.variant_label || null,
+        colour: item.colour,
+        quantity: Number(item.quantity || 0),
+        unitPrice: Number(item.unit_price || 0),
+        lineTotal: Number(item.line_total || 0),
+        isPreorder: true,
+        estimatedDeliveryFrom: item.estimated_delivery_from || order.estimated_delivery_from || null,
+        estimatedDeliveryTo: item.estimated_delivery_to || order.estimated_delivery_to || null,
+      }))
+    : [
+        {
+          id: `legacy-${order.id}`,
+          productSlug: order.product_slug || "google-fitbit-air",
+          productName: order.product_name || "ORVIX Product",
+          variantKey: null,
+          variantLabel: null,
+          colour: order.colour || "Standard",
+          quantity: Number(order.quantity || 1),
+          unitPrice: Number(order.product_price || 0),
+          lineTotal: Number(order.products_total || 0),
+          isPreorder: true,
+          estimatedDeliveryFrom: order.estimated_delivery_from || null,
+          estimatedDeliveryTo: order.estimated_delivery_to || null,
+        },
+      ];
+
+  const customerEvents = events.filter((event) => !String(event.event_type || "").startsWith("supplier_"));
+  const safeEvents = customerEvents.length
+    ? customerEvents.map((event) => ({
+        id: event.id,
+        eventType: event.event_type,
+        title: event.title,
+        details: event.details || null,
+        status: event.status || null,
+        createdAt: event.created_at,
+      }))
+    : [
+        {
+          id: 0,
+          eventType: "order_placed",
+          title: "Pre-order placed",
+          details: "Your pre-order was received by ORVIX.",
+          status: order.status,
+          createdAt: order.created_at,
+        },
+      ];
+
+  return {
+    orderNumber: order.order_number,
+    governorate: order.governorate,
+    productsTotal: Number(order.products_total || 0),
+    deliveryFee: Number(order.delivery_fee || 0),
+    discountAmount: Number(order.discount_amount || 0),
+    totalPrice: Number(order.total_price || 0),
+    status: order.status,
+    paymentStatus: order.payment_status || "pending",
+    orderType: "preorder",
+    itemCount: Number(order.item_count || safeItems.length),
+    estimatedDeliveryFrom: order.estimated_delivery_from || null,
+    estimatedDeliveryTo: order.estimated_delivery_to || null,
+    createdAt: order.created_at,
+    confirmedAt: order.confirmed_at || null,
+    shippedAt: order.shipped_at || null,
+    outForDeliveryAt: order.out_for_delivery_at || null,
+    deliveredAt: order.delivered_at || null,
+    shippingStatus: order.shipping_status || null,
+    trackingNumber: order.bosta_tracking_number || null,
+    carrierStatus: order.bosta_state_name || null,
+    lastUpdatedAt: order.bosta_status_updated_at || order.bosta_submitted_at || order.delivered_at || order.created_at,
+    items: safeItems,
+    timeline: safeEvents,
+  };
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as TrackOrderRequest;
-    const orderNumber = String(body.orderNumber || "").trim().toUpperCase();
     const phone = normalizePhone(String(body.phone || ""));
+    const candidates = phoneCandidates(phone);
 
-    if (!orderNumber || !phone) {
-      return response({ success: false, code: "MISSING_DETAILS", message: "Please enter your order number and phone number." }, 400);
+    if (!phone) {
+      return response({ success: false, code: "MISSING_PHONE", message: "Please enter your phone number." }, 400);
     }
-    if (orderNumber.length > 80 || phone.length < 10 || phone.length > 15) {
-      return response({ success: false, code: "INVALID_DETAILS", message: "Please check your order number and phone number." }, 400);
+    if (!candidates.length) {
+      return response({ success: false, code: "INVALID_PHONE", message: "Please enter a valid Egyptian mobile number." }, 400);
     }
 
+    const filter = candidates.map((value) => `phone.eq.${postgrestValue(value)}`).join(",");
     const orders = await supabaseAdminJson<OrderRow[]>(
-      `orders?order_number=eq.${postgrestValue(orderNumber)}&select=id,order_number,customer_name,phone,governorate,address,product_name,product_slug,colour,quantity,product_price,products_total,delivery_fee,discount_amount,total_price,status,payment_status,order_type,item_count,estimated_delivery_from,estimated_delivery_to,created_at,confirmed_at,shipped_at,out_for_delivery_at,delivered_at,shipping_status,bosta_tracking_number,bosta_state_name,bosta_submitted_at,bosta_status_updated_at&limit=1`
+      `orders?or=(${filter})&select=id,order_number,phone,governorate,product_name,product_slug,colour,quantity,product_price,products_total,delivery_fee,discount_amount,total_price,status,payment_status,order_type,item_count,estimated_delivery_from,estimated_delivery_to,created_at,confirmed_at,shipped_at,out_for_delivery_at,delivered_at,shipping_status,bosta_tracking_number,bosta_state_name,bosta_submitted_at,bosta_status_updated_at&order=created_at.desc&limit=20`
     );
-    const order = orders[0];
 
-    if (!order || normalizePhone(order.phone) !== phone) {
-      return response({ success: false, code: "ORDER_NOT_FOUND", message: "No order was found with these details." }, 404);
+    const matching = orders.filter((order) => normalizePhone(order.phone) === phone);
+    if (!matching.length) {
+      return response({ success: false, code: "ORDER_NOT_FOUND", message: "No orders were found for this phone number." }, 404);
     }
 
-    const [items, events] = await Promise.all([
-      supabaseAdminJson<OrderItemRow[]>(
-        `order_items?order_id=eq.${postgrestValue(order.id)}&select=id,product_slug,product_name,variant_key,variant_label,colour,quantity,unit_price,line_total,is_preorder,estimated_delivery_from,estimated_delivery_to&order=created_at.asc,id.asc`
-      ),
-      supabaseAdminJson<EventRow[]>(
-        `order_events?order_id=eq.${postgrestValue(order.id)}&select=id,event_type,title,details,status,created_at&order=created_at.asc,id.asc`
-      ),
-    ]);
-
-    const safeItems = items.length
-      ? items.map((item) => ({
-          id: item.id,
-          productSlug: item.product_slug,
-          productName: item.product_name,
-          variantKey: item.variant_key || null,
-          variantLabel: item.variant_label || null,
-          colour: item.colour,
-          quantity: Number(item.quantity || 0),
-          unitPrice: Number(item.unit_price || 0),
-          lineTotal: Number(item.line_total || 0),
-          isPreorder: true,
-          estimatedDeliveryFrom: item.estimated_delivery_from || order.estimated_delivery_from || null,
-          estimatedDeliveryTo: item.estimated_delivery_to || order.estimated_delivery_to || null,
-        }))
-      : [
-          {
-            id: `legacy-${order.id}`,
-            productSlug: order.product_slug || "google-fitbit-air",
-            productName: order.product_name || "ORVIX Product",
-            variantKey: null,
-            variantLabel: null,
-            colour: order.colour || "Standard",
-            quantity: Number(order.quantity || 1),
-            unitPrice: Number(order.product_price || 0),
-            lineTotal: Number(order.products_total || 0),
-            isPreorder: true,
-            estimatedDeliveryFrom: order.estimated_delivery_from || null,
-            estimatedDeliveryTo: order.estimated_delivery_to || null,
-          },
-        ];
-
-    // Supplier sourcing is an internal ORVIX workflow. Customers see only
-    // customer-facing order and courier events, never supplier names/details.
-    const customerEvents = events.filter((event) => !String(event.event_type || "").startsWith("supplier_"));
-
-    const safeEvents = customerEvents.length
-      ? customerEvents.map((event) => ({
-          id: event.id,
-          eventType: event.event_type,
-          title: event.title,
-          details: event.details || null,
-          status: event.status || null,
-          createdAt: event.created_at,
-        }))
-      : [
-          {
-            id: 0,
-            eventType: "order_placed",
-            title: "Pre-order placed",
-            details: "Your pre-order was received by ORVIX.",
-            status: order.status,
-            createdAt: order.created_at,
-          },
-        ];
-
-    return response({
-      success: true,
-      order: {
-        orderNumber: order.order_number,
-        customerName: order.customer_name || null,
-        governorate: order.governorate,
-        address: order.address || null,
-        productsTotal: Number(order.products_total || 0),
-        deliveryFee: Number(order.delivery_fee || 0),
-        discountAmount: Number(order.discount_amount || 0),
-        totalPrice: Number(order.total_price || 0),
-        status: order.status,
-        paymentStatus: order.payment_status || "pending",
-        orderType: "preorder",
-        itemCount: Number(order.item_count || safeItems.length),
-        estimatedDeliveryFrom: order.estimated_delivery_from || null,
-        estimatedDeliveryTo: order.estimated_delivery_to || null,
-        createdAt: order.created_at,
-        confirmedAt: order.confirmed_at || null,
-        shippedAt: order.shipped_at || null,
-        outForDeliveryAt: order.out_for_delivery_at || null,
-        deliveredAt: order.delivered_at || null,
-        shippingStatus: order.shipping_status || null,
-        trackingNumber: order.bosta_tracking_number || null,
-        carrierStatus: order.bosta_state_name || null,
-        lastUpdatedAt: order.bosta_status_updated_at || order.bosta_submitted_at || order.delivered_at || order.created_at,
-        items: safeItems,
-        timeline: safeEvents,
-      },
-    });
+    const trackedOrders = await Promise.all(matching.map(safeOrder));
+    return response({ success: true, orders: trackedOrders, order: trackedOrders[0] });
   } catch (error) {
     console.error("Track order API error:", error);
-    return response({ success: false, code: "UNKNOWN_ERROR", message: "Could not check your order right now." }, 500);
+    return response({ success: false, code: "UNKNOWN_ERROR", message: "Could not check your orders right now." }, 500);
   }
 }
