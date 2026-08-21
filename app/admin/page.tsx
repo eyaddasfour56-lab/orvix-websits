@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import AdminCustomerSummary from "@/components/AdminCustomerSummary";
 import OrvixAiPanel from "./OrvixAiPanel";
 
 type AlertItem = { id: string; title: string; body: string; targetUrl: string };
@@ -109,9 +110,9 @@ export default function AdminHomePage() {
   const attention = dashboard.alerts.slice(0, 3);
   const quick = [
     { title: "Orders", text: "Change status, open an order, send to courier.", href: "/admin/fulfillment" },
-    { title: "Products", text: "Prices, stock and availability.", href: "/admin/products" },
+    { title: "Customers", text: "Registered accounts, emails and phone numbers.", href: "/admin/customers" },
+    { title: "Messages", text: "Customer chats and support replies.", href: "/admin/chats" },
     { title: "Money", text: "Sales, profit and expenses.", href: "/admin/cashflow" },
-    { title: "Messages", text: "Customer chats and support.", href: "/admin/chats" },
   ];
 
   return (
@@ -121,7 +122,7 @@ export default function AdminHomePage() {
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/25">HOME</p>
             <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-4xl">Today at ORVIX</h1>
-            <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-white/36">Start here. Open only what you need.</p>
+            <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-white/36">Orders, customers and messages in one simple place.</p>
           </div>
           <Link href="/admin/command-center/advanced" className="rounded-xl border border-white/10 bg-white/[0.035] px-4 py-2.5 text-[10px] font-black text-white/50">Advanced tools →</Link>
         </header>
@@ -141,6 +142,8 @@ export default function AdminHomePage() {
             </article>
           ))}
         </section>
+
+        <AdminCustomerSummary />
 
         <section className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {quick.map((item) => (

@@ -6,6 +6,8 @@ type ChatSession = {
   public_token: string;
   customer_name: string;
   customer_phone?: string | null;
+  customer_email?: string | null;
+  user_id?: string | null;
   status: "open" | "closed";
   last_message_preview?: string | null;
   last_sender?: "customer" | "admin" | "system" | null;
@@ -29,6 +31,13 @@ type ChatMessage = {
 
 type SupportSettings = {
   ai_auto_reply: boolean;
+};
+
+type PhoneDelivery = {
+  provider: "Sent";
+  status: "queued" | "not_configured" | "no_phone" | "failed";
+  messageId?: string;
+  error?: string;
 };
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -72,6 +81,85 @@ function cleanText(value: unknown, maxLength: number) {
   return String(value ?? "").trim().slice(0, maxLength);
 }
 
+function normalizePhone(value: unknown) {
+  let digits = String(value ?? "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("0020")) digits = digits.slice(2);
+  if (digits.startsWith("20") && digits.length >= 12) return `+${digits}`;
+  if (digits.startsWith("0")) return `+20${digits.slice(1)}`;
+  if (digits.length === 10 && digits.startsWith("1")) return `+20${digits}`;
+  return `+${digits}`;
+}
+
+async function sendPhoneReply(session: ChatSession, message: string, messageId: string): Promise<PhoneDelivery> {
+  const phone = normalizePhone(session.customer_phone);
+  if (!phone) return { provider: "Sent", status: "no_phone" };
+
+  const apiKey = process.env.SENT_API_KEY || process.env.SENT_DM_API_KEY;
+  const templateId = process.env.SENT_SUPPORT_TEMPLATE_ID;
+  const templateName = process.env.SENT_SUPPORT_TEMPLATE_NAME;
+
+  if (!apiKey || (!templateId && !templateName)) {
+    return { provider: "Sent", status: "not_configured" };
+  }
+
+  const template: {
+    id?: string;
+    name?: string;
+    parameters: Record<string, string>;
+  } = {
+    parameters: {
+      customerName: session.customer_name || "Customer",
+      message,
+    },
+  };
+  if (templateId) template.id = templateId;
+  else if (templateName) template.name = templateName;
+
+  try {
+    const response = await fetch("https://api.sent.dm/v3/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "Content-Type": "application/json",
+        "Idempotency-Key": `orvix-support-${messageId}`,
+      },
+      body: JSON.stringify({
+        to: [phone],
+        channel: ["sent"],
+        template,
+      }),
+      cache: "no-store",
+    });
+
+    const result = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      data?: { recipients?: Array<{ message_id?: string }> } | null;
+      error?: { message?: string } | null;
+    };
+
+    if (!response.ok || !result.success) {
+      return {
+        provider: "Sent",
+        status: "failed",
+        error: result.error?.message || `Sent returned ${response.status}.`,
+      };
+    }
+
+    return {
+      provider: "Sent",
+      status: "queued",
+      messageId: result.data?.recipients?.[0]?.message_id,
+    };
+  } catch (error) {
+    return {
+      provider: "Sent",
+      status: "failed",
+      error: error instanceof Error ? error.message : "Phone delivery failed.",
+    };
+  }
+}
+
 function withUnread(session: ChatSession) {
   const lastMessageAt = new Date(session.last_message_at).getTime();
   const lastReadAt = session.admin_last_read_at
@@ -82,6 +170,8 @@ function withUnread(session: ChatSession) {
     id: session.id,
     customerName: session.customer_name,
     customerPhone: session.customer_phone || "",
+    customerEmail: session.customer_email || "",
+    registeredAccount: Boolean(session.user_id),
     status: session.status,
     lastMessagePreview: session.last_message_preview || "No messages yet",
     lastSender: session.last_sender,
@@ -169,6 +259,10 @@ export async function GET(request: NextRequest) {
           aiAutoReply: supportSettings.ai_auto_reply,
           aiConfigured: Boolean(process.env.OPENAI_API_KEY),
           aiModel: process.env.OPENAI_CHAT_MODEL || "gpt-5.6",
+          phoneDeliveryConfigured: Boolean(
+            (process.env.SENT_API_KEY || process.env.SENT_DM_API_KEY) &&
+              (process.env.SENT_SUPPORT_TEMPLATE_ID || process.env.SENT_SUPPORT_TEMPLATE_NAME)
+          ),
         },
       });
     }
@@ -279,6 +373,10 @@ export async function POST(request: NextRequest) {
           aiAutoReply: enabled,
           aiConfigured: Boolean(process.env.OPENAI_API_KEY),
           aiModel: process.env.OPENAI_CHAT_MODEL || "gpt-5.6",
+          phoneDeliveryConfigured: Boolean(
+            (process.env.SENT_API_KEY || process.env.SENT_DM_API_KEY) &&
+              (process.env.SENT_SUPPORT_TEMPLATE_ID || process.env.SENT_SUPPORT_TEMPLATE_NAME)
+          ),
         },
       });
     }
@@ -355,7 +453,13 @@ export async function POST(request: NextRequest) {
         console.error("Admin chat session update failed:", await updateResponse.text());
       }
 
-      return NextResponse.json({ success: true, message: savedMessage });
+      const phoneDelivery = await sendPhoneReply(
+        session,
+        message,
+        savedMessage?.id || `${session.id}-${Date.now()}`
+      );
+
+      return NextResponse.json({ success: true, message: savedMessage, phoneDelivery });
     }
 
     if (action === "status") {
