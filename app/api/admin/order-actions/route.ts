@@ -15,6 +15,13 @@ const actionToStatus: Record<string, string> = {
 
 const allowedDirectStatuses = new Set([
   "new",
+  "international_transit",
+  "arrived_egypt",
+  "in_customs",
+  "customs_cleared",
+  "received_at_orvix",
+  "ready_for_courier",
+  "courier_requested",
   "confirmed",
   "shipped",
   "out_for_delivery",
@@ -52,6 +59,18 @@ function idsFromBody(body: Record<string, unknown>) {
   return Array.from(new Set(values.map((value) => String(value || "").trim())))
     .filter((id) => /^[0-9a-f-]{36}$/i.test(id))
     .slice(0, 50);
+}
+
+function isImportJourneyStatus(status: string) {
+  return [
+    "new",
+    "international_transit",
+    "arrived_egypt",
+    "in_customs",
+    "customs_cleared",
+    "received_at_orvix",
+    "ready_for_courier",
+  ].includes(status);
 }
 
 export async function POST(request: NextRequest) {
@@ -101,13 +120,16 @@ export async function POST(request: NextRequest) {
 
         if (action === "set_status") {
           patch.status = requestedStatus;
-          if (requestedStatus === "new") patch.order_type = "preorder";
+          if (isImportJourneyStatus(requestedStatus)) patch.order_type = "preorder";
+          if (requestedStatus === "received_at_orvix") patch.supplier_status = "received_at_orvix";
+          if (requestedStatus === "ready_for_courier") patch.supplier_status = "ready_for_courier";
         } else if (actionToStatus[action]) {
           patch.status = actionToStatus[action];
         } else if (actionToSupplierStatus[action]) {
           patch.order_type = "preorder";
           patch.supplier_status = actionToSupplierStatus[action];
-          if (action === "ready_for_courier") patch.status = "confirmed";
+          if (action === "receive_at_orvix") patch.status = "received_at_orvix";
+          if (action === "ready_for_courier") patch.status = "ready_for_courier";
         } else if (action === "set_supplier") {
           patch.supplier_name = supplierName;
           patch.order_type = "preorder";

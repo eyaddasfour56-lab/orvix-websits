@@ -50,24 +50,24 @@ const copy = {
   en: {
     eyebrow: "ORVIX ORDER TRACKING",
     title: "Track your order",
-    subtitle: "Enter only the phone number used at checkout. We’ll find every order linked to it.",
+    subtitle: "Enter only the phone number used at checkout. You’ll see the complete journey from pre-order and import to live courier delivery.",
     phone: "Phone Number",
     placeholder: "01xxxxxxxxx",
     button: "Track Orders",
     checking: "Checking…",
     found: "Orders found",
+    choose: "Choose an order",
+    chooseHint: "Tap an order to view its complete journey.",
     currentStatus: "Current Status",
-    courier: "Courier Update",
+    journey: "Order Journey",
+    courier: "Live Courier Tracking",
     trackingNumber: "Tracking Number",
     estimated: "Estimated Arrival",
     placed: "Order Placed",
     total: "Total",
     items: "Items",
-    timeline: "Order Timeline",
-    choose: "Choose an order",
-    chooseHint: "Tap any order below to view its tracking details.",
-    noCourier: "Courier tracking has not started yet.",
-    privacy: "Only order tracking details linked to this phone number are shown.",
+    noCourier: "Courier tracking starts after ORVIX hands your package to Bosta.",
+    privacy: "Only tracking information linked to this phone number is shown.",
     missing: "Please enter your phone number.",
     invalid: "Please enter a valid Egyptian mobile number.",
     notFound: "No orders were found for this phone number.",
@@ -76,24 +76,24 @@ const copy = {
   ar: {
     eyebrow: "تتبّع طلبات ORVIX",
     title: "تتبّع طلبك",
-    subtitle: "اكتب فقط رقم الموبايل المستخدم في الطلب، وسنعرض كل الطلبات المرتبطة به.",
+    subtitle: "اكتب فقط رقم الموبايل المستخدم في الطلب، وهتشوف رحلة الطلب كاملة من الـPre-Order والاستيراد لحد التوصيل مع شركة الشحن.",
     phone: "رقم الموبايل",
     placeholder: "01xxxxxxxxx",
     button: "تتبّع الطلبات",
     checking: "جارٍ البحث…",
     found: "الطلبات الموجودة",
-    currentStatus: "حالة الطلب",
-    courier: "تحديث الشحن",
+    choose: "اختر طلبًا",
+    chooseHint: "اضغط على أي طلب لعرض الرحلة كاملة.",
+    currentStatus: "الحالة الحالية",
+    journey: "رحلة الطلب",
+    courier: "تتبع شركة الشحن",
     trackingNumber: "رقم التتبع",
     estimated: "الوصول المتوقع",
     placed: "تاريخ الطلب",
     total: "الإجمالي",
     items: "المنتجات",
-    timeline: "مراحل الطلب",
-    choose: "اختر طلبًا",
-    chooseHint: "اضغط على أي طلب لعرض تفاصيل التتبع الخاصة به.",
-    noCourier: "تتبع شركة الشحن لم يبدأ بعد.",
-    privacy: "يتم عرض تفاصيل التتبع المرتبطة بهذا الرقم فقط.",
+    noCourier: "تتبع شركة الشحن يبدأ بعد ما ORVIX تسلّم الشحنة لبوسطة.",
+    privacy: "يتم عرض معلومات التتبع المرتبطة بهذا الرقم فقط.",
     missing: "من فضلك أدخل رقم الموبايل.",
     invalid: "من فضلك أدخل رقم موبايل مصري صحيح.",
     notFound: "لم يتم العثور على طلبات مرتبطة بهذا الرقم.",
@@ -103,34 +103,123 @@ const copy = {
 
 const statusLabels: Record<Language, Record<string, string>> = {
   en: {
-    new: "Pre-Order",
-    confirmed: "Confirmed",
-    shipped: "Shipped",
+    new: "Pre-Ordered",
+    international_transit: "In Transit to Egypt",
+    arrived_egypt: "Arrived in Egypt",
+    in_customs: "In Customs",
+    customs_cleared: "Customs Cleared",
+    received_at_orvix: "Received at ORVIX",
+    ready_for_courier: "Ready for Courier",
+    courier_requested: "Courier Requested",
+    waiting_for_route: "Waiting for Pickup Route",
+    route_assigned: "Courier Route Assigned",
+    picked_up: "Picked Up from ORVIX",
+    bosta_warehouse: "Received at Bosta Warehouse",
+    in_transit: "In Transit with Bosta",
     out_for_delivery: "Out for Delivery",
     delivered: "Delivered",
+    returned: "Returning to ORVIX",
     cancelled: "Cancelled",
+    delivery_exception: "Delivery Exception",
+    lost: "Shipment Issue",
+    damaged: "Shipment Damaged",
+    investigation: "Under Investigation",
+    action_required: "Action Required",
+    on_hold: "Shipment On Hold",
+    archived: "Shipment Archived",
+    courier_tracking: "Courier Tracking",
   },
   ar: {
-    new: "طلب مسبق",
-    confirmed: "تم التأكيد",
-    shipped: "تم الشحن",
+    new: "تم تسجيل الطلب المسبق",
+    international_transit: "في الطريق إلى مصر",
+    arrived_egypt: "وصل مصر",
+    in_customs: "في الجمارك",
+    customs_cleared: "تم التخليص الجمركي",
+    received_at_orvix: "وصل إلى ORVIX",
+    ready_for_courier: "جاهز لشركة الشحن",
+    courier_requested: "تم طلب شركة الشحن",
+    waiting_for_route: "في انتظار خط الاستلام",
+    route_assigned: "تم تعيين مندوب الاستلام",
+    picked_up: "تم الاستلام من ORVIX",
+    bosta_warehouse: "وصل مخزن بوسطة",
+    in_transit: "في الطريق مع بوسطة",
     out_for_delivery: "خرج للتوصيل",
     delivered: "تم التوصيل",
+    returned: "راجع إلى ORVIX",
     cancelled: "ملغي",
+    delivery_exception: "مشكلة في التوصيل",
+    lost: "مشكلة في الشحنة",
+    damaged: "الشحنة تالفة",
+    investigation: "قيد المراجعة",
+    action_required: "مطلوب إجراء",
+    on_hold: "الشحنة معلقة",
+    archived: "تمت أرشفة الشحنة",
+    courier_tracking: "تتبع شركة الشحن",
   },
 };
 
-const progressStatuses = ["new", "confirmed", "shipped", "out_for_delivery", "delivered"];
+const statusDescriptions: Record<Language, Record<string, string>> = {
+  en: {
+    new: "Your pre-order has been received and the import journey has started.",
+    international_transit: "Your item is travelling to Egypt from abroad.",
+    arrived_egypt: "Your item has arrived in Egypt and is moving through the import process.",
+    in_customs: "Your item is currently being processed by Egyptian customs.",
+    customs_cleared: "Customs clearance is complete and your item is moving to ORVIX.",
+    received_at_orvix: "ORVIX has received your item and is preparing it for local delivery.",
+    ready_for_courier: "Your package is packed and ready to be handed to the courier.",
+    courier_requested: "ORVIX created the Bosta shipment and requested pickup.",
+    waiting_for_route: "Bosta is scheduling a pickup route for your package.",
+    route_assigned: "A pickup route has been assigned by Bosta.",
+    picked_up: "Bosta has picked up your package from ORVIX.",
+    bosta_warehouse: "Your package has reached a Bosta warehouse.",
+    in_transit: "Your package is moving through Bosta’s delivery network.",
+    out_for_delivery: "Your package is with the delivery courier and is on the way to you.",
+    delivered: "Your order has been delivered successfully.",
+  },
+  ar: {
+    new: "تم استلام طلبك المسبق وبدأت رحلة الاستيراد.",
+    international_transit: "المنتج في الطريق إلى مصر من الخارج.",
+    arrived_egypt: "المنتج وصل مصر وبيكمل إجراءات الدخول.",
+    in_customs: "المنتج حاليًا تحت إجراءات الجمارك المصرية.",
+    customs_cleared: "تم التخليص الجمركي والمنتج في طريقه إلى ORVIX.",
+    received_at_orvix: "ORVIX استلمت المنتج وبتجهزه للتوصيل المحلي.",
+    ready_for_courier: "الشحنة اتجهزت وبقت جاهزة لشركة الشحن.",
+    courier_requested: "ORVIX أنشأت شحنة بوسطة وطلبت الاستلام.",
+    waiting_for_route: "بوسطة بتحدد خط استلام الشحنة.",
+    route_assigned: "تم تعيين خط ومندوب لاستلام الشحنة.",
+    picked_up: "بوسطة استلمت الشحنة من ORVIX.",
+    bosta_warehouse: "الشحنة وصلت مخزن بوسطة.",
+    in_transit: "الشحنة بتتحرك داخل شبكة بوسطة.",
+    out_for_delivery: "الشحنة مع مندوب التوصيل وفي الطريق ليك.",
+    delivered: "تم توصيل طلبك بنجاح.",
+  },
+};
 
-function cleanStatus(value: string) {
-  const status = String(value || "new").trim().toLowerCase().replaceAll(" ", "_").replaceAll("-", "_");
-  if (status === "pending") return "new";
-  return status;
+const phaseLabels: Record<Language, string[]> = {
+  en: ["Pre-Order", "To Egypt", "Egypt", "Customs", "ORVIX", "Courier", "Delivered"],
+  ar: ["Pre-Order", "إلى مصر", "مصر", "الجمارك", "ORVIX", "الشحن", "تم"],
+};
+
+function cleanStatus(value: string | null | undefined) {
+  return String(value || "new").trim().toLowerCase().replaceAll(" ", "_").replaceAll("-", "_");
 }
 
-function formatStatus(value: string, language: Language) {
+function formatStatus(value: string | null | undefined, language: Language) {
   const status = cleanStatus(value);
   return statusLabels[language][status] || status.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function phaseIndex(statusValue: string | null | undefined) {
+  const status = cleanStatus(statusValue);
+  if (status === "cancelled") return -1;
+  if (status === "new") return 0;
+  if (status === "international_transit") return 1;
+  if (status === "arrived_egypt") return 2;
+  if (["in_customs", "customs_cleared"].includes(status)) return 3;
+  if (["received_at_orvix", "ready_for_courier"].includes(status)) return 4;
+  if (["courier_requested", "waiting_for_route", "route_assigned", "picked_up", "bosta_warehouse", "in_transit", "out_for_delivery", "returned", "delivery_exception", "investigation", "action_required", "on_hold", "archived", "lost", "damaged", "courier_tracking"].includes(status)) return 5;
+  if (status === "delivered") return 6;
+  return 0;
 }
 
 function formatDate(value: string | null | undefined, language: Language) {
@@ -149,12 +238,14 @@ function money(value: number, language: Language) {
   return `${Number(value || 0).toLocaleString(locale)} ${language === "ar" ? "ج.م" : "EGP"}`;
 }
 
-function statusTone(statusValue: string) {
+function statusTone(statusValue: string | null | undefined) {
   const status = cleanStatus(statusValue);
   if (status === "delivered") return "border-emerald-400/20 bg-emerald-400/10 text-emerald-200";
-  if (status === "cancelled") return "border-red-400/20 bg-red-400/10 text-red-200";
-  if (status === "out_for_delivery" || status === "shipped") return "border-blue-400/20 bg-blue-400/10 text-blue-200";
-  return "border-violet-400/20 bg-violet-400/10 text-violet-100";
+  if (["cancelled", "delivery_exception", "lost", "damaged"].includes(status)) return "border-red-400/20 bg-red-400/10 text-red-200";
+  if (["international_transit", "arrived_egypt", "in_customs", "customs_cleared"].includes(status)) return "border-amber-400/20 bg-amber-400/10 text-amber-100";
+  if (["received_at_orvix", "ready_for_courier"].includes(status)) return "border-violet-400/20 bg-violet-400/10 text-violet-100";
+  if (phaseIndex(status) === 5) return "border-blue-400/20 bg-blue-400/10 text-blue-100";
+  return "border-white/10 bg-white/[0.05] text-white/70";
 }
 
 export default function TrackOrderPage() {
@@ -168,10 +259,7 @@ export default function TrackOrderPage() {
   const [error, setError] = useState("");
 
   const selected = orders[selectedIndex] || null;
-  const currentProgressIndex = useMemo(() => {
-    if (!selected || cleanStatus(selected.status) === "cancelled") return -1;
-    return Math.max(0, progressStatuses.indexOf(cleanStatus(selected.status)));
-  }, [selected]);
+  const activePhase = useMemo(() => phaseIndex(selected?.status), [selected]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -271,11 +359,11 @@ export default function TrackOrderPage() {
                   </div>
 
                   {cleanStatus(selected.status) !== "cancelled" ? (
-                    <div className="mt-6 grid grid-cols-5 gap-2">
-                      {progressStatuses.map((status, index) => (
-                        <div key={status} className="min-w-0">
-                          <div className={`h-1.5 rounded-full ${index <= currentProgressIndex ? "bg-white" : "bg-white/10"}`} />
-                          <p className={`mt-2 truncate text-[8px] font-black ${index <= currentProgressIndex ? "text-white/65" : "text-white/20"}`}>{formatStatus(status, language)}</p>
+                    <div className="mt-7 grid grid-cols-7 gap-1.5 sm:gap-2">
+                      {phaseLabels[language].map((label, index) => (
+                        <div key={label} className="min-w-0">
+                          <div className={`h-1.5 rounded-full ${index <= activePhase ? "bg-white" : "bg-white/10"}`} />
+                          <p className={`mt-2 truncate text-center text-[7px] font-black sm:text-[8px] ${index <= activePhase ? "text-white/65" : "text-white/20"}`}>{label}</p>
                         </div>
                       ))}
                     </div>
@@ -289,8 +377,11 @@ export default function TrackOrderPage() {
                   </div>
                 </article>
 
-                <article className="rounded-[26px] border border-white/8 bg-white/[0.025] p-5">
-                  <p className="text-[9px] font-black uppercase tracking-[0.15em] text-white/25">{t.courier}</p>
+                <article className={`rounded-[26px] border p-5 ${selected.trackingNumber ? "border-blue-300/15 bg-blue-400/[0.045]" : "border-white/8 bg-white/[0.025]"}`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[9px] font-black uppercase tracking-[0.15em] text-white/25">{t.courier}</p>
+                    {selected.trackingNumber ? <span className="rounded-full border border-blue-300/15 bg-blue-400/10 px-2 py-1 text-[8px] font-black text-blue-100">LIVE</span> : null}
+                  </div>
                   <p className="mt-2 text-base font-black">{selected.carrierStatus || t.noCourier}</p>
                   <p className="mt-1 text-[10px] text-white/30">{formatDate(selected.lastUpdatedAt, language)}</p>
                 </article>
@@ -307,15 +398,26 @@ export default function TrackOrderPage() {
                   </div>
                 </article>
 
-                <article className="rounded-[26px] border border-white/8 bg-white/[0.025] p-5">
-                  <p className="text-[9px] font-black uppercase tracking-[0.15em] text-white/25">{t.timeline}</p>
-                  <div className="mt-4 space-y-3">
-                    {selected.timeline.slice().reverse().map((event) => (
-                      <div key={String(event.id)} className="grid grid-cols-[10px_1fr] gap-3">
-                        <span className="mt-1.5 h-2.5 w-2.5 rounded-full bg-white/55" />
-                        <div><p className="text-xs font-black text-white/70">{event.title}</p>{event.details ? <p className="mt-1 text-[10px] leading-5 text-white/30">{event.details}</p> : null}<p className="mt-1 text-[9px] text-white/20">{formatDate(event.createdAt, language)}</p></div>
-                      </div>
-                    ))}
+                <article className="rounded-[26px] border border-white/8 bg-white/[0.025] p-5 sm:p-6">
+                  <p className="text-[9px] font-black uppercase tracking-[0.15em] text-white/25">{t.journey}</p>
+                  <div className="mt-5 space-y-0">
+                    {selected.timeline.map((event, index) => {
+                      const eventStatus = cleanStatus(event.status);
+                      const translatedDescription = statusDescriptions[language][eventStatus];
+                      return (
+                        <div key={String(event.id)} className="grid grid-cols-[26px_1fr] gap-3">
+                          <div className="flex flex-col items-center">
+                            <span className={`mt-1 h-5 w-5 rounded-full border ${index === selected.timeline.length - 1 ? "border-white bg-white" : "border-white/20 bg-white/[0.06]"}`} />
+                            {index < selected.timeline.length - 1 ? <span className="min-h-12 w-px flex-1 bg-white/10" /> : null}
+                          </div>
+                          <div className="pb-5">
+                            <p className="text-xs font-black text-white/75">{formatStatus(event.status || event.title, language)}</p>
+                            <p className="mt-1 text-[10px] font-medium leading-5 text-white/30">{translatedDescription || event.details || ""}</p>
+                            <p className="mt-1.5 text-[9px] text-white/20">{formatDate(event.createdAt, language)}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </article>
               </section>
