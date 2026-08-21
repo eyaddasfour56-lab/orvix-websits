@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
         supabaseAdminJson<Array<Record<string, unknown>>>(`order_items?order_id=eq.${postgrestValue(orderId)}&select=*&order=created_at.asc,id.asc`),
         supabaseAdminJson<Array<Record<string, unknown>>>(`order_events?order_id=eq.${postgrestValue(orderId)}&select=*&order=created_at.asc,id.asc`),
         phone
-          ? supabaseAdminJson<OrderRow[]>(`orders?phone=eq.${postgrestValue(phone)}&select=id,order_number,status,payment_status,total_price,item_count,order_type,created_at&order=created_at.desc&limit=20`)
+          ? supabaseAdminJson<OrderRow[]>(`orders?phone=eq.${postgrestValue(phone)}&select=id,order_number,status,payment_status,total_price,item_count,order_type,supplier_name,supplier_status,bosta_state_name,created_at&order=created_at.desc&limit=20`)
           : Promise.resolve([]),
       ]);
 
@@ -56,14 +56,24 @@ export async function GET(request: NextRequest) {
     const payment = text(url.searchParams.get("payment")).toLowerCase();
 
     const orders = await supabaseAdminJson<OrderRow[]>(
-      "orders?select=id,order_number,customer_name,phone,governorate,product_name,colour,quantity,item_count,order_type,products_total,delivery_fee,discount_amount,total_price,status,payment_status,shipping_status,bosta_tracking_number,bosta_state_name,internal_notes,risk_score,created_at,updated_at&order=created_at.desc&limit=500"
+      "orders?select=id,order_number,customer_name,phone,governorate,product_name,colour,quantity,item_count,order_type,products_total,delivery_fee,discount_amount,total_price,status,payment_status,shipping_status,bosta_tracking_number,bosta_state_code,bosta_state_name,bosta_status_updated_at,bosta_pickup_date,bosta_last_error,supplier_name,supplier_status,supplier_ordered_at,supplier_confirmed_at,supplier_preparing_at,supplier_shipped_at,received_at_orvix,ready_for_courier_at,fulfillment_updated_at,estimated_delivery_from,estimated_delivery_to,internal_notes,risk_score,created_at,updated_at&order=created_at.desc&limit=500"
     );
 
     const filtered = orders.filter((order) => {
       if (status && status !== "all" && text(order.status).toLowerCase() !== status) return false;
       if (payment && payment !== "all" && text(order.payment_status || "pending").toLowerCase() !== payment) return false;
       if (!search) return true;
-      const haystack = [order.order_number, order.customer_name, order.phone, order.governorate, order.product_name, order.bosta_tracking_number]
+      const haystack = [
+        order.order_number,
+        order.customer_name,
+        order.phone,
+        order.governorate,
+        order.product_name,
+        order.bosta_tracking_number,
+        order.bosta_state_name,
+        order.supplier_name,
+        order.supplier_status,
+      ]
         .map((value) => text(value).toLowerCase())
         .join(" ");
       return haystack.includes(search);
