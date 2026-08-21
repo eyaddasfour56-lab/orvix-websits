@@ -117,9 +117,9 @@ export async function POST(request: Request) {
           quantity: Number(item.quantity || 0),
           unitPrice: Number(item.unit_price || 0),
           lineTotal: Number(item.line_total || 0),
-          isPreorder: Boolean(item.is_preorder),
-          estimatedDeliveryFrom: item.estimated_delivery_from || null,
-          estimatedDeliveryTo: item.estimated_delivery_to || null,
+          isPreorder: true,
+          estimatedDeliveryFrom: item.estimated_delivery_from || order.estimated_delivery_from || null,
+          estimatedDeliveryTo: item.estimated_delivery_to || order.estimated_delivery_to || null,
         }))
       : [
           {
@@ -132,14 +132,18 @@ export async function POST(request: Request) {
             quantity: Number(order.quantity || 1),
             unitPrice: Number(order.product_price || 0),
             lineTotal: Number(order.products_total || 0),
-            isPreorder: order.order_type === "preorder",
+            isPreorder: true,
             estimatedDeliveryFrom: order.estimated_delivery_from || null,
             estimatedDeliveryTo: order.estimated_delivery_to || null,
           },
         ];
 
-    const safeEvents = events.length
-      ? events.map((event) => ({
+    // Supplier sourcing is an internal ORVIX workflow. Customers see only
+    // customer-facing order and courier events, never supplier names/details.
+    const customerEvents = events.filter((event) => !String(event.event_type || "").startsWith("supplier_"));
+
+    const safeEvents = customerEvents.length
+      ? customerEvents.map((event) => ({
           id: event.id,
           eventType: event.event_type,
           title: event.title,
@@ -151,8 +155,8 @@ export async function POST(request: Request) {
           {
             id: 0,
             eventType: "order_placed",
-            title: "Order placed",
-            details: "Your order was received by ORVIX.",
+            title: "Pre-order placed",
+            details: "Your pre-order was received by ORVIX.",
             status: order.status,
             createdAt: order.created_at,
           },
@@ -171,7 +175,7 @@ export async function POST(request: Request) {
         totalPrice: Number(order.total_price || 0),
         status: order.status,
         paymentStatus: order.payment_status || "pending",
-        orderType: order.order_type || "standard",
+        orderType: "preorder",
         itemCount: Number(order.item_count || safeItems.length),
         estimatedDeliveryFrom: order.estimated_delivery_from || null,
         estimatedDeliveryTo: order.estimated_delivery_to || null,
