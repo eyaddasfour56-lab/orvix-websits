@@ -11,7 +11,6 @@ type Order = {
   product_name?: string;
   colour?: string;
   quantity?: number;
-  item_count?: number;
   total_price?: number | string;
   payment_status?: string;
   status?: string;
@@ -22,13 +21,22 @@ type Order = {
   created_at?: string;
 };
 
-const statusOptions = [
-  { value: "new", label: "Pre-Order" },
-  { value: "confirmed", label: "Confirmed" },
-  { value: "shipped", label: "Shipped" },
-  { value: "out_for_delivery", label: "Out for Delivery" },
-  { value: "delivered", label: "Delivered" },
+const manualStatusOptions = [
+  { value: "new", label: "Pre-Ordered" },
+  { value: "international_transit", label: "In Transit to Egypt" },
+  { value: "arrived_egypt", label: "Arrived in Egypt" },
+  { value: "in_customs", label: "In Customs" },
+  { value: "customs_cleared", label: "Customs Cleared" },
+  { value: "received_at_orvix", label: "Received at ORVIX" },
+  { value: "ready_for_courier", label: "Ready for Courier" },
   { value: "cancelled", label: "Cancelled" },
+];
+
+const legacyFallbackOptions = [
+  { value: "confirmed", label: "Confirmed (Legacy)" },
+  { value: "shipped", label: "Shipped (Legacy)" },
+  { value: "out_for_delivery", label: "Out for Delivery (Legacy)" },
+  { value: "delivered", label: "Delivered" },
 ];
 
 function money(value: unknown) {
@@ -43,16 +51,29 @@ function when(value: unknown) {
 
 function statusLabel(status: unknown) {
   const value = String(status || "new");
-  return statusOptions.find((item) => item.value === value)?.label || value.replaceAll("_", " ");
+  return [...manualStatusOptions, ...legacyFallbackOptions].find((item) => item.value === value)?.label || value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function statusTone(status: unknown) {
   const value = String(status || "new");
   if (value === "delivered") return "border-emerald-300/20 bg-emerald-400/10 text-emerald-100";
   if (value === "cancelled") return "border-red-300/20 bg-red-400/10 text-red-100";
-  if (value === "shipped" || value === "out_for_delivery") return "border-blue-300/20 bg-blue-400/10 text-blue-100";
-  if (value === "confirmed") return "border-violet-300/20 bg-violet-400/10 text-violet-100";
+  if (["international_transit", "arrived_egypt", "in_customs", "customs_cleared"].includes(value)) return "border-amber-300/20 bg-amber-400/10 text-amber-100";
+  if (["received_at_orvix", "ready_for_courier"].includes(value)) return "border-violet-300/20 bg-violet-400/10 text-violet-100";
+  if (["shipped", "out_for_delivery"].includes(value)) return "border-blue-300/20 bg-blue-400/10 text-blue-100";
   return "border-white/10 bg-white/[0.05] text-white/65";
+}
+
+function optionsFor(order: Order) {
+  const current = String(order.status || "new");
+  const known = manualStatusOptions.some((item) => item.value === current);
+  if (known) return manualStatusOptions;
+  const fallback = legacyFallbackOptions.find((item) => item.value === current);
+  return fallback ? [...manualStatusOptions, fallback] : manualStatusOptions;
+}
+
+function canSendToCourier(order: Order) {
+  return ["received_at_orvix", "ready_for_courier", "confirmed"].includes(String(order.status || ""));
 }
 
 export default function FulfillmentPage() {
@@ -90,7 +111,7 @@ export default function FulfillmentPage() {
   }, [loadOrders]);
 
   async function changeStatus(order: Order, nextStatus: string) {
-    if (!order.id || busyId) return;
+    if (!order.id || busyId || order.bosta_tracking_number) return;
     const previousStatus = order.status || "new";
     if (previousStatus === nextStatus) return;
 
@@ -118,7 +139,7 @@ export default function FulfillmentPage() {
   }
 
   async function sendToCourier(order: Order) {
-    if (!order.id || busyId || order.status === "cancelled") return;
+    if (!order.id || busyId || order.status === "cancelled" || !canSendToCourier(order)) return;
     setBusyId(order.id);
     setMessage("");
     setError("");
@@ -130,7 +151,7 @@ export default function FulfillmentPage() {
       });
       const result = await response.json();
       if (!response.ok || result.success === false) throw new Error(result.message || "Could not send order to courier.");
-      setMessage(`${order.order_number || "Order"} sent to Bosta.`);
+      setMessage(`${order.order_number || "Order"} → Courier Requested`);
       await loadOrders(true);
     } catch (dispatchError) {
       setError(dispatchError instanceof Error ? dispatchError.message : "Could not send order to courier.");
@@ -163,8 +184,9 @@ export default function FulfillmentPage() {
 
   const metrics = useMemo(() => ({
     total: orders.length,
-    preorder: orders.filter((order) => (order.status || "new") === "new").length,
-    active: orders.filter((order) => ["confirmed", "shipped", "out_for_delivery"].includes(String(order.status))).length,
+    importing: orders.filter((order) => ["new", "international_transit", "arrived_egypt", "in_customs", "customs_cleared"].includes(String(order.status || "new"))).length,
+    atOrvix: orders.filter((order) => ["received_at_orvix", "ready_for_courier"].includes(String(order.status))).length,
+    courier: orders.filter((order) => Boolean(order.bosta_tracking_number) && order.status !== "delivered" && order.status !== "cancelled").length,
     delivered: orders.filter((order) => order.status === "delivered").length,
   }), [orders]);
 
@@ -174,17 +196,18 @@ export default function FulfillmentPage() {
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/25">ORVIX ORDERS</p>
-            <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-4xl">Orders</h1>
-            <p className="mt-2 text-sm font-medium text-white/35">Click the status on any order and change it instantly. Courier tracking stays in the same row.</p>
+            <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] sm:text-4xl">Orders & Tracking</h1>
+            <p className="mt-2 max-w-3xl text-sm font-medium text-white/35">You control the import journey until the package reaches ORVIX. After Send to Courier, Bosta tracking becomes live and automatic.</p>
           </div>
           <button type="button" onClick={() => void loadOrders()} className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-black text-white/65">Refresh</button>
         </header>
 
-        <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
           {[
             ["All Orders", metrics.total],
-            ["Pre-Orders", metrics.preorder],
-            ["Active", metrics.active],
+            ["Importing", metrics.importing],
+            ["At ORVIX", metrics.atOrvix],
+            ["With Courier", metrics.courier],
             ["Delivered", metrics.delivered],
           ].map(([label, value]) => (
             <article key={String(label)} className="rounded-2xl border border-white/8 bg-white/[0.025] p-4">
@@ -203,14 +226,14 @@ export default function FulfillmentPage() {
 
         <section className="mt-4 overflow-hidden rounded-2xl border border-white/8 bg-white/[0.02]">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1120px] text-left text-xs">
+            <table className="w-full min-w-[1180px] text-left text-xs">
               <thead className="border-b border-white/8 bg-white/[0.025] text-[9px] font-black uppercase tracking-[0.13em] text-white/25">
                 <tr>
                   <th className="px-4 py-3">Order</th>
                   <th className="px-4 py-3">Customer</th>
                   <th className="px-4 py-3">Product</th>
                   <th className="px-4 py-3">Total</th>
-                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Journey Status</th>
                   <th className="px-4 py-3">Payment</th>
                   <th className="px-4 py-3">Courier</th>
                   <th className="px-4 py-3">Created</th>
@@ -226,28 +249,38 @@ export default function FulfillmentPage() {
                     <td className="px-4 py-4"><p className="font-bold text-white/60">{order.product_name || "ORVIX Product"}</p><p className="mt-1 text-[10px] text-white/25">{order.colour || "Standard"} · {order.quantity || 1}×</p></td>
                     <td className="px-4 py-4 font-black">{money(order.total_price)}</td>
                     <td className="px-4 py-4">
-                      <div className={`inline-flex rounded-xl border ${statusTone(order.status)}`}>
-                        <select
-                          aria-label={`Status for ${order.order_number || "order"}`}
-                          value={order.status || "new"}
-                          disabled={busyId === order.id}
-                          onChange={(event) => void changeStatus(order, event.target.value)}
-                          className="cursor-pointer appearance-none bg-transparent px-3 py-2 pr-7 text-[10px] font-black outline-none disabled:cursor-wait disabled:opacity-50"
-                        >
-                          {statusOptions.map((item) => <option key={item.value} value={item.value} className="bg-[#151619] text-white">{item.label}</option>)}
-                        </select>
-                      </div>
+                      {order.bosta_tracking_number ? (
+                        <div className="inline-flex items-center gap-2 rounded-xl border border-blue-300/20 bg-blue-400/[0.08] px-3 py-2 text-[10px] font-black text-blue-100">
+                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-200" />
+                          LIVE · {order.bosta_state_name || "Courier Tracking"}
+                        </div>
+                      ) : (
+                        <div className={`inline-flex rounded-xl border ${statusTone(order.status)}`}>
+                          <select
+                            aria-label={`Status for ${order.order_number || "order"}`}
+                            value={order.status || "new"}
+                            disabled={busyId === order.id}
+                            onChange={(event) => void changeStatus(order, event.target.value)}
+                            className="cursor-pointer appearance-none bg-transparent px-3 py-2 pr-7 text-[10px] font-black outline-none disabled:cursor-wait disabled:opacity-50"
+                          >
+                            {optionsFor(order).map((item) => <option key={item.value} value={item.value} className="bg-[#151619] text-white">{item.label}</option>)}
+                          </select>
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-4"><span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-[9px] font-black text-white/45">{String(order.payment_status || "pending").replaceAll("_", " ").toUpperCase()}</span></td>
                     <td className="px-4 py-4">
                       {order.bosta_tracking_number ? (
-                        <div className="min-w-[180px]">
-                          <p className="max-w-[220px] truncate text-[10px] font-black text-blue-100">{order.bosta_state_name || "Tracking active"}</p>
+                        <div className="min-w-[190px]">
+                          <p className="max-w-[230px] truncate text-[10px] font-black text-blue-100">{order.bosta_state_name || "Tracking active"}</p>
                           <p className="mt-1 text-[9px] text-white/25">{order.bosta_tracking_number}</p>
-                          <button type="button" disabled={busyId === order.id} onClick={() => void refreshTracking(order)} className="mt-2 rounded-lg border border-blue-300/15 bg-blue-400/[0.06] px-2.5 py-1.5 text-[9px] font-black text-blue-200 disabled:opacity-40">Refresh</button>
+                          <p className="mt-1 text-[9px] text-white/20">{order.bosta_status_updated_at ? when(order.bosta_status_updated_at) : "Live from Bosta"}</p>
+                          <button type="button" disabled={busyId === order.id} onClick={() => void refreshTracking(order)} className="mt-2 rounded-lg border border-blue-300/15 bg-blue-400/[0.06] px-2.5 py-1.5 text-[9px] font-black text-blue-200 disabled:opacity-40">Refresh Live Tracking</button>
                         </div>
+                      ) : canSendToCourier(order) ? (
+                        <button type="button" disabled={busyId === order.id || order.status === "cancelled"} onClick={() => void sendToCourier(order)} className="rounded-xl border border-blue-300/20 bg-blue-400/[0.08] px-3 py-2 text-[10px] font-black text-blue-100 disabled:opacity-30">{busyId === order.id ? "Sending…" : "Send to Courier"}</button>
                       ) : (
-                        <button type="button" disabled={busyId === order.id || order.status === "cancelled"} onClick={() => void sendToCourier(order)} className="rounded-xl border border-blue-300/15 bg-blue-400/[0.06] px-3 py-2 text-[10px] font-black text-blue-200 disabled:opacity-30">{busyId === order.id ? "Working…" : "Send to Courier"}</button>
+                        <div className="max-w-[190px] text-[9px] font-semibold leading-4 text-white/25">Set the journey to <span className="text-violet-200/70">Received at ORVIX</span> before sending to Bosta.</div>
                       )}
                       {order.bosta_last_error ? <p className="mt-2 max-w-[220px] text-[9px] font-semibold text-red-200/70">{order.bosta_last_error}</p> : null}
                     </td>
