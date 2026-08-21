@@ -28,12 +28,10 @@ function headers() {
 async function queryOrders(filter: string) {
   const authHeaders = headers();
   if (!supabaseUrl || !authHeaders) return [] as OrderSnapshot[];
-
   const response = await fetch(
     `${supabaseUrl}/rest/v1/orders?select=id,order_number,status,supplier_status,bosta_tracking_number,payment_method,delivery_fee,total_price&${filter}`,
     { headers: authHeaders, cache: "no-store" }
   );
-
   if (!response.ok) throw new Error(`Could not load order data for courier dispatch: ${await response.text()}`);
   return (await response.json()) as OrderSnapshot[];
 }
@@ -48,7 +46,6 @@ async function getSnapshots(body: Record<string, unknown>) {
     }
     return snapshots;
   }
-
   const batchId = String(body.batchId || "").trim();
   if (batchId) return queryOrders(`bosta_batch_id=eq.${encodeURIComponent(batchId)}`);
   return [];
@@ -57,14 +54,12 @@ async function getSnapshots(body: Record<string, unknown>) {
 async function patchOrder(id: string | number, values: Record<string, unknown>) {
   const authHeaders = headers();
   if (!supabaseUrl || !authHeaders) return;
-
   const response = await fetch(`${supabaseUrl}/rest/v1/orders?id=eq.${encodeURIComponent(String(id))}`, {
     method: "PATCH",
     headers: { ...authHeaders, Prefer: "return=minimal" },
     body: JSON.stringify(values),
     cache: "no-store",
   });
-
   if (!response.ok) throw new Error(`Could not prepare order for courier dispatch: ${await response.text()}`);
 }
 
@@ -126,8 +121,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Bosta's existing dispatch route validates confirmed orders. Keep that
-    // requirement internal so the visible customer journey remains import-based.
     for (const order of snapshots) {
       if (!order.bosta_tracking_number) {
         await patchOrder(order.id, {
@@ -156,7 +149,26 @@ export async function POST(request: NextRequest) {
     });
 
     try {
-      return await originalDispatch(forwardedRequest);
+      const dispatchResponse = await originalDispatch(forwardedRequest);
+      let dispatchPayload: Record<string, unknown> | null = null;
+      try {
+        dispatchPayload = await dispatchResponse.clone().json() as Record<string, unknown>;
+      } catch {
+        dispatchPayload = null;
+      }
+
+      if (dispatchResponse.ok && dispatchPayload?.success !== false) {
+        for (const order of snapshots) {
+          if (!order.bosta_tracking_number) {
+            await patchOrder(order.id, {
+              status: "courier_requested",
+              supplier_status: "ready_for_courier",
+            });
+          }
+        }
+      }
+
+      return dispatchResponse;
     } finally {
       for (const order of changedCod) {
         try {
