@@ -13,6 +13,15 @@ const actionToStatus: Record<string, string> = {
   cancel: "cancelled",
 };
 
+const actionToSupplierStatus: Record<string, string> = {
+  supplier_preorder: "preordered",
+  supplier_confirm: "supplier_confirmed",
+  supplier_prepare: "supplier_preparing",
+  supplier_ship_to_orvix: "supplier_shipped",
+  receive_at_orvix: "received_at_orvix",
+  ready_for_courier: "ready_for_courier",
+};
+
 type OrderRow = {
   id: string;
   order_number?: string | null;
@@ -20,6 +29,9 @@ type OrderRow = {
   payment_status?: string | null;
   total_price?: number | string | null;
   internal_notes?: string | null;
+  supplier_name?: string | null;
+  supplier_status?: string | null;
+  order_type?: string | null;
 };
 
 function authorised(request: NextRequest) {
@@ -41,12 +53,24 @@ export async function POST(request: NextRequest) {
     const action = String(body.action || "").trim().toLowerCase();
     const orderIds = idsFromBody(body);
     const note = String(body.note || "").trim().slice(0, 4000);
+    const supplierName = String(body.supplierName || "").trim().slice(0, 120);
+
+    const allowedActions = [
+      ...Object.keys(actionToStatus),
+      ...Object.keys(actionToSupplierStatus),
+      "mark_paid",
+      "mark_pending",
+      "mark_refunded",
+      "set_note",
+      "set_supplier",
+    ];
 
     if (!orderIds.length) return NextResponse.json({ success: false, message: "Select at least one valid order." }, { status: 400 });
-    if (![...Object.keys(actionToStatus), "mark_paid", "mark_pending", "mark_refunded", "set_note"].includes(action)) {
+    if (!allowedActions.includes(action)) {
       return NextResponse.json({ success: false, message: "Unsupported order action." }, { status: 400 });
     }
     if (action === "set_note" && !note) return NextResponse.json({ success: false, message: "Enter an internal note first." }, { status: 400 });
+    if (action === "set_supplier" && !supplierName) return NextResponse.json({ success: false, message: "Enter a supplier name first." }, { status: 400 });
 
     const updated: OrderRow[] = [];
     const failures: Array<{ id: string; message: string }> = [];
@@ -54,14 +78,27 @@ export async function POST(request: NextRequest) {
     for (const orderId of orderIds) {
       try {
         const existingRows = await supabaseAdminJson<OrderRow[]>(
-          `orders?id=eq.${postgrestValue(orderId)}&select=id,order_number,status,payment_status,total_price,internal_notes&limit=1`
+          `orders?id=eq.${postgrestValue(orderId)}&select=id,order_number,status,payment_status,total_price,internal_notes,supplier_name,supplier_status,order_type&limit=1`
         );
         const existing = existingRows[0];
         if (!existing) throw new Error("Order not found.");
 
         const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+
         if (actionToStatus[action]) {
           patch.status = actionToStatus[action];
+        } else if (actionToSupplierStatus[action]) {
+          patch.order_type = "preorder";
+          patch.supplier_status = actionToSupplierStatus[action];
+
+          // Bosta dispatch expects an internally confirmed order. The detailed
+          // supplier journey remains the primary status shown in the fulfillment UI.
+          if (action === "ready_for_courier") {
+            patch.status = "confirmed";
+          }
+        } else if (action === "set_supplier") {
+          patch.supplier_name = supplierName;
+          patch.order_type = "preorder";
         } else if (action === "mark_paid") {
           patch.payment_status = "paid";
           patch.payment_updated_at = new Date().toISOString();
@@ -88,6 +125,8 @@ export async function POST(request: NextRequest) {
           orderNumber: existing.order_number,
           fromStatus: existing.status,
           fromPaymentStatus: existing.payment_status,
+          fromSupplierStatus: existing.supplier_status,
+          supplierName: action === "set_supplier" ? supplierName : existing.supplier_name,
           note: action === "set_note" ? note : undefined,
           role: readAdminRole(request),
         });
