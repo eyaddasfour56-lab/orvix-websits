@@ -118,10 +118,16 @@ export async function POST(request: NextRequest) {
       if (order.status === "cancelled") {
         return NextResponse.json({ success: false, message: `${order.order_number || "This order"} is cancelled.` }, { status: 400 });
       }
+      if (!order.bosta_tracking_number && !["received_at_orvix", "ready_for_courier", "confirmed"].includes(String(order.status || ""))) {
+        return NextResponse.json(
+          { success: false, message: `${order.order_number || "This order"} must be "Received at ORVIX" before it can be sent to the courier.` },
+          { status: 400 }
+        );
+      }
     }
 
-    // Keep Bosta's existing confirmed-order requirement internal. The admin can
-    // simply press Send to Courier without managing supplier workflow first.
+    // Bosta's existing dispatch route validates confirmed orders. Keep that
+    // requirement internal so the visible customer journey remains import-based.
     for (const order of snapshots) {
       if (!order.bosta_tracking_number) {
         await patchOrder(order.id, {
