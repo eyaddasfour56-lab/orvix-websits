@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { getCustomerSupabaseBrowser } from "@/lib/customer-supabase-browser";
 
 export default function AccountNavButton() {
   const { language } = useLanguage();
+  const pathname = usePathname();
   const [loggedIn, setLoggedIn] = useState(false);
   const [unread, setUnread] = useState(0);
 
@@ -50,6 +52,8 @@ export default function AccountNavButton() {
     };
   }, [refresh]);
 
+  if (pathname.startsWith("/admin") || pathname.startsWith("/account")) return null;
+
   const label = loggedIn
     ? language === "ar" ? "حسابي" : "My Account"
     : language === "ar" ? "تسجيل الدخول" : "Log In";
@@ -59,7 +63,7 @@ export default function AccountNavButton() {
       href={loggedIn ? "/account" : "/account/login"}
       aria-label={label}
       title={label}
-      className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white transition hover:bg-white/10"
+      className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/15 bg-[#0c0d0f]/95 text-white shadow-2xl backdrop-blur transition hover:bg-[#17181b]"
     >
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-6 w-6">
         <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.8" />
