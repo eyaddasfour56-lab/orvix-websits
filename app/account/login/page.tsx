@@ -40,39 +40,43 @@ export default function CustomerLoginPage() {
         if (phone.replace(/\D/g, "").length < 10) throw new Error("Enter a valid phone number.");
         if (password.length < 8) throw new Error("Password must be at least 8 characters.");
 
-        const confirmationRedirect = `${window.location.origin}/account/confirm`;
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password,
-          options: {
-            emailRedirectTo: confirmationRedirect,
-            data: {
-              full_name: fullName.trim(),
-              phone: phone.trim(),
-            },
-          },
+        const response = await fetch("/api/account/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fullName: fullName.trim(),
+            phone: phone.trim(),
+            email: cleanEmail,
+            password,
+          }),
         });
-
-        if (signUpError) throw signUpError;
-
-        if (data.session) {
-          window.dispatchEvent(new Event("orvix-auth-changed"));
-          router.replace("/account");
-          return;
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || "Could not create your account.");
         }
 
-        setMessage("Account created. Check your email and tap Confirm email address. You will return to ORVIX automatically.");
-        setMode("login");
-        setPassword("");
-      } else {
         const { error: loginError } = await supabase.auth.signInWithPassword({
           email: cleanEmail,
           password,
         });
-        if (loginError) throw loginError;
+        if (loginError) {
+          setMode("login");
+          setMessage("Account created successfully. Log in with the email and password you just entered.");
+          throw loginError;
+        }
+
         window.dispatchEvent(new Event("orvix-auth-changed"));
         router.replace("/account");
+        return;
       }
+
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
+      if (loginError) throw loginError;
+      window.dispatchEvent(new Event("orvix-auth-changed"));
+      router.replace("/account");
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Could not continue.");
     } finally {
@@ -90,7 +94,9 @@ export default function CustomerLoginPage() {
             {mode === "login" ? "Welcome back." : "Create your account."}
           </h1>
           <p className="mt-2 text-sm font-medium leading-6 text-white/38">
-            Your orders, customer service conversations and replies stay together in one place.
+            {mode === "login"
+              ? "Your orders, customer service conversations and replies stay together in one place."
+              : "Create your account and enter immediately. No email confirmation step is required."}
           </p>
 
           <div className="mt-6 grid grid-cols-2 gap-1 rounded-2xl border border-white/10 bg-black p-1">
