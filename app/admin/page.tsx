@@ -220,7 +220,7 @@ export default function AdminHomePage() {
 
         <section className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
           <MetricCard label="Views today" value={viewsToday.toLocaleString("en-GB")} note={`${uniqueVisitorsToday.toLocaleString("en-GB")} unique · ${totalViews.toLocaleString("en-GB")} all time`} href="/admin/analytics" />
-          <MetricCard label="Orders today" value={String(dashboard.today.orders)} note={`${dashboard.today.waitingConfirmation} need confirmation`} href="/admin/orders-v2" />
+          <MetricCard label="Orders today" value={String(dashboard.today.orders)} note={`${dashboard.today.waitingConfirmation} pre-orders need attention`} href="/admin/fulfillment" />
           <MetricCard label="Sales today" value={money(dashboard.today.sales)} note="Orders placed today" href="/admin/analytics" />
           <MetricCard label="Profit today" value={money(dashboard.today.profit)} note="Delivered real profit" href="/admin/cashflow" />
           <MetricCard label="Low stock" value={String(dashboard.stats.lowStock)} note="Products needing attention" href="/admin/inventory" />
@@ -231,9 +231,9 @@ export default function AdminHomePage() {
 
         <section className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {[
-            { title: "Orders", text: `${dashboard.today.orders} today · ${dashboard.today.waitingConfirmation} waiting confirmation`, href: "/admin/orders-v2" },
+            { title: "Orders & Tracking", text: `${dashboard.today.orders} today · supplier, ORVIX and live courier journey`, href: "/admin/fulfillment" },
             { title: "Products & Stock", text: `${dashboard.stats.lowStock} low-stock products`, href: "/admin/products" },
-            { title: "Shipping", text: "Labels, Bosta and fulfilment tools", href: "/admin/legacy-orders" },
+            { title: "Courier Tracking", text: "One-click Bosta dispatch and live shipment tracking", href: "/admin/fulfillment" },
             { title: "Finance", text: `${money(dashboard.allTime.realProfit)} all-time real profit`, href: "/admin/cashflow" },
             { title: "Customers", text: "Customer 360, repeat buyers and VIPs", href: "/admin/command-center/advanced#customers" },
             { title: "Analytics", text: `${viewsToday.toLocaleString("en-GB")} views today`, href: "/admin/analytics" },
