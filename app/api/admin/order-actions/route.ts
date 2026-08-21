@@ -13,6 +13,15 @@ const actionToStatus: Record<string, string> = {
   cancel: "cancelled",
 };
 
+const allowedDirectStatuses = new Set([
+  "new",
+  "confirmed",
+  "shipped",
+  "out_for_delivery",
+  "delivered",
+  "cancelled",
+]);
+
 const actionToSupplierStatus: Record<string, string> = {
   supplier_preorder: "preordered",
   supplier_confirm: "supplier_confirmed",
@@ -54,10 +63,12 @@ export async function POST(request: NextRequest) {
     const orderIds = idsFromBody(body);
     const note = String(body.note || "").trim().slice(0, 4000);
     const supplierName = String(body.supplierName || "").trim().slice(0, 120);
+    const requestedStatus = String(body.status || "").trim().toLowerCase();
 
     const allowedActions = [
       ...Object.keys(actionToStatus),
       ...Object.keys(actionToSupplierStatus),
+      "set_status",
       "mark_paid",
       "mark_pending",
       "mark_refunded",
@@ -68,6 +79,9 @@ export async function POST(request: NextRequest) {
     if (!orderIds.length) return NextResponse.json({ success: false, message: "Select at least one valid order." }, { status: 400 });
     if (!allowedActions.includes(action)) {
       return NextResponse.json({ success: false, message: "Unsupported order action." }, { status: 400 });
+    }
+    if (action === "set_status" && !allowedDirectStatuses.has(requestedStatus)) {
+      return NextResponse.json({ success: false, message: "Choose a valid order status." }, { status: 400 });
     }
     if (action === "set_note" && !note) return NextResponse.json({ success: false, message: "Enter an internal note first." }, { status: 400 });
     if (action === "set_supplier" && !supplierName) return NextResponse.json({ success: false, message: "Enter a supplier name first." }, { status: 400 });
@@ -85,17 +99,15 @@ export async function POST(request: NextRequest) {
 
         const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
-        if (actionToStatus[action]) {
+        if (action === "set_status") {
+          patch.status = requestedStatus;
+          if (requestedStatus === "new") patch.order_type = "preorder";
+        } else if (actionToStatus[action]) {
           patch.status = actionToStatus[action];
         } else if (actionToSupplierStatus[action]) {
           patch.order_type = "preorder";
           patch.supplier_status = actionToSupplierStatus[action];
-
-          // Bosta dispatch expects an internally confirmed order. The detailed
-          // supplier journey remains the primary status shown in the fulfillment UI.
-          if (action === "ready_for_courier") {
-            patch.status = "confirmed";
-          }
+          if (action === "ready_for_courier") patch.status = "confirmed";
         } else if (action === "set_supplier") {
           patch.supplier_name = supplierName;
           patch.order_type = "preorder";
@@ -124,6 +136,7 @@ export async function POST(request: NextRequest) {
         await auditAdminAction(request, `order_${action}`, "order", orderId, {
           orderNumber: existing.order_number,
           fromStatus: existing.status,
+          toStatus: action === "set_status" ? requestedStatus : actionToStatus[action],
           fromPaymentStatus: existing.payment_status,
           fromSupplierStatus: existing.supplier_status,
           supplierName: action === "set_supplier" ? supplierName : existing.supplier_name,

@@ -31,22 +31,15 @@ async function queryOrders(filter: string) {
 
   const response = await fetch(
     `${supabaseUrl}/rest/v1/orders?select=id,order_number,status,supplier_status,bosta_tracking_number,payment_method,delivery_fee,total_price&${filter}`,
-    {
-      headers: authHeaders,
-      cache: "no-store",
-    }
+    { headers: authHeaders, cache: "no-store" }
   );
 
-  if (!response.ok) {
-    throw new Error(`Could not load order data for courier dispatch: ${await response.text()}`);
-  }
-
+  if (!response.ok) throw new Error(`Could not load order data for courier dispatch: ${await response.text()}`);
   return (await response.json()) as OrderSnapshot[];
 }
 
 async function getSnapshots(body: Record<string, unknown>) {
   const orderIds = Array.isArray(body.orderIds) ? body.orderIds : [];
-
   if (orderIds.length > 0) {
     const snapshots: OrderSnapshot[] = [];
     for (const id of orderIds) {
@@ -57,10 +50,7 @@ async function getSnapshots(body: Record<string, unknown>) {
   }
 
   const batchId = String(body.batchId || "").trim();
-  if (batchId) {
-    return queryOrders(`bosta_batch_id=eq.${encodeURIComponent(batchId)}`);
-  }
-
+  if (batchId) return queryOrders(`bosta_batch_id=eq.${encodeURIComponent(batchId)}`);
   return [];
 }
 
@@ -68,22 +58,14 @@ async function patchOrder(id: string | number, values: Record<string, unknown>) 
   const authHeaders = headers();
   if (!supabaseUrl || !authHeaders) return;
 
-  const response = await fetch(
-    `${supabaseUrl}/rest/v1/orders?id=eq.${encodeURIComponent(String(id))}`,
-    {
-      method: "PATCH",
-      headers: {
-        ...authHeaders,
-        Prefer: "return=minimal",
-      },
-      body: JSON.stringify(values),
-      cache: "no-store",
-    }
-  );
+  const response = await fetch(`${supabaseUrl}/rest/v1/orders?id=eq.${encodeURIComponent(String(id))}`, {
+    method: "PATCH",
+    headers: { ...authHeaders, Prefer: "return=minimal" },
+    body: JSON.stringify(values),
+    cache: "no-store",
+  });
 
-  if (!response.ok) {
-    throw new Error(`Could not prepare order for courier dispatch: ${await response.text()}`);
-  }
+  if (!response.ok) throw new Error(`Could not prepare order for courier dispatch: ${await response.text()}`);
 }
 
 function money(value: unknown) {
@@ -100,10 +82,7 @@ function cairoDateParts(date: Date) {
     weekday: "short",
   }).formatToParts(date);
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return {
-    date: `${values.year}-${values.month}-${values.day}`,
-    weekday: values.weekday,
-  };
+  return { date: `${values.year}-${values.month}-${values.day}`, weekday: values.weekday };
 }
 
 function nextAutomaticPickupDate() {
@@ -118,42 +97,31 @@ function nextAutomaticPickupDate() {
 
 export async function POST(request: NextRequest) {
   if (!isAdminAuthenticated(request)) {
-    return NextResponse.json(
-      { success: false, message: "Unauthorized." },
-      { status: 401 }
-    );
+    return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
   }
 
   const bodyText = await request.text();
   let body: Record<string, unknown> = {};
-
   try {
     body = JSON.parse(bodyText || "{}") as Record<string, unknown>;
   } catch {
-    return NextResponse.json(
-      { success: false, message: "Invalid request body." },
-      { status: 400 }
-    );
+    return NextResponse.json({ success: false, message: "Invalid request body." }, { status: 400 });
   }
 
   try {
     const snapshots = await getSnapshots(body);
+    if (!snapshots.length) {
+      return NextResponse.json({ success: false, message: "Choose at least one order." }, { status: 400 });
+    }
 
     for (const order of snapshots) {
-      if (order.bosta_tracking_number) continue;
-      if (!["received_at_orvix", "ready_for_courier"].includes(String(order.supplier_status || ""))) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: `${order.order_number || "This order"} must be marked "Received at ORVIX" before requesting a courier.`,
-          },
-          { status: 400 }
-        );
+      if (order.status === "cancelled") {
+        return NextResponse.json({ success: false, message: `${order.order_number || "This order"} is cancelled.` }, { status: 400 });
       }
     }
 
-    // The user-facing journey is supplier-driven. Internally Bosta still expects
-    // a confirmed order, so prepare that state automatically before dispatch.
+    // Keep Bosta's existing confirmed-order requirement internal. The admin can
+    // simply press Send to Courier without managing supplier workflow first.
     for (const order of snapshots) {
       if (!order.bosta_tracking_number) {
         await patchOrder(order.id, {
@@ -165,17 +133,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const changedCod = snapshots.filter(
-      (order) => order.payment_method === "cash_on_delivery"
-    );
-
-    // The existing Bosta integration uses delivery_fee as the COD amount.
-    // For cash-on-delivery orders, temporarily provide the full order total
-    // so the courier collects products + delivery in cash.
+    const changedCod = snapshots.filter((order) => order.payment_method === "cash_on_delivery");
     for (const order of changedCod) {
-      await patchOrder(order.id, {
-        delivery_fee: money(order.total_price),
-      });
+      await patchOrder(order.id, { delivery_fee: money(order.total_price) });
     }
 
     const forwardedBody = {
@@ -192,13 +152,9 @@ export async function POST(request: NextRequest) {
     try {
       return await originalDispatch(forwardedRequest);
     } finally {
-      // Restore the real delivery fee after Bosta has captured the COD amount,
-      // so ORVIX analytics and order totals stay correct.
       for (const order of changedCod) {
         try {
-          await patchOrder(order.id, {
-            delivery_fee: money(order.delivery_fee),
-          });
+          await patchOrder(order.id, { delivery_fee: money(order.delivery_fee) });
         } catch (error) {
           console.error(`Could not restore delivery fee for order ${order.id}:`, error);
         }
@@ -207,10 +163,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("One-click courier dispatch error:", error);
     return NextResponse.json(
-      {
-        success: false,
-        message: error instanceof Error ? error.message : "Could not send order to courier.",
-      },
+      { success: false, message: error instanceof Error ? error.message : "Could not send order to courier." },
       { status: 500 }
     );
   }
