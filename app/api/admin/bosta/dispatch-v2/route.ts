@@ -4,6 +4,10 @@ import { isAdminAuthenticated } from "@/lib/admin-auth";
 
 type OrderSnapshot = {
   id: string | number;
+  order_number?: string | null;
+  status?: string | null;
+  supplier_status?: string | null;
+  bosta_tracking_number?: string | null;
   payment_method?: string | null;
   delivery_fee?: number | string | null;
   total_price?: number | string | null;
@@ -26,7 +30,7 @@ async function queryOrders(filter: string) {
   if (!supabaseUrl || !authHeaders) return [] as OrderSnapshot[];
 
   const response = await fetch(
-    `${supabaseUrl}/rest/v1/orders?select=id,payment_method,delivery_fee,total_price&${filter}`,
+    `${supabaseUrl}/rest/v1/orders?select=id,order_number,status,supplier_status,bosta_tracking_number,payment_method,delivery_fee,total_price&${filter}`,
     {
       headers: authHeaders,
       cache: "no-store",
@@ -34,7 +38,7 @@ async function queryOrders(filter: string) {
   );
 
   if (!response.ok) {
-    throw new Error(`Could not load payment data for Bosta: ${await response.text()}`);
+    throw new Error(`Could not load order data for courier dispatch: ${await response.text()}`);
   }
 
   return (await response.json()) as OrderSnapshot[];
@@ -78,13 +82,38 @@ async function patchOrder(id: string | number, values: Record<string, unknown>) 
   );
 
   if (!response.ok) {
-    throw new Error(`Could not prepare COD order for Bosta: ${await response.text()}`);
+    throw new Error(`Could not prepare order for courier dispatch: ${await response.text()}`);
   }
 }
 
 function money(value: unknown) {
   const parsed = Number(value || 0);
   return Number.isFinite(parsed) ? Math.max(parsed, 0) : 0;
+}
+
+function cairoDateParts(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Cairo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    weekday: "short",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return {
+    date: `${values.year}-${values.month}-${values.day}`,
+    weekday: values.weekday,
+  };
+}
+
+function nextAutomaticPickupDate() {
+  let candidate = new Date();
+  for (let index = 0; index < 7; index += 1) {
+    const current = cairoDateParts(candidate);
+    if (current.weekday !== "Fri") return current.date;
+    candidate = new Date(candidate.getTime() + 24 * 60 * 60 * 1000);
+  }
+  return cairoDateParts(candidate).date;
 }
 
 export async function POST(request: NextRequest) {
@@ -107,39 +136,82 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const snapshots = await getSnapshots(body);
-  const changed = snapshots.filter(
-    (order) => order.payment_method === "cash_on_delivery"
-  );
-
   try {
-    // The existing Bosta integration uses delivery_fee as its COD amount.
+    const snapshots = await getSnapshots(body);
+
+    for (const order of snapshots) {
+      if (order.bosta_tracking_number) continue;
+      if (!["received_at_orvix", "ready_for_courier"].includes(String(order.supplier_status || ""))) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `${order.order_number || "This order"} must be marked "Received at ORVIX" before requesting a courier.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // The user-facing journey is supplier-driven. Internally Bosta still expects
+    // a confirmed order, so prepare that state automatically before dispatch.
+    for (const order of snapshots) {
+      if (!order.bosta_tracking_number) {
+        await patchOrder(order.id, {
+          order_type: "preorder",
+          supplier_status: "ready_for_courier",
+          status: "confirmed",
+          ready_for_courier_at: new Date().toISOString(),
+        });
+      }
+    }
+
+    const changedCod = snapshots.filter(
+      (order) => order.payment_method === "cash_on_delivery"
+    );
+
+    // The existing Bosta integration uses delivery_fee as the COD amount.
     // For cash-on-delivery orders, temporarily provide the full order total
     // so the courier collects products + delivery in cash.
-    for (const order of changed) {
+    for (const order of changedCod) {
       await patchOrder(order.id, {
         delivery_fee: money(order.total_price),
       });
     }
 
+    const forwardedBody = {
+      ...body,
+      pickupDate: String(body.pickupDate || "").trim() || nextAutomaticPickupDate(),
+    };
+
     const forwardedRequest = new NextRequest(request.url, {
       method: "POST",
       headers: request.headers,
-      body: bodyText,
+      body: JSON.stringify(forwardedBody),
     });
 
-    return await originalDispatch(forwardedRequest);
-  } finally {
-    // Restore the real delivery fee after Bosta has captured the COD amount,
-    // so ORVIX analytics and order totals stay correct.
-    for (const order of changed) {
-      try {
-        await patchOrder(order.id, {
-          delivery_fee: money(order.delivery_fee),
-        });
-      } catch (error) {
-        console.error(`Could not restore delivery fee for order ${order.id}:`, error);
+    try {
+      return await originalDispatch(forwardedRequest);
+    } finally {
+      // Restore the real delivery fee after Bosta has captured the COD amount,
+      // so ORVIX analytics and order totals stay correct.
+      for (const order of changedCod) {
+        try {
+          await patchOrder(order.id, {
+            delivery_fee: money(order.delivery_fee),
+          });
+        } catch (error) {
+          console.error(`Could not restore delivery fee for order ${order.id}:`, error);
+        }
       }
     }
+  } catch (error) {
+    console.error("One-click courier dispatch error:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        message: error instanceof Error ? error.message : "Could not send order to courier.",
+      },
+      { status: 500 }
+    );
   }
 }

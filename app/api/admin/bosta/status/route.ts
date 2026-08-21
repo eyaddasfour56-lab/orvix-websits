@@ -26,6 +26,7 @@ type StatusOrder = {
   id: string | number;
   order_number: string;
   bosta_tracking_number?: string | null;
+  bosta_state_code?: number | null;
 };
 
 function getFriendlyError(error: unknown) {
@@ -75,7 +76,7 @@ export async function POST(
       await supabaseAdminJson<
         StatusOrder[]
       >(
-        `orders?select=id,order_number,bosta_tracking_number&id=eq.${postgrestValue(
+        `orders?select=id,order_number,bosta_tracking_number,bosta_state_code&id=eq.${postgrestValue(
           orderId
         )}&limit=1`
       );
@@ -103,7 +104,7 @@ export async function POST(
         {
           success: false,
           message:
-            "Create the Bosta shipment first. This order is still with ORVIX.",
+            "Request the courier first. This order has not been submitted to Bosta yet.",
         },
         {
           status: 400,
@@ -136,6 +137,7 @@ export async function POST(
       );
     const statusUpdatedAt =
       new Date().toISOString();
+    const stateName = delivery.stateName || getBostaStateName(stateCode);
 
     const values: Record<
       string,
@@ -148,9 +150,7 @@ export async function POST(
       shipping_number:
         delivery.trackingNumber,
       bosta_state_code: stateCode,
-      bosta_state_name:
-        delivery.stateName ||
-        getBostaStateName(stateCode),
+      bosta_state_name: stateName,
       bosta_status_updated_at:
         statusUpdatedAt,
       bosta_last_error: null,
@@ -191,9 +191,35 @@ export async function POST(
       );
     }
 
+    if (Number(order.bosta_state_code) !== stateCode) {
+      try {
+        await supabaseAdminJson<Record<string, unknown>[]>("order_events", {
+          method: "POST",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({
+            order_id: order.id,
+            event_type: "courier_status_changed",
+            title: stateName,
+            details: "Live courier tracking refreshed from Bosta.",
+            status: orderStatus,
+            metadata: {
+              courier: "Bosta",
+              stateCode,
+              stateName,
+              trackingNumber: delivery.trackingNumber,
+            },
+            created_by: "bosta",
+            created_at: statusUpdatedAt,
+          }),
+        });
+      } catch (eventError) {
+        console.error("Could not log refreshed Bosta event:", eventError);
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      message: "Bosta status refreshed.",
+      message: "Live Bosta tracking refreshed.",
       order: updatedOrder,
     });
   } catch (error) {
