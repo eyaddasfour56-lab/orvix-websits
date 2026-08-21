@@ -10,14 +10,15 @@ import AdminOrvixAssistant from "@/components/AdminOrvixAssistant";
 
 type NavItem = { label: string; href: string; keywords: string; badge?: string };
 type NavGroup = { label: string; items: NavItem[] };
+type AdminMode = "simple" | "advanced";
 
 const groups: NavGroup[] = [
   {
     label: "Core",
     items: [
-      { label: "Overview", href: "/admin/command-center", keywords: "home dashboard overview summary" },
+      { label: "Overview", href: "/admin", keywords: "home dashboard overview summary simple" },
       { label: "Orders V2", href: "/admin/orders-v2", keywords: "orders customers search filter bulk status payment notes timeline bosta operations", badge: "NEW" },
-      { label: "Legacy Orders", href: "/admin", keywords: "legacy orders labels printing shipping" },
+      { label: "Legacy Orders", href: "/admin/legacy-orders", keywords: "legacy orders labels printing shipping" },
       { label: "Products & Stock", href: "/admin/products", keywords: "products price catalog fitbit garmin stock inventory quantity availability sale" },
       { label: "Pre-orders", href: "/admin/preorders", keywords: "preorder preorder eta lead time availability coming soon" },
       { label: "Commerce Control", href: "/admin/commerce", keywords: "health system checkout queue variants scheduled pricing rate limit reliability stock alerts kill switch" },
@@ -48,6 +49,17 @@ const groups: NavGroup[] = [
   },
 ];
 
+const simpleHrefs = new Set([
+  "/admin",
+  "/admin/orders-v2",
+  "/admin/legacy-orders",
+  "/admin/products",
+  "/admin/analytics",
+  "/admin/discounts",
+  "/admin/cashflow",
+  "/admin/chats",
+]);
+
 const allItems = groups.flatMap((group) => group.items);
 
 function cleanHref(href: string) {
@@ -67,6 +79,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [mode, setMode] = useState<AdminMode>("simple");
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -74,6 +87,13 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     setSearchOpen(false);
     setSearch("");
   }, [pathname]);
+
+  useEffect(() => {
+    const savedMode = window.localStorage.getItem("orvix-admin-mode");
+    if (savedMode === "simple" || savedMode === "advanced") {
+      setMode(savedMode);
+    }
+  }, []);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -91,6 +111,16 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  const visibleGroups = useMemo(() => {
+    if (mode === "advanced") return groups;
+    return groups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => simpleHrefs.has(cleanHref(item.href))),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [mode]);
+
   const searchResults = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return allItems.slice(0, 7);
@@ -105,18 +135,30 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     router.push(href);
   }
 
+  function changeMode(nextMode: AdminMode) {
+    setMode(nextMode);
+    window.localStorage.setItem("orvix-admin-mode", nextMode);
+  }
+
   const sidebar = (
     <div className="flex h-full flex-col bg-[#111214] text-white">
       <div className="flex h-16 items-center justify-between border-b border-white/[0.07] px-4">
-        <Link href="/admin/command-center" className="flex min-w-0 items-center gap-3">
+        <Link href="/admin" className="flex min-w-0 items-center gap-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-sm font-black text-black">O</span>
           <div className="min-w-0"><p className="truncate text-sm font-black tracking-[0.13em]">ORVIX</p><p className="text-[10px] font-semibold text-white/35">Commerce Admin</p></div>
         </Link>
         <button type="button" onClick={() => setMobileOpen(false)} className="rounded-lg p-2 text-white/45 hover:bg-white/[0.06] lg:hidden" aria-label="Close menu">×</button>
       </div>
 
+      <div className="border-b border-white/[0.07] p-3">
+        <div className="grid grid-cols-2 gap-1 rounded-xl border border-white/[0.07] bg-black/20 p-1">
+          <button type="button" onClick={() => changeMode("simple")} className={`rounded-lg px-3 py-2 text-[10px] font-black transition ${mode === "simple" ? "bg-white text-black" : "text-white/38 hover:bg-white/[0.05] hover:text-white/70"}`}>Simple</button>
+          <button type="button" onClick={() => changeMode("advanced")} className={`rounded-lg px-3 py-2 text-[10px] font-black transition ${mode === "advanced" ? "bg-violet-300 text-black" : "text-white/38 hover:bg-white/[0.05] hover:text-white/70"}`}>Advanced</button>
+        </div>
+      </div>
+
       <nav className="flex-1 overflow-y-auto px-3 py-4">
-        {groups.map((group) => (
+        {visibleGroups.map((group) => (
           <div key={group.label} className="mb-5">
             <p className="mb-1.5 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white/25">{group.label}</p>
             <div className="space-y-0.5">
@@ -159,6 +201,10 @@ export default function AdminShell({ children }: { children: ReactNode }) {
             </div>
 
             <div className="ml-auto flex shrink-0 items-center gap-2">
+              <div className="hidden items-center gap-1 rounded-xl border border-white/[0.07] bg-white/[0.025] p-1 md:flex">
+                <button type="button" onClick={() => changeMode("simple")} className={`rounded-lg px-2.5 py-1.5 text-[9px] font-black transition ${mode === "simple" ? "bg-white text-black" : "text-white/32 hover:text-white/70"}`}>Simple</button>
+                <button type="button" onClick={() => changeMode("advanced")} className={`rounded-lg px-2.5 py-1.5 text-[9px] font-black transition ${mode === "advanced" ? "bg-violet-300 text-black" : "text-white/32 hover:text-white/70"}`}>Advanced</button>
+              </div>
               <AdminNotifications />
               <AdminOrvixAssistant />
               <div className="hidden sm:block"><AdminAiToggle /></div>
