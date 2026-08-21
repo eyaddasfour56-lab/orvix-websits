@@ -16,7 +16,6 @@ import PreorderPurchaseBar from "@/components/PreorderPurchaseBar";
 import CommerceCartAnalytics from "@/components/CommerceCartAnalytics";
 import CommerceExperienceV3 from "@/components/CommerceExperienceV3";
 import CustomerAccountBridge from "@/components/CustomerAccountBridge";
-import AccountNavButton from "@/components/AccountNavButton";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -81,7 +80,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <CustomerOrderCancellation />
           <PreorderPurchaseBar />
           {children}
-          <div className="fixed bottom-4 left-4 z-[178] print:hidden"><AccountNavButton /></div>
           <CustomerServiceLink />
         </LanguageProvider>
       </body>
