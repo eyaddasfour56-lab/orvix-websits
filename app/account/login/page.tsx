@@ -40,10 +40,12 @@ export default function CustomerLoginPage() {
         if (phone.replace(/\D/g, "").length < 10) throw new Error("Enter a valid phone number.");
         if (password.length < 8) throw new Error("Password must be at least 8 characters.");
 
+        const confirmationRedirect = `${window.location.origin}/account/confirm`;
         const { data, error: signUpError } = await supabase.auth.signUp({
           email: cleanEmail,
           password,
           options: {
+            emailRedirectTo: confirmationRedirect,
             data: {
               full_name: fullName.trim(),
               phone: phone.trim(),
@@ -59,7 +61,7 @@ export default function CustomerLoginPage() {
           return;
         }
 
-        setMessage("Account created. Check your email to confirm it, then sign in.");
+        setMessage("Account created. Check your email and tap Confirm email address. You will return to ORVIX automatically.");
         setMode("login");
         setPassword("");
       } else {
