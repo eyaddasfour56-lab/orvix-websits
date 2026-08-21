@@ -40,7 +40,9 @@ export default function AccountNavButton() {
     const supabase = getCustomerSupabaseBrowser();
     void refresh();
 
-    const { data } = supabase.auth.onAuthStateChange(() => void refresh());
+    const { data } = supabase.auth.onAuthStateChange(() => {
+      window.setTimeout(() => void refresh(), 0);
+    });
     const timer = window.setInterval(() => void refresh(), 30000);
     const onChanged = () => void refresh();
     window.addEventListener("orvix-auth-changed", onChanged);
