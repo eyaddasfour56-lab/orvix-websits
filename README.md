@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ORVIX Commerce Platform
 
-## Getting Started
+ORVIX is a production-deployed, white-label-ready commerce and operations platform for modern retail brands in Egypt. It combines a bilingual storefront, checkout, customer accounts, secure order tracking, fulfillment tooling, analytics, and a configurable admin operating system in one Next.js application.
 
-First, run the development server:
+- Live storefront: <https://orvix-websits.vercel.app>
+- Buyer-facing system overview: <https://orvix-websits.vercel.app/system-preview>
+- Handover guide: [`docs/WHITE_LABEL_HANDOVER.md`](docs/WHITE_LABEL_HANDOVER.md)
+- Due-diligence summary: [`docs/BUYER_DUE_DILIGENCE.md`](docs/BUYER_DUE_DILIGENCE.md)
+
+## Platform scope
+
+### Storefront and conversion
+
+- English and Arabic storefront experience
+- Product variants, stock states, live pricing, promotions, discount codes, wishlist, and cart
+- Cash on Delivery and InstaPay-on-delivery checkout flows
+- Delivery-area pricing and Bosta-ready location/shipping integration
+- Product SEO, structured data, sitemap, robots, manifest, and social sharing metadata
+
+### Customer experience
+
+- Registration, login, password reset, and account confirmation
+- Saved addresses and cross-device wishlist sync
+- Order history, reorder, cancellation, returns, and verified reviews with photos
+- Secure tracking identity checks with email and SMS OTP-ready workflows
+- Customer support inbox and chat experience
+
+### Admin operating system
+
+- Orders, fulfillment journeys, pre-orders, labels, and courier actions
+- Products, inventory, discounts, reviews, waitlists, customers, and exports
+- Cashflow, analytics, attribution, recovery, risk, and feature controls
+- Editable brand identity, colours, contacts, SEO, and live promotion settings
+- Role-aware admin permissions, audit trails, and optional two-factor verification
+
+## Technology
+
+- Next.js 16 App Router
+- React 19 and TypeScript
+- Supabase Postgres, Auth, Storage, Row Level Security, and scheduled jobs
+- Vercel deployment
+- Optional integrations: Resend, Sent, Bosta, Vercel AI Gateway/OpenAI
+
+## Local setup
+
+1. Install Node.js 22.
+2. Copy `.env.example` to `.env.local` and add credentials for a buyer-controlled environment.
+3. Install dependencies with `npm install`.
+4. Apply the SQL files in `supabase/migrations` in filename order to a new Supabase project.
+5. Run `npm run dev` and open <http://localhost:3000>.
+
+Never copy production secrets or customer data into a buyer environment.
+
+## Verification
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run lint
+./node_modules/.bin/tsc --noEmit
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Deployment and provider activation
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The core storefront and database require buyer-owned Vercel and Supabase projects. Transactional email, SMS, courier dispatch, and AI features are optional integrations and activate only after the buyer supplies verified provider accounts, approved senders, and environment variables.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Rights
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+All rights are reserved. Access to this repository does not grant a licence, redistribution right, resale right, or ownership transfer. Commercial rights begin only under a signed agreement that defines the included deployment, support period, and licence scope.
