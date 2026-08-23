@@ -210,6 +210,7 @@ export default function ConversionMount() {
   const isHome = pathname === "/";
   const isCheckout = pathname === "/checkout";
   const isAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
+  const isBuyerPreview = pathname === "/admin/buyer-preview";
 
   useEffect(() => {
     if (isHome || isAdmin) {
@@ -247,6 +248,10 @@ export default function ConversionMount() {
   }, [isAdmin, isCheckout, isHome, pathname]);
 
   if (isHome) {
+    return null;
+  }
+
+  if (isBuyerPreview) {
     return null;
   }
 
