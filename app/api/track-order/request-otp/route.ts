@@ -12,7 +12,10 @@ import {
   trackingPhoneCandidates,
   TRACKING_OTP_TTL_SECONDS,
 } from "@/lib/tracking-security";
-import { sendOrvixEmail } from "@/lib/transactional-email";
+import {
+  sendOrvixEmail,
+  transactionalEmailSenderReady,
+} from "@/lib/transactional-email";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -103,6 +106,7 @@ export async function POST(request: NextRequest) {
     const otp = createTrackingOtp();
     const email = String(identity?.customer_email || "").trim().toLowerCase();
     const expiresAt = new Date(Date.now() + TRACKING_OTP_TTL_SECONDS * 1000).toISOString();
+    const senderReady = transactionalEmailSenderReady();
 
     await supabaseAdminJson("order_tracking_otp_challenges", {
       method: "POST",
@@ -114,12 +118,28 @@ export async function POST(request: NextRequest) {
         email_normalized: email || null,
         customer_name: identity?.customer_name || null,
         otp_hash: trackingOtpHash(challengeId, otp),
-        delivery_status: identity ? "pending" : "not_found",
+        delivery_status: identity
+          ? senderReady
+            ? "pending"
+            : "failed"
+          : "not_found",
         expires_at: expiresAt,
       }),
     });
 
     if (identity && email) {
+      if (!senderReady) {
+        return json(
+          {
+            success: false,
+            code: "EMAIL_SETUP_REQUIRED",
+            message:
+              "Secure code email is temporarily unavailable. Please contact ORVIX Customer Service.",
+          },
+          503
+        );
+      }
+
       const content = trackingOtpEmail({
         customerName: identity.customer_name,
         otp,

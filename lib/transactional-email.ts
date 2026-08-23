@@ -16,7 +16,12 @@ type ResendEmailResponse = {
   };
 };
 
-const EMAIL_REQUEST_TIMEOUT_MS = 6_000;
+const EMAIL_REQUEST_TIMEOUT_MS = 3_000;
+
+export function transactionalEmailSenderReady() {
+  const sender = process.env.RESEND_FROM_EMAIL?.trim().toLowerCase();
+  return Boolean(sender && !sender.includes("onboarding@resend.dev"));
+}
 
 export function siteOrigin(request: Request) {
   const configured =
