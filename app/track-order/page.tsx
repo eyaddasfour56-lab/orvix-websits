@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import Navbar from "@/components/Navbar";
 import { Language, useLanguage } from "@/components/LanguageProvider";
 
@@ -51,15 +51,32 @@ type TrackingResult = {
   orders?: TrackedOrder[];
 };
 
+type OtpRequestResult = {
+  success?: boolean;
+  message?: string;
+  code?: string;
+  challengeId?: string;
+  maskedEmail?: string | null;
+};
+
 const copy = {
   en: {
     eyebrow: "ORVIX ORDER TRACKING",
     title: "Track your order",
-    subtitle: "Enter only the phone number used at checkout.",
+    subtitle: "Enter the checkout phone number. We’ll email the customer a secure one-time code.",
     phone: "Phone Number",
     placeholder: "01xxxxxxxxx",
-    button: "Track Orders",
-    checking: "Checking…",
+    button: "Send Secure Code",
+    checking: "Sending…",
+    codeLabel: "6-digit code",
+    codePlaceholder: "000000",
+    verify: "Verify & Track",
+    verifying: "Verifying…",
+    codeSent: "Enter the code sent to",
+    codeSentGeneric: "If the details match an order, the code was sent to the saved customer email.",
+    resend: "Send a new code",
+    changePhone: "Use a different phone",
+    verified: "Email verified. Secure tracking is active for 30 minutes.",
     found: "Orders found",
     choose: "Choose an order",
     chooseHint: "Tap an order to view its tracking summary.",
@@ -75,7 +92,7 @@ const copy = {
     fullJourneyHint: "Open the complete order journey from pre-order and import to ORVIX handling and courier delivery.",
     openJourney: "View Full Journey",
     noCourier: "Courier tracking starts after ORVIX hands your package to Bosta.",
-    privacy: "Only tracking information linked to this phone number is shown.",
+    privacy: "Orders appear only after the one-time email code is verified.",
     cancelled: "This order is cancelled. Its last real journey stage is still shown and preserved.",
     missing: "Please enter your phone number.",
     invalid: "Please enter a valid Egyptian mobile number.",
@@ -85,11 +102,20 @@ const copy = {
   ar: {
     eyebrow: "تتبّع طلبات ORVIX",
     title: "تتبّع طلبك",
-    subtitle: "اكتب فقط رقم الموبايل المستخدم في الطلب.",
+    subtitle: "اكتب رقم الموبايل المستخدم في الطلب، وسنبعت للعميل كود مؤقت وآمن على الإيميل.",
     phone: "رقم الموبايل",
     placeholder: "01xxxxxxxxx",
-    button: "تتبّع الطلبات",
-    checking: "جارٍ البحث…",
+    button: "إرسال الكود الآمن",
+    checking: "جارٍ الإرسال…",
+    codeLabel: "الكود المكوّن من 6 أرقام",
+    codePlaceholder: "000000",
+    verify: "تأكيد وعرض الطلبات",
+    verifying: "جارٍ التأكيد…",
+    codeSent: "اكتب الكود المرسل إلى",
+    codeSentGeneric: "لو الرقم مرتبط بطلب، الكود اتبعت على إيميل العميل المسجل.",
+    resend: "إرسال كود جديد",
+    changePhone: "استخدام رقم مختلف",
+    verified: "تم تأكيد الإيميل. التتبع الآمن متاح لمدة 30 دقيقة.",
     found: "الطلبات الموجودة",
     choose: "اختر طلبًا",
     chooseHint: "اضغط على أي طلب لعرض ملخص التتبع.",
@@ -105,7 +131,7 @@ const copy = {
     fullJourneyHint: "افتح رحلة الطلب كاملة من الـPre-Order والاستيراد لحد ORVIX وشركة الشحن.",
     openJourney: "عرض الرحلة كاملة",
     noCourier: "تتبع شركة الشحن يبدأ بعد ما ORVIX تسلّم الشحنة لبوسطة.",
-    privacy: "يتم عرض معلومات التتبع المرتبطة بهذا الرقم فقط.",
+    privacy: "لن تظهر الطلبات إلا بعد تأكيد الكود المؤقت المرسل على الإيميل.",
     cancelled: "الطلب ملغي، لكن آخر مرحلة حقيقية وصل لها الطلب ما زالت محفوظة ومعروضة.",
     missing: "من فضلك أدخل رقم الموبايل.",
     invalid: "من فضلك أدخل رقم موبايل مصري صحيح.",
@@ -204,6 +230,10 @@ export default function TrackOrderPage() {
   const t = copy[language];
   const rtl = language === "ar";
   const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [challengeId, setChallengeId] = useState("");
+  const [maskedEmail, setMaskedEmail] = useState("");
+  const [step, setStep] = useState<"phone" | "otp" | "results">("phone");
   const [orders, setOrders] = useState<TrackedOrder[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -212,35 +242,105 @@ export default function TrackOrderPage() {
   const selected = orders[selectedIndex] || null;
   const activeJourney = useMemo(() => journeyIndex(selected?.journeyStatus || selected?.status), [selected]);
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (loading) return;
+  async function loadVerifiedOrders() {
+    const response = await fetch("/api/track-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+      cache: "no-store",
+    });
+    const result = (await response.json()) as TrackingResult;
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || t.failed);
+    }
+    const nextOrders = Array.isArray(result.orders) ? result.orders : [];
+    setOrders(nextOrders);
+    setSelectedIndex(0);
+    setStep("results");
+  }
+
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/track-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+      cache: "no-store",
+    })
+      .then(async (response) => ({ response, result: (await response.json()) as TrackingResult }))
+      .then(({ response, result }) => {
+        if (!active || !response.ok || !result.success || !Array.isArray(result.orders)) return;
+        setOrders(result.orders);
+        setStep("results");
+      })
+      .catch(() => {
+        // A missing or expired secure session simply starts the normal OTP flow.
+      });
+    return () => { active = false; };
+  }, []);
+
+  async function requestCode() {
     setLoading(true);
     setError("");
     setOrders([]);
     setSelectedIndex(0);
-
     try {
-      const response = await fetch("/api/track-order", {
+      const response = await fetch("/api/track-order/request-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone }),
       });
-      const result = (await response.json()) as TrackingResult;
+      const result = (await response.json()) as OtpRequestResult;
       if (!response.ok || !result.success) {
         if (result.code === "MISSING_PHONE") throw new Error(t.missing);
         if (result.code === "INVALID_PHONE") throw new Error(t.invalid);
-        if (result.code === "ORDER_NOT_FOUND") throw new Error(t.notFound);
         throw new Error(result.message || t.failed);
       }
-      const nextOrders = Array.isArray(result.orders) ? result.orders : [];
-      setOrders(nextOrders);
-      window.sessionStorage.setItem("orvixTrackingPhone", phone.trim());
+      setChallengeId(String(result.challengeId || ""));
+      setMaskedEmail(String(result.maskedEmail || ""));
+      setOtp("");
+      setStep("otp");
     } catch (lookupError) {
       setError(lookupError instanceof Error ? lookupError.message : t.failed);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function verifyCode() {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/track-order/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ challengeId, otp }),
+      });
+      const result = (await response.json()) as OtpRequestResult;
+      if (!response.ok || !result.success) throw new Error(result.message || t.failed);
+      await loadVerifiedOrders();
+    } catch (verifyError) {
+      setError(verifyError instanceof Error ? verifyError.message : t.failed);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (loading) return;
+    if (step === "otp") await verifyCode();
+    else await requestCode();
+  }
+
+  function resetTracking() {
+    setStep("phone");
+    setPhone("");
+    setOtp("");
+    setChallengeId("");
+    setMaskedEmail("");
+    setOrders([]);
+    setError("");
   }
 
   return (
@@ -253,15 +353,37 @@ export default function TrackOrderPage() {
           <p className="mx-auto mt-4 max-w-xl text-sm font-medium leading-7 text-white/40">{t.subtitle}</p>
         </div>
 
-        <form onSubmit={submit} className="mx-auto mt-8 max-w-xl rounded-[26px] border border-white/10 bg-white/[0.035] p-4 shadow-2xl sm:p-5">
-          <label className="text-[10px] font-black uppercase tracking-[0.14em] text-white/35">{t.phone}</label>
-          <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-            <input type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder={t.placeholder} className="h-12 min-w-0 flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 text-base font-bold outline-none placeholder:text-white/20 focus:border-white/25" />
-            <button disabled={loading || !phone.trim()} className="h-12 rounded-2xl bg-white px-6 text-sm font-black text-black disabled:opacity-40">{loading ? t.checking : t.button}</button>
+        {step === "results" ? (
+          <div className="mx-auto mt-8 flex max-w-xl flex-col gap-3 rounded-[26px] border border-emerald-300/15 bg-emerald-400/[0.045] p-4 shadow-2xl sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <p className="text-xs font-bold leading-6 text-emerald-100/75">✓ {t.verified}</p>
+            <button type="button" onClick={resetTracking} className="shrink-0 rounded-xl border border-white/10 px-4 py-2.5 text-[10px] font-black text-white/55">{t.changePhone}</button>
           </div>
-          <p className="mt-3 text-[10px] font-medium text-white/25">{t.privacy}</p>
-          {error ? <p className="mt-4 rounded-xl border border-red-400/20 bg-red-400/[0.07] p-3 text-xs font-bold text-red-100">{error}</p> : null}
-        </form>
+        ) : (
+          <form onSubmit={submit} className="mx-auto mt-8 max-w-xl rounded-[26px] border border-white/10 bg-white/[0.035] p-4 shadow-2xl sm:p-5">
+            {step === "phone" ? (
+              <>
+                <label className="text-[10px] font-black uppercase tracking-[0.14em] text-white/35">{t.phone}</label>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                  <input type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder={t.placeholder} className="h-12 min-w-0 flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 text-base font-bold outline-none placeholder:text-white/20 focus:border-white/25" />
+                  <button disabled={loading || !phone.trim()} className="h-12 rounded-2xl bg-white px-6 text-sm font-black text-black disabled:opacity-40">{loading ? t.checking : t.button}</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-xs font-semibold leading-6 text-white/48">{maskedEmail ? `${t.codeSent} ${maskedEmail}` : t.codeSentGeneric}</p>
+                <label className="mt-4 block text-[10px] font-black uppercase tracking-[0.14em] text-white/35">{t.codeLabel}</label>
+                <input type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder={t.codePlaceholder} className="mt-2 h-14 w-full rounded-2xl border border-white/10 bg-black/30 px-4 text-center text-2xl font-black tracking-[0.45em] outline-none placeholder:text-white/12 focus:border-white/25" />
+                <button disabled={loading || otp.length !== 6} className="mt-3 h-12 w-full rounded-2xl bg-white px-6 text-sm font-black text-black disabled:opacity-40">{loading ? t.verifying : t.verify}</button>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                  <button type="button" disabled={loading} onClick={() => void requestCode()} className="text-[10px] font-black text-white/35 hover:text-white/65 disabled:opacity-40">{t.resend}</button>
+                  <button type="button" disabled={loading} onClick={resetTracking} className="text-[10px] font-black text-white/35 hover:text-white/65 disabled:opacity-40">{t.changePhone}</button>
+                </div>
+              </>
+            )}
+            <p className="mt-3 text-[10px] font-medium text-white/25">{t.privacy}</p>
+            {error ? <p className="mt-4 rounded-xl border border-red-400/20 bg-red-400/[0.07] p-3 text-xs font-bold text-red-100">{error}</p> : null}
+          </form>
+        )}
 
         {orders.length ? (
           <div className="mt-10 grid gap-5 lg:grid-cols-[330px_minmax(0,1fr)] lg:items-start">

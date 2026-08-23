@@ -66,7 +66,7 @@ const copy = {
     noCourier: "Courier tracking has not started yet.",
     items: "Order Items",
     total: "Total",
-    missingSession: "For privacy, open this page from Track Order after entering your phone number.",
+    missingSession: "For privacy, open this page from Track Order and verify the email code first.",
     openTracking: "Open Track Order",
   },
   ar: {
@@ -86,7 +86,7 @@ const copy = {
     noCourier: "تتبع شركة الشحن لم يبدأ بعد.",
     items: "المنتجات",
     total: "الإجمالي",
-    missingSession: "للخصوصية افتح الصفحة دي من Track Order بعد ما تدخل رقم الموبايل.",
+    missingSession: "للخصوصية افتح الصفحة دي من Track Order وأكد كود الإيميل الأول.",
     openTracking: "فتح Track Order",
   },
 } as const;
@@ -175,21 +175,21 @@ export default function FullOrderJourneyPage() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      const phone = window.sessionStorage.getItem("orvixTrackingPhone") || "";
-      if (!phone) {
-        if (!cancelled) { setMissingSession(true); setLoading(false); }
-        return;
-      }
       try {
         const response = await fetch("/api/track-order", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone }),
+          body: "{}",
+          cache: "no-store",
         });
         const result = (await response.json()) as TrackingResult;
+        if (response.status === 401) {
+          if (!cancelled) setMissingSession(true);
+          return;
+        }
         if (!response.ok || !result.success) throw new Error(result.message || "Could not load order journey.");
         const match = (result.orders || []).find((item) => item.orderNumber === orderNumber);
-        if (!match) throw new Error("Order not found for this phone number.");
+        if (!match) throw new Error("Order not found for this verified tracking session.");
         if (!cancelled) setOrder(match);
       } catch (loadError) {
         if (!cancelled) setError(loadError instanceof Error ? loadError.message : "Could not load order journey.");

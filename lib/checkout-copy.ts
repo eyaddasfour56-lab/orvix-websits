@@ -1,7 +1,7 @@
 export const checkoutCopy = {
   en: {
     colours: {
-      Black: "Black",
+      Black: "Obsidian (Black)",
       Lavender: "Lavender",
       Berry: "Berry",
     },
@@ -38,7 +38,7 @@ export const checkoutCopy = {
     fullNameError: "Please enter your full name.",
     phoneError: "Please enter your phone number.",
     emailError:
-      "Please enter a valid email address or leave it empty.",
+      "Please enter a valid email address for order confirmation and secure tracking.",
     addressError: "Please enter your full address.",
     applyDiscountError:
       "Please press Apply to verify your discount code before placing the order.",
@@ -61,9 +61,9 @@ export const checkoutCopy = {
     fullName: "Full name",
     fullNamePlaceholder: "Enter your full name",
     phoneNumber: "Phone number",
-    emailOptional: "Email address — optional",
+    emailOptional: "Email address — required",
     emailNote:
-      "If you enter an email, your order and tracking details can be sent to it.",
+      "We use this for your order confirmation and the secure tracking code.",
     deliveryInformation: "Delivery information",
     city: "Governorate / city",
     cityPlaceholder:
@@ -131,7 +131,7 @@ export const checkoutCopy = {
   },
   ar: {
     colours: {
-      Black: "أسود",
+      Black: "Obsidian (أسود)",
       Lavender: "لافندر",
       Berry: "توتي",
     },
@@ -167,7 +167,7 @@ export const checkoutCopy = {
     fullNameError: "من فضلك أدخل اسمك بالكامل.",
     phoneError: "من فضلك أدخل رقم هاتفك.",
     emailError:
-      "من فضلك أدخل بريدًا إلكترونيًا صحيحًا أو اتركه فارغًا.",
+      "من فضلك أدخل بريدًا إلكترونيًا صحيحًا لتأكيد الطلب والتتبّع الآمن.",
     addressError: "من فضلك أدخل عنوانك بالكامل.",
     applyDiscountError:
       "اضغط تطبيق للتحقق من كود الخصم قبل تأكيد الطلب.",
@@ -190,9 +190,9 @@ export const checkoutCopy = {
     fullName: "الاسم بالكامل",
     fullNamePlaceholder: "أدخل اسمك بالكامل",
     phoneNumber: "رقم الهاتف",
-    emailOptional: "البريد الإلكتروني — اختياري",
+    emailOptional: "البريد الإلكتروني — مطلوب",
     emailNote:
-      "إذا أدخلت بريدًا إلكترونيًا، يمكن إرسال تفاصيل الطلب والتتبّع إليه.",
+      "نستخدمه لإرسال تأكيد الطلب وكود التتبّع الآمن.",
     deliveryInformation: "بيانات التوصيل",
     city: "المحافظة / المدينة",
     cityPlaceholder: "اختر المحافظة أو المدينة",

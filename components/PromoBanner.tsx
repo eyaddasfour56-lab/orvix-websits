@@ -36,6 +36,7 @@ export default function PromoBanner() {
   async function copyCode() {
     try {
       await navigator.clipboard.writeText(PROMO_CODE);
+      window.localStorage.setItem("orvixPromoCode", PROMO_CODE);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1600);
     } catch {

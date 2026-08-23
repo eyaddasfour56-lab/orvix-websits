@@ -75,7 +75,7 @@ export default function HomepageQuickOrder() {
 
   return createPortal(
     <a
-      href="/checkout?colour=Black&quantity=1"
+      href="/checkout?colour=Black&quantity=1&discount=ORVIX15"
       className="orvix-premium-button mt-5 flex w-full items-center justify-center rounded-full border border-blue-400/30 bg-blue-500 px-6 py-4 text-center font-black text-white transition hover:bg-blue-400 active:scale-[0.99]"
     >
       {language === "ar" ? "طلب سريع" : "Quick Order"}

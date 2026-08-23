@@ -207,8 +207,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: "Your cart can contain up to 20 units per order." }, { status: 400, headers: { "Cache-Control": "no-store" } });
     }
 
-    if (customerEmail && !isValidEmail(customerEmail)) {
-      return NextResponse.json({ success: false, message: "Please enter a valid email address or leave it empty." }, { status: 400, headers: { "Cache-Control": "no-store" } });
+    if (!isValidEmail(customerEmail)) {
+      return NextResponse.json({ success: false, message: "Please enter a valid email address for order confirmation and secure tracking." }, { status: 400, headers: { "Cache-Control": "no-store" } });
     }
 
     const settings = await getCommerceSettings();

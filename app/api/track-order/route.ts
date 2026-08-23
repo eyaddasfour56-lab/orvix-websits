@@ -1,12 +1,18 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { postgrestValue, supabaseAdminJson } from "@/lib/supabase-admin";
-
-type TrackOrderRequest = { phone?: string };
+import {
+  normalizeTrackingPhone,
+  trackingPhoneCandidates,
+  trackingSessionHash,
+  TRACKING_SESSION_COOKIE,
+} from "@/lib/tracking-security";
 
 type OrderRow = {
   id: string;
   order_number: string;
   phone: string;
+  customer_email?: string | null;
   governorate: string;
   product_name?: string | null;
   product_slug?: string | null;
@@ -86,21 +92,6 @@ const importMilestones = [
 
 function response(body: Record<string, unknown>, status = 200) {
   return NextResponse.json(body, { status, headers: privateResponseHeaders });
-}
-
-function normalizePhone(phone: string) {
-  let digits = String(phone || "").replace(/\D/g, "");
-  if (digits.startsWith("0020")) digits = digits.slice(2);
-  if (digits.startsWith("20")) return `0${digits.slice(2)}`;
-  if (digits.startsWith("1")) return `0${digits}`;
-  return digits;
-}
-
-function phoneCandidates(phone: string) {
-  const local = normalizePhone(phone);
-  if (!/^01\d{9}$/.test(local)) return [];
-  const international = `20${local.slice(1)}`;
-  return Array.from(new Set([local, international, `+${international}`, `00${international}`]));
 }
 
 function bostaCustomerStatus(codeValue: unknown) {
@@ -321,28 +312,62 @@ async function safeOrder(order: OrderRow) {
   };
 }
 
-export async function POST(request: Request) {
-  try {
-    const body = (await request.json()) as TrackOrderRequest;
-    const phone = normalizePhone(String(body.phone || ""));
-    const candidates = phoneCandidates(phone);
+type TrackingSessionRow = {
+  id: string;
+  phone_normalized: string;
+  email_normalized: string;
+  expires_at: string;
+};
 
-    if (!phone) {
-      return response({ success: false, code: "MISSING_PHONE", message: "Please enter your phone number." }, 400);
+export async function POST() {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(TRACKING_SESSION_COOKIE)?.value || "";
+    if (token.length < 32 || token.length > 128) {
+      return response(
+        { success: false, code: "TRACKING_VERIFICATION_REQUIRED", message: "Verify the email code to view this order." },
+        401
+      );
     }
-    if (!candidates.length) {
-      return response({ success: false, code: "INVALID_PHONE", message: "Please enter a valid Egyptian mobile number." }, 400);
+
+    const tokenHash = trackingSessionHash(token);
+    const sessions = await supabaseAdminJson<TrackingSessionRow[]>(
+      `order_tracking_sessions?token_hash=eq.${postgrestValue(tokenHash)}&revoked_at=is.null&expires_at=gt.${postgrestValue(new Date().toISOString())}&select=id,phone_normalized,email_normalized,expires_at&limit=1`
+    );
+    const session = sessions[0];
+    if (!session) {
+      return response(
+        { success: false, code: "TRACKING_VERIFICATION_REQUIRED", message: "Your secure tracking session expired. Request a new code." },
+        401
+      );
     }
+
+    const phone = normalizeTrackingPhone(session.phone_normalized);
+    const email = String(session.email_normalized || "").trim().toLowerCase();
+    const candidates = trackingPhoneCandidates(phone);
 
     const filter = candidates.map((value) => `phone.eq.${postgrestValue(value)}`).join(",");
     const orders = await supabaseAdminJson<OrderRow[]>(
-      `orders?or=(${filter})&select=id,order_number,phone,governorate,product_name,product_slug,colour,quantity,product_price,products_total,delivery_fee,discount_amount,total_price,status,journey_status,journey_updated_at,payment_status,order_type,item_count,estimated_delivery_from,estimated_delivery_to,created_at,updated_at,confirmed_at,shipped_at,out_for_delivery_at,delivered_at,shipping_status,bosta_tracking_number,bosta_state_code,bosta_state_name,bosta_submitted_at,bosta_status_updated_at&order=created_at.desc&limit=20`
+      `orders?or=(${filter})&select=id,order_number,phone,customer_email,governorate,product_name,product_slug,colour,quantity,product_price,products_total,delivery_fee,discount_amount,total_price,status,journey_status,journey_updated_at,payment_status,order_type,item_count,estimated_delivery_from,estimated_delivery_to,created_at,updated_at,confirmed_at,shipped_at,out_for_delivery_at,delivered_at,shipping_status,bosta_tracking_number,bosta_state_code,bosta_state_name,bosta_submitted_at,bosta_status_updated_at&order=created_at.desc&limit=20`
     );
 
-    const matching = orders.filter((order) => normalizePhone(order.phone) === phone);
+    const matching = orders.filter(
+      (order) =>
+        normalizeTrackingPhone(order.phone) === phone &&
+        String(order.customer_email || "").trim().toLowerCase() === email
+    );
     if (!matching.length) {
-      return response({ success: false, code: "ORDER_NOT_FOUND", message: "No orders were found for this phone number." }, 404);
+      return response({ success: false, code: "ORDER_NOT_FOUND", message: "No orders were found for this verified email and phone number." }, 404);
     }
+
+    await supabaseAdminJson(
+      `order_tracking_sessions?id=eq.${postgrestValue(session.id)}`,
+      {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ last_used_at: new Date().toISOString() }),
+      }
+    );
 
     const trackedOrders = await Promise.all(matching.map(safeOrder));
     return response({ success: true, orders: trackedOrders, order: trackedOrders[0] });

@@ -685,6 +685,7 @@ export default function CheckoutPage() {
 
   const [discountCode, setDiscountCode] =
     useState("");
+  const autoDiscountCodeRef = useRef("");
 
   const [
     appliedDiscount,
@@ -897,6 +898,19 @@ export default function CheckoutPage() {
             searchParams.get("quantity")
           );
 
+        const discountFromUrl = String(
+          searchParams.get("discount") ||
+            window.localStorage.getItem("orvixPromoCode") ||
+            ""
+        )
+          .trim()
+          .toUpperCase();
+
+        if (/^[A-Z0-9_-]{2,40}$/.test(discountFromUrl)) {
+          setDiscountCode(discountFromUrl);
+          autoDiscountCodeRef.current = discountFromUrl;
+        }
+
         if (colourFromUrl) {
           setSelectedColour(
             colourFromUrl
@@ -1074,8 +1088,8 @@ export default function CheckoutPage() {
     };
   }, [selectedCityId]);
 
-  async function applyDiscountCode() {
-    const cleanCode = discountCode
+  async function applyDiscountCode(codeOverride?: string) {
+    const cleanCode = String(codeOverride || discountCode)
       .trim()
       .toUpperCase();
 
@@ -1206,6 +1220,7 @@ export default function CheckoutPage() {
       });
 
       setDiscountCode(returnedCode);
+      window.localStorage.removeItem("orvixPromoCode");
       setDiscountMessageType("success");
 
       if (
@@ -1248,6 +1263,15 @@ export default function CheckoutPage() {
       setCheckingDiscount(false);
     }
   }
+
+  useEffect(() => {
+    const code = autoDiscountCodeRef.current;
+    if (!selectedArea || !code) return;
+    autoDiscountCodeRef.current = "";
+    void applyDiscountCode(code);
+    // Apply a promotional link once, immediately after delivery pricing is known.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedArea]);
 
   function removeDiscountCode() {
     setAppliedDiscount(null);
@@ -1313,10 +1337,7 @@ export default function CheckoutPage() {
       .trim()
       .toLowerCase();
 
-    if (
-      normalisedEmail &&
-      !isValidEmail(normalisedEmail)
-    ) {
+    if (!isValidEmail(normalisedEmail)) {
       setOrderError(
         copy.emailError
       );
@@ -1792,6 +1813,7 @@ export default function CheckoutPage() {
                       autoComplete="email"
                       inputMode="email"
                       disabled={isSending}
+                      required
                       className="w-full rounded-2xl border border-white/15 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
                     />
 
@@ -2078,7 +2100,7 @@ export default function CheckoutPage() {
                     onClick={
                       hasAppliedDiscount
                         ? removeDiscountCode
-                        : applyDiscountCode
+                        : () => void applyDiscountCode()
                     }
                     disabled={
                       checkingDiscount ||

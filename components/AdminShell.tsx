@@ -17,10 +17,11 @@ const simpleItems: NavItem[] = [
   { label: "Money", href: "/admin/cashflow", keywords: "money cashflow profit expenses revenue" },
   { label: "Customers", href: "/admin/command-center/advanced#customers", keywords: "customers crm repeat vip" },
   { label: "Messages", href: "/admin/chats", keywords: "messages chats support customers" },
-  { label: "ORVIX AI", href: "/admin/ai", keywords: "ai assistant copilot ask" },
 ];
 
 const advancedItems: NavItem[] = [
+  { label: "ORVIX AI", href: "/admin/ai", keywords: "ai assistant copilot ask" },
+  { label: "Email Previews", href: "/admin/email-preview", keywords: "email preview signup confirmation otp sign in" },
   { label: "Analytics", href: "/admin/analytics", keywords: "analytics views conversion traffic funnel" },
   { label: "Discounts", href: "/admin/discounts", keywords: "discount coupon promo codes" },
   { label: "Checkout Recovery", href: "/admin/recovery", keywords: "abandoned checkout recovery" },
@@ -31,7 +32,6 @@ const advancedItems: NavItem[] = [
   { label: "Feature Flags", href: "/admin/features", keywords: "features flags experiments" },
   { label: "Export Center", href: "/admin/export", keywords: "export csv backup" },
   { label: "Advanced Dashboard", href: "/admin/command-center/advanced", keywords: "advanced dashboard audit returns roles" },
-  { label: "Legacy Orders", href: "/admin/legacy-orders", keywords: "legacy orders labels printing" },
 ];
 
 const allItems = [...simpleItems, ...advancedItems];
@@ -196,7 +196,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
                 {mode === "simple" ? "Advanced" : "Simple"}
               </button>
               <AdminNotifications />
-              <AdminOrvixAssistant />
+              {mode === "advanced" ? <AdminOrvixAssistant /> : null}
               <div className="hidden md:block"><AdminChatNotifier /></div>
             </div>
           </div>

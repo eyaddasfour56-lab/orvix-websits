@@ -35,7 +35,7 @@ const copy = {
     trust1: "Simple ordering",
     trust1Sub: "Clear checkout, no hidden steps",
     trust2: "Order tracking",
-    trust2Sub: "Track with order number + phone",
+    trust2Sub: "Protected by an email OTP",
     trust3: "Customer support",
     trust3Sub: "Official ORVIX support channel",
     trust4: "Delivery pricing",
@@ -49,7 +49,7 @@ const copy = {
     stickyLabel: "Limited offer",
     buyNow: "Order now",
     successTitle: "Keep your order number ready",
-    successText: "Use it with your phone number to check the latest order status anytime.",
+    successText: "Use secure email verification to check the latest order status anytime.",
     track: "Track order",
     analytics: "Conversion analytics",
   },
@@ -70,7 +70,7 @@ const copy = {
     trust1: "طلب بسيط",
     trust1Sub: "خطوات واضحة بدون تعقيد",
     trust2: "تتبّع الطلب",
-    trust2Sub: "برقم الطلب ورقم الهاتف",
+    trust2Sub: "محمي بكود مؤقت على الإيميل",
     trust3: "دعم العملاء",
     trust3Sub: "عبر قناة ORVIX الرسمية",
     trust4: "سعر التوصيل",
@@ -84,7 +84,7 @@ const copy = {
     stickyLabel: "عرض محدود",
     buyNow: "اطلب الآن",
     successTitle: "احتفظ برقم طلبك",
-    successText: "استخدمه مع رقم هاتفك لمعرفة أحدث حالة للطلب في أي وقت.",
+    successText: "استخدم تأكيد الإيميل الآمن لمعرفة أحدث حالة للطلب في أي وقت.",
     track: "تتبّع الطلب",
     analytics: "تحليلات التحويل",
   },
@@ -223,7 +223,7 @@ export default function ConversionBoost() {
 
                   <div className="mt-6 flex items-center gap-3">
                     <Link
-                      href={canOrder ? "/checkout?colour=Black&quantity=1" : "/products/google-fitbit-air"}
+                      href={canOrder ? "/checkout?colour=Black&quantity=1&discount=ORVIX15" : "/products/google-fitbit-air"}
                       className="inline-flex min-h-12 items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-black text-black transition hover:scale-[1.015] hover:bg-blue-50 active:scale-95 sm:px-7"
                     >
                       {canOrder ? t.shopNow : t.explore}
@@ -341,7 +341,7 @@ export default function ConversionBoost() {
               </div>
             </div>
             <Link
-              href="/checkout?colour=Black&quantity=1"
+              href="/checkout?colour=Black&quantity=1&discount=ORVIX15"
               className="rounded-full bg-white px-6 py-3 text-sm font-black text-black active:scale-95"
             >
               {t.buyNow}

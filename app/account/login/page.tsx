@@ -14,6 +14,7 @@ export default function CustomerLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [emailLinkBusy, setEmailLinkBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -55,18 +56,9 @@ export default function CustomerLoginPage() {
           throw new Error(result.message || "Could not create your account.");
         }
 
-        const { error: loginError } = await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password,
-        });
-        if (loginError) {
-          setMode("login");
-          setMessage("Account created successfully. Log in with the email and password you just entered.");
-          throw loginError;
-        }
-
-        window.dispatchEvent(new Event("orvix-auth-changed"));
-        router.replace("/account");
+        setMode("login");
+        setPassword("");
+        setMessage(result.message || "Check your email and confirm the account before logging in.");
         return;
       }
 
@@ -84,6 +76,32 @@ export default function CustomerLoginPage() {
     }
   }
 
+  async function sendEmailSignIn() {
+    if (emailLinkBusy) return;
+    const cleanEmail = email.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) {
+      setError("Enter your email address first.");
+      return;
+    }
+    setEmailLinkBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch("/api/account/email-sign-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cleanEmail }),
+      });
+      const result = (await response.json()) as { success?: boolean; message?: string };
+      if (!response.ok || !result.success) throw new Error(result.message || "Could not send the sign-in email.");
+      setMessage(result.message || "Check your email for the secure sign-in link.");
+    } catch (sendError) {
+      setError(sendError instanceof Error ? sendError.message : "Could not send the sign-in email.");
+    } finally {
+      setEmailLinkBusy(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-black text-white">
       <Navbar />
@@ -95,8 +113,8 @@ export default function CustomerLoginPage() {
           </h1>
           <p className="mt-2 text-sm font-medium leading-6 text-white/38">
             {mode === "login"
-              ? "Your orders, customer service conversations and replies stay together in one place."
-              : "Create your account and enter immediately. No email confirmation step is required."}
+              ? "Use your password, or ask ORVIX to email you a secure sign-in link."
+              : "Create your account, then confirm the ORVIX email before your first login."}
           </p>
 
           <div className="mt-6 grid grid-cols-2 gap-1 rounded-2xl border border-white/10 bg-black p-1">
@@ -120,6 +138,11 @@ export default function CustomerLoginPage() {
             <button disabled={busy || !email.trim() || !password} className="h-12 w-full rounded-2xl bg-white text-sm font-black text-black transition hover:bg-white/90 disabled:opacity-40">
               {busy ? "Please wait…" : mode === "login" ? "Log In" : "Create Account"}
             </button>
+            {mode === "login" ? (
+              <button type="button" onClick={() => void sendEmailSignIn()} disabled={busy || emailLinkBusy || !email.trim()} className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.035] text-sm font-black text-white/65 transition hover:bg-white/[0.07] disabled:opacity-40">
+                {emailLinkBusy ? "Sending email…" : "Email me a secure sign-in link"}
+              </button>
+            ) : null}
           </form>
 
           <div className="mt-5 border-t border-white/8 pt-4 text-center">

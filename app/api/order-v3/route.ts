@@ -168,9 +168,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (customerEmail && !isValidEmail(customerEmail)) {
+    if (!isValidEmail(customerEmail)) {
       return NextResponse.json(
-        { success: false, message: "Please enter a valid email address or leave it empty." },
+        { success: false, message: "Please enter a valid email address for order confirmation and secure tracking." },
         { status: 400, headers: { "Cache-Control": "no-store" } }
       );
     }

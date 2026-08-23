@@ -1,8 +1,10 @@
 import { createHash } from "crypto";
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { normalizeCustomerPhone } from "@/lib/customer-auth-server";
+import { accountConfirmationEmail } from "@/lib/email-templates";
 import { postgrestValue, supabaseAdminJson } from "@/lib/supabase-admin";
+import { supabaseAuthAdmin } from "@/lib/supabase-auth-admin";
+import { sendOrvixEmail, siteOrigin } from "@/lib/transactional-email";
 
 export const dynamic = "force-dynamic";
 
@@ -58,21 +60,8 @@ async function enforceRateLimit(request: Request) {
   return true;
 }
 
-function adminClient() {
-  const url = process.env.SUPABASE_URL;
-  const secretKey = process.env.SUPABASE_SECRET_KEY;
-  if (!url || !secretKey) throw new Error("Supabase server settings are missing.");
-
-  return createClient(url, secretKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  });
-}
-
 export async function POST(request: Request) {
+  let createdUserId = "";
   try {
     if (!(await enforceRateLimit(request))) {
       return NextResponse.json(
@@ -100,14 +89,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Password must be 8 to 128 characters." }, { status: 400 });
     }
 
-    const supabase = adminClient();
-    const { data, error } = await supabase.auth.admin.createUser({
+    const supabase = supabaseAuthAdmin();
+    const redirectTo = `${siteOrigin(request)}/account/confirm`;
+    const { data, error } = await supabase.auth.admin.generateLink({
+      type: "signup",
       email,
       password,
-      email_confirm: true,
-      user_metadata: {
-        full_name: fullName,
-        phone,
+      options: {
+        redirectTo,
+        data: {
+          full_name: fullName,
+          phone,
+        },
       },
     });
 
@@ -125,6 +118,12 @@ export async function POST(request: Request) {
       );
     }
 
+    createdUserId = data.user.id;
+    const actionLink = data.properties?.action_link;
+    if (!actionLink) {
+      throw new Error("Supabase did not create an email confirmation link.");
+    }
+
     await supabaseAdminJson("customer_profiles", {
       method: "POST",
       headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
@@ -138,14 +137,37 @@ export async function POST(request: Request) {
       }),
     });
 
+    const emailContent = accountConfirmationEmail({
+      customerName: fullName,
+      actionUrl: actionLink,
+    });
+    await sendOrvixEmail({
+      to: email,
+      ...emailContent,
+      idempotencyKey: `account-confirmation-${data.user.id}`,
+    });
+
     return NextResponse.json(
-      { success: true, message: "Account created." },
+      {
+        success: true,
+        message: "Account created. Check your email and press Confirm email before logging in.",
+      },
       { status: 201, headers: { "Cache-Control": "no-store" } }
     );
   } catch (error) {
     console.error("Customer registration error:", error);
+    if (createdUserId) {
+      try {
+        await supabaseAuthAdmin().auth.admin.deleteUser(createdUserId);
+      } catch (cleanupError) {
+        console.error("Could not clean up an account after email delivery failed:", cleanupError);
+      }
+    }
     return NextResponse.json(
-      { success: false, message: "Could not create your account. Please try again." },
+      {
+        success: false,
+        message: "Could not create the account or send its confirmation email. Please try again.",
+      },
       { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }

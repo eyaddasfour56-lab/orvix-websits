@@ -167,8 +167,9 @@ const techCategoriesEn: TechCategory[] = [
       "Health information remains available between synchronisations.",
     items: [
       "Saves up to 7 days of detailed motion data",
+      "Saves 1 day of workout data",
       "Saves daily totals for the previous 30 days",
-      "Stores heart-rate information at short intervals",
+      "Stores heart-rate information at 2-second intervals",
     ],
   },
   {
@@ -187,10 +188,10 @@ const techCategoriesEn: TechCategory[] = [
     title: "Materials",
     icon: "◇",
     items: [
-      "Lightweight tracker housing",
-      "Flexible silicone wristband",
+      "Housing made with recycled polycarbonate and PBT plastics",
+      "Included textile band with a stainless steel buckle",
       "Designed for comfortable everyday wear",
-      "Fibre-based recyclable packaging",
+      "Packaging made with 100% plastic-free materials",
     ],
   },
   {
@@ -202,7 +203,6 @@ const techCategoriesEn: TechCategory[] = [
       "Gyroscope",
       "Red and infrared sensors",
       "Temperature sensor",
-      "Ambient-light sensor",
       "Vibration motor",
     ],
   },
@@ -210,10 +210,10 @@ const techCategoriesEn: TechCategory[] = [
     title: "Band Size",
     icon: "⌁",
     items: [
-      "One-size adjustable wristband",
-      "Small wrist size: approximately 130–175 mm",
-      "Large wrist size: approximately 165–210 mm",
-      "Flexible silicone band included",
+      "Included textile and polyurethane band: one size",
+      "Included band wrist size: 130–210 mm",
+      "Optional silicone small band: 130–175 mm",
+      "Optional silicone large band: 165–210 mm",
     ],
   },
   {
@@ -270,11 +270,12 @@ const techCategoriesEn: TechCategory[] = [
     icon: "⌘",
     items: [
       "Google Account required",
-      "Compatible mobile application required",
-      "Supports compatible Android devices",
-      "Supports compatible iPhone devices",
+      "Google Health app required",
+      "Android 11.0 or higher",
+      "Apple iOS 16.4 or higher",
+      "Syncing range up to 30 ft",
       "Bluetooth Low Energy required",
-      "Internet connection may be required",
+      "Internet connection and phone location permission required for syncing",
     ],
   },
   {
@@ -288,14 +289,20 @@ const techCategoriesEn: TechCategory[] = [
     ],
   },
   {
+    title: "Security Updates",
+    icon: "◆",
+    items: [
+      "Automatic security updates for at least two years after the device is last sold on the Google Store in the US",
+    ],
+  },
+  {
     title: "What’s in the Box",
     icon: "□",
     items: [
       "Google Fitbit Air tracker",
       "Wristband",
       "USB-C charging cable",
-      "Quick-start guide",
-      "Safety information",
+      "About booklet",
     ],
   },
 ];
@@ -347,8 +354,9 @@ const techCategoriesAr: TechCategory[] = [
       "تظل البيانات الصحية متاحة بين عمليات المزامنة.",
     items: [
       "يحفظ حتى 7 أيام من بيانات الحركة التفصيلية",
+      "يحفظ بيانات تمارين يوم واحد",
       "يحفظ الإجماليات اليومية لآخر 30 يومًا",
-      "يخزن بيانات معدل ضربات القلب على فترات قصيرة",
+      "يخزن بيانات معدل ضربات القلب كل ثانيتين",
     ],
   },
   {
@@ -367,10 +375,10 @@ const techCategoriesAr: TechCategory[] = [
     title: "الخامات",
     icon: "◇",
     items: [
-      "هيكل خفيف لجهاز التتبّع",
-      "سوار سيليكون مرن",
+      "هيكل من البولي كربونات وPBT المعاد تدويرهما",
+      "سوار نسيجي مرفق مع إبزيم من الستانلس ستيل",
       "مصمم للارتداء اليومي المريح",
-      "عبوة ألياف قابلة لإعادة التدوير",
+      "عبوة مصنوعة من مواد خالية 100% من البلاستيك",
     ],
   },
   {
@@ -382,7 +390,6 @@ const techCategoriesAr: TechCategory[] = [
       "جيروسكوب",
       "مستشعرات حمراء وتحت حمراء",
       "مستشعر حرارة",
-      "مستشعر إضاءة محيطة",
       "محرك اهتزاز",
     ],
   },
@@ -390,10 +397,10 @@ const techCategoriesAr: TechCategory[] = [
     title: "مقاس السوار",
     icon: "⌁",
     items: [
-      "سوار قابل للتعديل بمقاس واحد",
-      "المقاس الصغير: نحو 130–175 مم",
-      "المقاس الكبير: نحو 165–210 مم",
-      "سوار سيليكون مرن مرفق",
+      "السوار النسيجي والبولي يوريثان المرفق: مقاس واحد",
+      "مقاس المعصم للسوار المرفق: 130–210 مم",
+      "سوار السيليكون الاختياري الصغير: 130–175 مم",
+      "سوار السيليكون الاختياري الكبير: 165–210 مم",
     ],
   },
   {
@@ -450,11 +457,12 @@ const techCategoriesAr: TechCategory[] = [
     icon: "⌘",
     items: [
       "يتطلب حساب Google",
-      "يتطلب تطبيق هاتف متوافقًا",
-      "يدعم أجهزة Android المتوافقة",
-      "يدعم أجهزة iPhone المتوافقة",
+      "يتطلب تطبيق Google Health",
+      "Android 11.0 أو أحدث",
+      "Apple iOS 16.4 أو أحدث",
+      "مدى المزامنة حتى 30 قدمًا",
       "يتطلب Bluetooth Low Energy",
-      "قد يلزم الاتصال بالإنترنت",
+      "تتطلب المزامنة الإنترنت ومنح إذن الموقع على الهاتف",
     ],
   },
   {
@@ -468,14 +476,20 @@ const techCategoriesAr: TechCategory[] = [
     ],
   },
   {
+    title: "تحديثات الأمان",
+    icon: "◆",
+    items: [
+      "تحديثات أمان تلقائية لمدة عامين على الأقل بعد آخر بيع للجهاز على متجر Google في الولايات المتحدة",
+    ],
+  },
+  {
     title: "محتويات العلبة",
     icon: "□",
     items: [
       "جهاز Google Fitbit Air",
       "سوار معصم",
       "كابل شحن USB-C",
-      "دليل البدء السريع",
-      "معلومات السلامة",
+      "كتيب About",
     ],
   },
 ];
@@ -483,7 +497,7 @@ const techCategoriesAr: TechCategory[] = [
 const copyByLanguage = {
   en: {
     colourNames: {
-      Black: "Black",
+      Black: "Obsidian (Black)",
       Lavender: "Lavender",
       Berry: "Berry",
     },
@@ -551,7 +565,7 @@ const copyByLanguage = {
   },
   ar: {
     colourNames: {
-      Black: "أسود",
+      Black: "Obsidian (أسود)",
       Lavender: "لافندر",
       Berry: "توتي",
     },
