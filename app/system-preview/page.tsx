@@ -167,6 +167,26 @@ export default function SystemPreviewPage() {
           </div>
         </div>
       </section>
+
+      <section className="border-t border-white/10 px-5 py-20 sm:px-8 sm:py-24">
+        <div className="mx-auto grid max-w-6xl gap-8 rounded-[36px] border border-emerald-300/15 bg-emerald-300/[0.045] p-7 sm:p-10 lg:grid-cols-[0.72fr_1fr] lg:items-end">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-100/55">Commercial package</p>
+            <p className="mt-4 text-5xl font-black tracking-[-0.055em]">95,000 EGP</p>
+            <p className="mt-3 text-xs font-bold leading-5 text-white/35">Opening price · scope-based offers considered</p>
+          </div>
+          <div>
+            <h2 className="text-3xl font-black tracking-[-0.04em] sm:text-4xl">Launch one buyer-owned retail brand.</h2>
+            <p className="mt-5 max-w-2xl text-sm font-medium leading-7 text-white/45">Includes the licensed source snapshot, clean database setup, initial rebrand, one production deployment, technical walkthrough and 30 calendar days of handover support.</p>
+            <div className="mt-7 flex flex-wrap items-center gap-3">
+              <Link href="/#contact" className="rounded-2xl bg-white px-6 py-3.5 text-sm font-black text-black transition hover:bg-emerald-50">
+                Start a buyer conversation
+              </Link>
+              <span className="text-[11px] font-semibold leading-5 text-white/30">Final inclusions and rights are confirmed in the signed commercial agreement.</span>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
