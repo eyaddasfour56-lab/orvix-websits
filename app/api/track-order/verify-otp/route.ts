@@ -23,6 +23,7 @@ type ChallengeRow = {
   attempts: number;
   max_attempts: number;
   delivery_status: string;
+  verification_method: string;
   delivered_at?: string | null;
   expires_at: string;
   consumed_at?: string | null;
@@ -52,31 +53,43 @@ export async function POST(request: NextRequest) {
     const challengeId = String(body.challengeId || "").trim();
     const otp = String(body.otp || "").replace(/\D/g, "").slice(0, 6);
 
-    if (!/^[0-9a-f-]{36}$/i.test(challengeId) || !/^\d{6}$/.test(otp)) {
-      return json({ success: false, code: "INVALID_OTP", message: "Enter the 6-digit code from your email." }, 400);
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(challengeId) || !/^\d{6}$/.test(otp)) {
+      return json({ success: false, code: "INVALID_OTP", message: "Enter the 6-digit code from the SMS." }, 400);
     }
 
     const ipHash = trackingHash("tracking-ip", trackingClientIp(request));
-    const allowed = await supabaseAdminJson<boolean>("rpc/orvix_take_rate_limit", {
-      method: "POST",
-      body: JSON.stringify({
-        p_key: `tracking-verify-ip:${ipHash}`,
-        p_limit: 30,
-        p_window_seconds: 10 * 60,
+    const challengeHash = trackingHash("tracking-challenge", challengeId);
+    const [ipAllowed, challengeAllowed] = await Promise.all([
+      supabaseAdminJson<boolean>("rpc/orvix_take_rate_limit", {
+        method: "POST",
+        body: JSON.stringify({
+          p_key: `tracking-verify-ip:${ipHash}`,
+          p_limit: 30,
+          p_window_seconds: 10 * 60,
+        }),
       }),
-    });
-    if (!allowed) {
+      supabaseAdminJson<boolean>("rpc/orvix_take_rate_limit", {
+        method: "POST",
+        body: JSON.stringify({
+          p_key: `tracking-verify-challenge:${challengeHash}`,
+          p_limit: 5,
+          p_window_seconds: 10 * 60,
+        }),
+      }),
+    ]);
+    if (!ipAllowed || !challengeAllowed) {
       return json({ success: false, code: "RATE_LIMITED", message: "Too many attempts. Please wait and request a new code." }, 429);
     }
 
     const rows = await supabaseAdminJson<ChallengeRow[]>(
-      `order_tracking_otp_challenges?id=eq.${postgrestValue(challengeId)}&select=id,phone_normalized,email_normalized,otp_hash,attempts,max_attempts,delivery_status,delivered_at,expires_at,consumed_at&limit=1`
+      `order_tracking_otp_challenges?id=eq.${postgrestValue(challengeId)}&select=id,phone_normalized,email_normalized,otp_hash,attempts,max_attempts,delivery_status,verification_method,delivered_at,expires_at,consumed_at&limit=1`
     );
     const challenge = rows[0];
     const expired = !challenge || new Date(challenge.expires_at).getTime() <= Date.now();
     const unavailable =
       !challenge ||
       challenge.delivery_status !== "sent" ||
+      !["sms_otp", "email_otp"].includes(challenge.verification_method) ||
       !challenge.delivered_at ||
       !challenge.email_normalized ||
       Boolean(challenge.consumed_at) ||
@@ -89,7 +102,7 @@ export async function POST(request: NextRequest) {
     const receivedHash = trackingOtpHash(challenge.id, otp);
     if (!secureHexEqual(receivedHash, challenge.otp_hash)) {
       await failAttempt(challenge);
-      return json({ success: false, code: "INVALID_OTP", message: "That code is not correct. Check the email and try again." }, 400);
+      return json({ success: false, code: "INVALID_OTP", message: "That code is not correct. Check the SMS and try again." }, 400);
     }
 
     const now = new Date().toISOString();

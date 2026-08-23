@@ -1,21 +1,18 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { trackingOtpEmail } from "@/lib/email-templates";
 import { postgrestValue, supabaseAdminJson } from "@/lib/supabase-admin";
 import {
   createTrackingOtp,
-  maskTrackingEmail,
+  maskTrackingPhone,
   normalizeTrackingPhone,
   trackingClientIp,
   trackingHash,
   trackingOtpHash,
+  trackingPhoneE164,
   trackingPhoneCandidates,
   TRACKING_OTP_TTL_SECONDS,
 } from "@/lib/tracking-security";
-import {
-  sendOrvixEmail,
-  transactionalEmailSenderReady,
-} from "@/lib/transactional-email";
+import { sendTrackingOtpSms, trackingSmsReady } from "@/lib/tracking-sms";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -47,28 +44,29 @@ async function takeRateLimit(key: string, limit: number, seconds: number) {
 
 async function updateChallengeDelivery(
   challengeId: string,
-  deliveryStatus: "sent" | "failed"
+  deliveryStatus: "sent" | "failed" | "not_required",
+  verificationMethod?: "sms_otp" | "checkout_email"
 ) {
-  try {
-    await supabaseAdminJson(
-      `order_tracking_otp_challenges?id=eq.${postgrestValue(challengeId)}`,
-      {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({
-          delivery_status: deliveryStatus,
-          delivered_at: deliveryStatus === "sent" ? new Date().toISOString() : null,
-        }),
-      }
-    );
-  } catch (statusError) {
-    console.error("Tracking OTP delivery status error:", statusError);
-  }
+  await supabaseAdminJson(
+    `order_tracking_otp_challenges?id=eq.${postgrestValue(challengeId)}`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        delivery_status: deliveryStatus,
+        delivered_at: deliveryStatus === "sent" ? new Date().toISOString() : null,
+        ...(verificationMethod ? { verification_method: verificationMethod } : {}),
+      }),
+    }
+  );
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as { phone?: string };
+    const body = (await request.json()) as {
+      phone?: string;
+      method?: "sms_otp" | "checkout_email";
+    };
     const phone = normalizeTrackingPhone(body.phone);
     const candidates = trackingPhoneCandidates(phone);
 
@@ -82,8 +80,8 @@ export async function POST(request: NextRequest) {
     const phoneHash = trackingHash("tracking-phone", phone);
     const ipHash = trackingHash("tracking-ip", trackingClientIp(request));
     const [phoneAllowed, ipAllowed] = await Promise.all([
-      takeRateLimit(`tracking-otp-phone:${phoneHash}`, 4, 10 * 60),
-      takeRateLimit(`tracking-otp-ip:${ipHash}`, 12, 10 * 60),
+      takeRateLimit(`tracking-verification-phone:${phoneHash}`, 6, 10 * 60),
+      takeRateLimit(`tracking-verification-ip:${ipHash}`, 16, 10 * 60),
     ]);
 
     if (!phoneAllowed || !ipAllowed) {
@@ -106,7 +104,9 @@ export async function POST(request: NextRequest) {
     const otp = createTrackingOtp();
     const email = String(identity?.customer_email || "").trim().toLowerCase();
     const expiresAt = new Date(Date.now() + TRACKING_OTP_TTL_SECONDS * 1000).toISOString();
-    const senderReady = transactionalEmailSenderReady();
+    const wantsCheckoutEmail = body.method === "checkout_email";
+    const useSms = !wantsCheckoutEmail && trackingSmsReady();
+    const verificationMethod = useSms ? "sms_otp" : "checkout_email";
 
     await supabaseAdminJson("order_tracking_otp_challenges", {
       method: "POST",
@@ -119,61 +119,58 @@ export async function POST(request: NextRequest) {
         customer_name: identity?.customer_name || null,
         otp_hash: trackingOtpHash(challengeId, otp),
         delivery_status: identity
-          ? senderReady
+          ? useSms
             ? "pending"
-            : "failed"
+            : "not_required"
           : "not_found",
+        verification_method: verificationMethod,
         expires_at: expiresAt,
       }),
     });
 
-    if (identity && email) {
-      if (!senderReady) {
-        return json(
-          {
-            success: false,
-            code: "EMAIL_SETUP_REQUIRED",
-            message:
-              "Secure code email is temporarily unavailable. Please contact ORVIX Customer Service.",
-          },
-          503
-        );
-      }
-
-      const content = trackingOtpEmail({
-        customerName: identity.customer_name,
-        otp,
-        expiresInMinutes: Math.floor(TRACKING_OTP_TTL_SECONDS / 60),
-      });
-
+    if (useSms && identity && email) {
       try {
-        await sendOrvixEmail({
-          to: email,
-          ...content,
-          idempotencyKey: `tracking-otp-${challengeId}`,
+        await sendTrackingOtpSms({
+          to: trackingPhoneE164(phone),
+          otp,
+          challengeId,
+          expiresInMinutes: Math.floor(TRACKING_OTP_TTL_SECONDS / 60),
         });
         await updateChallengeDelivery(challengeId, "sent");
-      } catch (emailError) {
-        console.error("Tracking OTP email error:", emailError);
-        await updateChallengeDelivery(challengeId, "failed");
-        return json(
-          {
-            success: false,
-            code: "EMAIL_UNAVAILABLE",
-            message:
-              "Secure email delivery is not ready for this address yet. Please contact ORVIX Customer Service.",
-          },
-          503
+      } catch {
+        console.error("Tracking OTP SMS delivery was not completed.");
+        await updateChallengeDelivery(
+          challengeId,
+          "not_required",
+          "checkout_email"
         );
+        return json({
+          success: true,
+          challengeId,
+          verificationMethod: "checkout_email",
+          expiresIn: TRACKING_OTP_TTL_SECONDS,
+          message: "Enter the exact email used at checkout to continue securely.",
+        });
       }
+    }
+
+    if (useSms) {
+      return json({
+        success: true,
+        challengeId,
+        verificationMethod: "sms_otp",
+        maskedPhone: maskTrackingPhone(phone),
+        expiresIn: TRACKING_OTP_TTL_SECONDS,
+        message: "If this phone is linked to an order, a secure code has been sent by SMS.",
+      });
     }
 
     return json({
       success: true,
       challengeId,
-      maskedEmail: email ? maskTrackingEmail(email) : null,
+      verificationMethod: "checkout_email",
       expiresIn: TRACKING_OTP_TTL_SECONDS,
-      message: "If this phone is linked to an order with an email address, a secure code has been sent.",
+      message: "Enter the exact email used at checkout to continue securely.",
     });
   } catch (error) {
     console.error("Tracking OTP request error:", error);

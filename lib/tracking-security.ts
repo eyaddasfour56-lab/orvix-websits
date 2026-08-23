@@ -41,6 +41,17 @@ export function trackingPhoneCandidates(value: unknown) {
   );
 }
 
+export function trackingPhoneE164(value: unknown) {
+  const local = normalizeTrackingPhone(value);
+  return /^01\d{9}$/.test(local) ? `+20${local.slice(1)}` : "";
+}
+
+export function maskTrackingPhone(value: unknown) {
+  const local = normalizeTrackingPhone(value);
+  if (!/^01\d{9}$/.test(local)) return "";
+  return `${local.slice(0, 3)}${"•".repeat(6)}${local.slice(-2)}`;
+}
+
 export function trackingHash(purpose: string, value: string) {
   return createHmac("sha256", secret())
     .update(`${purpose}:${value}`)

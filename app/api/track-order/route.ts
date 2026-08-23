@@ -325,7 +325,7 @@ export async function POST() {
     const token = cookieStore.get(TRACKING_SESSION_COOKIE)?.value || "";
     if (token.length < 32 || token.length > 128) {
       return response(
-        { success: false, code: "TRACKING_VERIFICATION_REQUIRED", message: "Verify the email code to view this order." },
+        { success: false, code: "TRACKING_VERIFICATION_REQUIRED", message: "Verify your checkout details to view this order." },
         401
       );
     }
@@ -337,7 +337,7 @@ export async function POST() {
     const session = sessions[0];
     if (!session) {
       return response(
-        { success: false, code: "TRACKING_VERIFICATION_REQUIRED", message: "Your secure tracking session expired. Request a new code." },
+        { success: false, code: "TRACKING_VERIFICATION_REQUIRED", message: "Your secure tracking session expired. Verify your details again." },
         401
       );
     }
