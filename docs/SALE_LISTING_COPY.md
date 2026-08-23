@@ -12,7 +12,7 @@ Launch a buyer-owned bilingual retail store with storefront, checkout, customer 
 
 ## Public asking price
 
-**69,000 EGP fixed fast-sale price** for one production-brand licence, initial rebranding, buyer-owned deployment, technical walkthrough, and 30 calendar days of handover support.
+**55,000 EGP fixed five-day sale price, valid through 28 August 2026**, for one production-brand licence, initial rebranding, buyer-owned deployment, technical walkthrough, and 30 calendar days of handover support.
 
 ## Full listing description
 
@@ -47,7 +47,7 @@ This offer is for a working software platform and production demo. It is not pre
 
 ## Arabic outreach message
 
-متاح نظام تجارة إلكترونية وإدارة عمليات White‑Label جاهز يتعمل باسم ولوجو وألوان البراند بتاعك. النظام فيه متجر عربي وإنجليزي، منتجات ومخزون وخصومات وCheckout وحسابات عملاء وتتبع أوردرات ومرتجعات، ومعاه لوحة Admin كاملة للأوردرات والعملاء والمخزون والتحليلات والكاش فلو والإعدادات. التسليم بيكون على حسابات Vercel وSupabase يملكها المشتري، مع إعادة براندنج وتشغيل وشرح ودعم تسليم 30 يوم. سعر البيع السريع النهائي 69,000 جنيه. المعاينة: `/system-preview`.
+متاح نظام تجارة إلكترونية وإدارة عمليات White‑Label جاهز يتعمل باسم ولوجو وألوان البراند بتاعك. النظام فيه متجر عربي وإنجليزي، منتجات ومخزون وخصومات وCheckout وحسابات عملاء وتتبع أوردرات ومرتجعات، ومعاه لوحة Admin كاملة للأوردرات والعملاء والمخزون والتحليلات والكاش فلو والإعدادات. التسليم بيكون على حسابات Vercel وSupabase يملكها المشتري، مع إعادة براندنج وتشغيل وشرح ودعم تسليم 30 يوم. سعر عرض البيع السريع النهائي 55,000 جنيه حتى 28 أغسطس 2026. المعاينة: `/system-preview`.
 
 ## Buyer qualification questions
 
