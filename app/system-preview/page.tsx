@@ -172,8 +172,8 @@ export default function SystemPreviewPage() {
         <div className="mx-auto grid max-w-6xl gap-8 rounded-[36px] border border-emerald-300/15 bg-emerald-300/[0.045] p-7 sm:p-10 lg:grid-cols-[0.72fr_1fr] lg:items-end">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-100/55">Commercial package</p>
-            <p className="mt-4 text-5xl font-black tracking-[-0.055em]">95,000 EGP</p>
-            <p className="mt-3 text-xs font-bold leading-5 text-white/35">Opening price · scope-based offers considered</p>
+            <p className="mt-4 text-5xl font-black tracking-[-0.055em]">69,000 EGP</p>
+            <p className="mt-3 text-xs font-bold leading-5 text-white/35">Fixed fast-sale price · one production brand</p>
           </div>
           <div>
             <h2 className="text-3xl font-black tracking-[-0.04em] sm:text-4xl">Launch one buyer-owned retail brand.</h2>
