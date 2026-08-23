@@ -51,6 +51,8 @@ const demoLinks = [
   { href: "/admin/buyer-preview", label: "Read-only admin demo", detail: "Synthetic data with every write control disabled" },
 ];
 
+const licenceUrl = "https://zerotohundred.ai/listings/orvix-websits-nrr40f";
+
 export default function SystemPreviewPage() {
   return (
     <main className="min-h-screen overflow-hidden bg-[#07080a] text-white">
@@ -69,8 +71,11 @@ export default function SystemPreviewPage() {
                 The live ORVIX store is the production proof. The underlying platform can be deployed for a buyer-controlled retail brand with configurable identity, commerce, customer and operations tooling.
               </p>
               <div className="mt-9 flex flex-wrap gap-3">
-                <Link href="/" className="rounded-2xl bg-white px-6 py-3.5 text-sm font-black text-black transition hover:bg-blue-50">
-                  Open live store ↗
+                <a href={licenceUrl} target="_blank" rel="noreferrer" className="rounded-2xl bg-white px-6 py-3.5 text-sm font-black text-black transition hover:bg-blue-50">
+                  License ORVIX — $499 ↗
+                </a>
+                <Link href="/" className="rounded-2xl border border-white/13 bg-white/[0.045] px-6 py-3.5 text-sm font-black text-white/76 transition hover:bg-white/[0.08]">
+                  Open live store
                 </Link>
                 <Link href="/admin/buyer-preview" className="rounded-2xl border border-white/13 bg-white/[0.045] px-6 py-3.5 text-sm font-black text-white/76 transition hover:bg-white/[0.08]">
                   Open read-only admin demo
@@ -171,18 +176,18 @@ export default function SystemPreviewPage() {
       <section className="border-t border-white/10 px-5 py-20 sm:px-8 sm:py-24">
         <div className="mx-auto grid max-w-6xl gap-8 rounded-[36px] border border-emerald-300/15 bg-emerald-300/[0.045] p-7 sm:p-10 lg:grid-cols-[0.72fr_1fr] lg:items-end">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-100/55">Commercial package</p>
-            <p className="mt-4 text-5xl font-black tracking-[-0.055em]">55,000 EGP</p>
-            <p className="mt-3 text-xs font-bold leading-5 text-white/35">Five-day sale price · valid through 28 August 2026</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-100/55">White-label licence</p>
+            <p className="mt-4 text-5xl font-black tracking-[-0.055em]">$499</p>
+            <p className="mt-3 text-xs font-bold leading-5 text-white/35">Non-exclusive licence · one buyer-owned brand deployment</p>
           </div>
           <div>
-            <h2 className="text-3xl font-black tracking-[-0.04em] sm:text-4xl">Launch one buyer-owned retail brand.</h2>
-            <p className="mt-5 max-w-2xl text-sm font-medium leading-7 text-white/45">Includes the licensed source snapshot, clean database setup, initial rebrand, one production deployment, technical walkthrough and 30 calendar days of handover support.</p>
+            <h2 className="text-3xl font-black tracking-[-0.04em] sm:text-4xl">License ORVIX without rebuilding.</h2>
+            <p className="mt-5 max-w-2xl text-sm font-medium leading-7 text-white/45">The buyer may use, modify and deploy one licensed copy for one brand. The licence includes the source snapshot, clean database setup, initial rebrand guidance, technical walkthrough and 30 calendar days of handover support. ORVIX retains copyright and the right to license the platform to other buyers.</p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
-              <a href="https://www.instagram.com/orvix_tech/" target="_blank" rel="noreferrer" className="rounded-2xl bg-white px-6 py-3.5 text-sm font-black text-black transition hover:bg-emerald-50">
-                Message ORVIX about the licence ↗
+              <a href={licenceUrl} target="_blank" rel="noreferrer" className="rounded-2xl bg-white px-6 py-3.5 text-sm font-black text-black transition hover:bg-emerald-50">
+                View $499 licence on Zero to Hundred ↗
               </a>
-              <span className="text-[11px] font-semibold leading-5 text-white/30">Final inclusions and rights are confirmed in the signed commercial agreement.</span>
+              <span className="text-[11px] font-semibold leading-5 text-white/30">Final inclusions and rights are confirmed in the platform listing and signed commercial agreement.</span>
             </div>
           </div>
         </div>
