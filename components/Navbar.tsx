@@ -16,6 +16,7 @@ import {
 import LanguageSwitcher from "./LanguageSwitcher";
 import { useLanguage } from "./LanguageProvider";
 import { premiumEase } from "@/lib/motion-config";
+import { useSiteSettings } from "@/components/SiteSettingsProvider";
 
 type CartItem = {
   id: string;
@@ -196,6 +197,7 @@ function readWishlistFromStorage(): WishlistItem[] {
 
 export default function Navbar() {
   const { language } = useLanguage();
+  const settings = useSiteSettings();
   const reduceMotion = useReducedMotion();
   const copy = copyByLanguage[language];
   const numberLocale =
@@ -533,16 +535,17 @@ export default function Navbar() {
             className="flex shrink-0 items-center gap-3"
           >
             <Image
-              src="/logo.jpeg"
-              alt="ORVIX"
+              src={settings.logoUrl}
+              alt={settings.brandName}
               width={44}
               height={44}
               priority
+              unoptimized
               className="h-11 w-11 rounded-full object-cover"
             />
 
             <span className="hidden text-lg font-black tracking-[0.3em] sm:inline">
-              ORVIX
+              {settings.shortName}
             </span>
           </Link>
 
@@ -831,7 +834,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-5 sm:px-6">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.3em] text-gray-500">
-              ORVIX
+              {settings.shortName}
             </p>
 
             <h2 className="mt-1 text-2xl font-black">
@@ -1004,7 +1007,7 @@ export default function Navbar() {
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-5 sm:px-6">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.3em] text-gray-500">
-              ORVIX
+              {settings.shortName}
             </p>
 
             <h2 className="mt-1 text-2xl font-black">

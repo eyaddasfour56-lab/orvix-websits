@@ -19,10 +19,11 @@ export type AdminPermission =
   | "bosta"
   | "audit"
   | "roles"
+  | "settings"
   | "assistant";
 
 const rolePermissions: Record<AdminRole, AdminPermission[]> = {
-  owner: ["dashboard", "orders", "inventory", "customers", "returns", "cashflow", "analytics", "bosta", "audit", "roles", "assistant"],
+  owner: ["dashboard", "orders", "inventory", "customers", "returns", "cashflow", "analytics", "bosta", "audit", "roles", "settings", "assistant"],
   manager: ["dashboard", "orders", "inventory", "customers", "returns", "cashflow", "analytics", "bosta", "audit", "assistant"],
   orders: ["dashboard", "orders", "inventory", "customers", "returns", "bosta"],
 };

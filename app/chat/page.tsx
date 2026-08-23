@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
 
@@ -338,7 +339,7 @@ export default function CustomerServicePage() {
               </Link>
 
               <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-white/10 bg-[#111]">
-                <img src="/logo.jpeg" alt="ORVIX" className="h-full w-full object-cover" />
+                <Image src="/logo.jpeg" alt="ORVIX" width={40} height={40} className="h-full w-full object-cover" />
               </div>
 
               <div className="min-w-0 flex-1">

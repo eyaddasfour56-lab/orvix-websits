@@ -86,6 +86,38 @@ export function accountSignInEmail(input: {
   };
 }
 
+export function passwordResetEmail(input: { actionUrl: string }): EmailContent {
+  return {
+    subject: "Reset your ORVIX password",
+    html: emailShell({
+      preview: "Use this secure link to choose a new ORVIX password.",
+      eyebrow: "PASSWORD RESET",
+      title: "Choose a new password.",
+      body: `
+        <p style="margin:18px 0 0;color:#b7bbc3;font-size:15px;line-height:1.8">Use the button below to open the secure password reset page. The link is personal and expires automatically.</p>
+        ${actionButton("Reset password", input.actionUrl)}`,
+    }),
+    text: `Reset your ORVIX password: ${input.actionUrl}\n\nIf you did not request this, ignore this email.`,
+  };
+}
+
+export function adminLoginOtpEmail(input: { otp: string; expiresInMinutes: number }): EmailContent {
+  return {
+    subject: `${input.otp} is your ORVIX admin login code`,
+    html: emailShell({
+      preview: `Your ORVIX admin login code is ${input.otp}.`,
+      eyebrow: "ADMIN TWO-STEP VERIFICATION",
+      title: "Confirm this admin login.",
+      body: `
+        <p style="margin:18px 0 0;color:#b7bbc3;font-size:15px;line-height:1.8">Enter this one-time code on the ORVIX admin login screen:</p>
+        <div style="margin:24px 0 0;padding:22px;border:1px solid #31343a;border-radius:18px;background:#08090b;text-align:center;font-size:34px;font-weight:900;letter-spacing:10px">${escapeEmailHtml(input.otp)}</div>
+        <p style="margin:16px 0 0;color:#777d88;font-size:12px;line-height:1.7">The code expires in ${input.expiresInMinutes} minutes and can only be used once.</p>`,
+      footer: "This code protects the ORVIX admin dashboard. Never forward or share it.",
+    }),
+    text: `Your ORVIX admin login code is ${input.otp}. It expires in ${input.expiresInMinutes} minutes.`,
+  };
+}
+
 export function trackingOtpEmail(input: {
   customerName?: string | null;
   otp: string;

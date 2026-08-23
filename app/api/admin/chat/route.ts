@@ -1,5 +1,5 @@
-import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { hasAdminPermission } from "@/lib/admin-auth";
 
 type ChatSession = {
   id: string;
@@ -41,27 +41,6 @@ type PhoneDelivery = {
 };
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function createAdminSession(secret: string) {
-  return createHmac("sha256", secret)
-    .update("orvix-admin-session")
-    .digest("hex");
-}
-
-function isAdminAuthenticated(request: NextRequest) {
-  const secret = process.env.ADMIN_SESSION_SECRET;
-  const received = request.cookies.get("orvix_admin_session")?.value;
-  if (!secret || !received) return false;
-
-  const expected = createAdminSession(secret);
-  const receivedBuffer = Buffer.from(received);
-  const expectedBuffer = Buffer.from(expected);
-
-  return (
-    receivedBuffer.length === expectedBuffer.length &&
-    timingSafeEqual(receivedBuffer, expectedBuffer)
-  );
-}
 
 function getSupabaseSettings() {
   const url = process.env.SUPABASE_URL;
@@ -220,7 +199,7 @@ async function getSupportSettings(settings: { url: string; key: string }) {
 
 export async function GET(request: NextRequest) {
   try {
-    if (!isAdminAuthenticated(request)) {
+    if (!hasAdminPermission(request, "customers")) {
       return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
     }
 
@@ -331,7 +310,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!isAdminAuthenticated(request)) {
+    if (!hasAdminPermission(request, "customers")) {
       return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
     }
 
@@ -544,7 +523,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    if (!isAdminAuthenticated(request)) {
+    if (!hasAdminPermission(request, "customers")) {
       return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
     }
 

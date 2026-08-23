@@ -1,5 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
+import { auditAdminAction } from "@/lib/admin-audit";
+import { hasAdminPermission } from "@/lib/admin-auth";
 import { MAINTENANCE_SETTING_CODE } from "@/lib/maintenance-mode";
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -71,8 +73,11 @@ function validatePayload(payload: DiscountPayload) {
   return null;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    if (!hasAdminPermission(request, "inventory")) {
+      return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
+    }
     if (!supabaseUrl || !supabaseSecretKey) {
       return NextResponse.json(
         {
@@ -120,8 +125,11 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    if (!hasAdminPermission(request, "inventory")) {
+      return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
+    }
     if (!supabaseUrl || !supabaseSecretKey) {
       return NextResponse.json(
         {
@@ -218,6 +226,11 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    await auditAdminAction(request, "create_discount", "discount", String(result?.[0]?.id || code), {
+      code,
+      discountType: payload.discountType,
+    });
 
     return NextResponse.json({
       success: true,

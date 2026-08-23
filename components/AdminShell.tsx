@@ -24,6 +24,7 @@ const advancedItems: NavItem[] = [
   { label: "Email Previews", href: "/admin/email-preview", keywords: "email preview signup confirmation otp sign in" },
   { label: "Analytics", href: "/admin/analytics", keywords: "analytics views conversion traffic funnel" },
   { label: "Discounts", href: "/admin/discounts", keywords: "discount coupon promo codes" },
+  { label: "Brand & SEO", href: "/admin/settings", keywords: "brand logo colours favicon social instagram seo promotion settings" },
   { label: "Checkout Recovery", href: "/admin/recovery", keywords: "abandoned checkout recovery" },
   { label: "Risk Center", href: "/admin/risk", keywords: "risk fraud suspicious duplicate" },
   { label: "Reviews", href: "/admin/reviews", keywords: "reviews ratings feedback" },

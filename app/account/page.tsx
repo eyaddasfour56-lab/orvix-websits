@@ -16,6 +16,8 @@ type Order = {
   id: string;
   order_number?: string | null;
   product_name?: string | null;
+  product_slug?: string | null;
+  product_price?: number | string | null;
   colour?: string | null;
   quantity?: number | null;
   total_price?: number | string | null;
@@ -24,6 +26,7 @@ type Order = {
   bosta_tracking_number?: string | null;
   bosta_state_name?: string | null;
   created_at?: string | null;
+  return_status?: string | null;
 };
 
 type Overview = {
@@ -75,6 +78,7 @@ export default function CustomerAccountPage() {
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [busyOrder, setBusyOrder] = useState("");
 
   const load = useCallback(async () => {
     const supabase = getCustomerSupabaseBrowser();
@@ -150,6 +154,87 @@ export default function CustomerAccountPage() {
     router.replace("/");
   }
 
+  async function reorder(order: Order) {
+    if (!order.product_slug || busyOrder) return;
+    setBusyOrder(order.id);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch(`/api/products?slug=${encodeURIComponent(order.product_slug)}`, { cache: "no-store" });
+      const result = await response.json();
+      const product = result?.product;
+      if (!response.ok || !result?.success || !product?.allowPurchase || Number(product.price || 0) <= 0) {
+        throw new Error("This product is not available to order right now.");
+      }
+      const cart = JSON.parse(window.localStorage.getItem("orvixCart") || "[]");
+      const items = Array.isArray(cart) ? cart : [];
+      const colour = order.colour || "Standard";
+      const existingIndex = items.findIndex((item) => item.slug === product.slug && String(item.colour || "Standard") === colour);
+      const quantity = Math.max(1, Math.min(Number(order.quantity || 1), Number(product.maxOrderQuantity || 10)));
+      if (existingIndex >= 0) items[existingIndex] = { ...items[existingIndex], quantity: Math.min(Number(product.maxOrderQuantity || 10), Number(items[existingIndex].quantity || 1) + quantity), price: Number(product.price) };
+      else items.push({ id: product.id, name: product.name, slug: product.slug, price: Number(product.price), image: product.image || "/black.png", colour, quantity });
+      window.localStorage.setItem("orvixCart", JSON.stringify(items));
+      window.dispatchEvent(new Event("orvix-cart-updated"));
+      setMessage(`${product.name} was added to your cart.`);
+    } catch (reorderError) {
+      setError(reorderError instanceof Error ? reorderError.message : "Could not reorder this product.");
+    } finally {
+      setBusyOrder("");
+    }
+  }
+
+  async function cancelOrder(order: Order) {
+    if (!order.order_number || busyOrder) return;
+    if (!window.confirm(`Cancel ${order.order_number}? This cannot be undone.`)) return;
+    setBusyOrder(order.id);
+    setError("");
+    try {
+      const response = await fetch("/api/cancel-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderNumber: order.order_number,
+          phone: phone || profile?.phone || "",
+          reason: "Cancelled from the authenticated customer account.",
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.message || "Could not cancel this order.");
+      setMessage(result.message || "Order cancelled.");
+      await load();
+    } catch (cancelError) {
+      setError(cancelError instanceof Error ? cancelError.message : "Could not cancel this order.");
+    } finally {
+      setBusyOrder("");
+    }
+  }
+
+  async function requestReturn(order: Order) {
+    if (busyOrder) return;
+    const reason = window.prompt("Briefly explain why you want to return this order:")?.trim() || "";
+    if (reason.length < 5) return;
+    setBusyOrder(order.id);
+    setError("");
+    try {
+      const supabase = getCustomerSupabaseBrowser();
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token || "";
+      const response = await fetch("/api/account/returns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ orderId: order.id, reason }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.message || "Could not request this return.");
+      setMessage(result.message || "Return request sent.");
+      await load();
+    } catch (returnError) {
+      setError(returnError instanceof Error ? returnError.message : "Could not request this return.");
+    } finally {
+      setBusyOrder("");
+    }
+  }
+
   if (loading) {
     return <main className="min-h-screen bg-black text-white"><Navbar /><div className="grid min-h-[60vh] place-items-center text-sm font-semibold text-white/35">Loading your account…</div></main>;
   }
@@ -186,11 +271,11 @@ export default function CustomerAccountPage() {
               {unread > 0 ? <span className="grid h-7 min-w-7 place-items-center rounded-full bg-white px-2 text-[10px] font-black text-black">{unread > 99 ? "99+" : unread}</span> : null}
             </div>
           </Link>
-          <article className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5">
+          <Link href="/account/saved" className="rounded-[24px] border border-white/10 bg-white/[0.03] p-5 transition hover:bg-white/[0.055]">
             <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/28">Email</p>
             <p className="mt-2 truncate text-sm font-black">{overview?.account?.email || "—"}</p>
-            <p className={`mt-2 text-xs font-bold ${overview?.account?.emailVerified ? "text-emerald-200/70" : "text-amber-200/70"}`}>{overview?.account?.emailVerified ? "Verified" : "Confirmation pending"}</p>
-          </article>
+            <p className={`mt-2 text-xs font-bold ${overview?.account?.emailVerified ? "text-emerald-200/70" : "text-amber-200/70"}`}>{overview?.account?.emailVerified ? "Verified · Saved details →" : "Confirmation pending"}</p>
+          </Link>
         </section>
 
         <section className="mt-6 grid gap-5 lg:grid-cols-[1.45fr_0.75fr]">
@@ -206,7 +291,7 @@ export default function CustomerAccountPage() {
                     <div><p className="text-sm font-black">{order.order_number || "Order"}</p><p className="mt-1 text-[10px] font-semibold text-white/28">{date(order.created_at)} · {order.product_name || "ORVIX order"}{order.colour ? ` · ${order.colour}` : ""}</p></div>
                     <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[10px] font-black text-white/65">{orderStatus(order)}</span>
                   </div>
-                  <div className="mt-4 flex items-end justify-between gap-3 border-t border-white/7 pt-3"><p className="text-sm font-black">{money(order.total_price)}</p>{order.order_number ? <Link href={`/track-order/${encodeURIComponent(order.order_number)}`} className="text-[10px] font-black text-white/45 hover:text-white">View tracking →</Link> : null}</div>
+                  <div className="mt-4 flex flex-wrap items-end justify-between gap-3 border-t border-white/7 pt-3"><p className="text-sm font-black">{money(order.total_price)}</p><div className="flex flex-wrap justify-end gap-2">{order.order_number ? <Link href={`/track-order/${encodeURIComponent(order.order_number)}`} className="rounded-lg border border-white/8 px-2.5 py-1.5 text-[10px] font-black text-white/45 hover:text-white">Track</Link> : null}<button type="button" disabled={busyOrder === order.id} onClick={() => void reorder(order)} className="rounded-lg border border-white/8 px-2.5 py-1.5 text-[10px] font-black text-white/55 disabled:opacity-40">Reorder</button>{["new", "confirmed", "pending"].includes(String(order.status || "")) && !order.bosta_tracking_number ? <button type="button" disabled={busyOrder === order.id} onClick={() => void cancelOrder(order)} className="rounded-lg border border-red-300/12 px-2.5 py-1.5 text-[10px] font-black text-red-200/55 disabled:opacity-40">Cancel</button> : null}{order.status === "delivered" ? <Link href={`/leave-review?orderNumber=${encodeURIComponent(order.order_number || "")}`} className="rounded-lg border border-emerald-300/12 px-2.5 py-1.5 text-[10px] font-black text-emerald-200/60">Review</Link> : null}{order.status === "delivered" && (!order.return_status || order.return_status === "none") ? <button type="button" disabled={busyOrder === order.id} onClick={() => void requestReturn(order)} className="rounded-lg border border-amber-300/12 px-2.5 py-1.5 text-[10px] font-black text-amber-200/60 disabled:opacity-40">Return</button> : null}{order.return_status && order.return_status !== "none" ? <span className="rounded-lg border border-white/8 px-2.5 py-1.5 text-[10px] font-black text-white/35">Return {order.return_status}</span> : null}</div></div>
                 </article>
               )) : <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center"><p className="text-sm font-black text-white/55">No account-linked orders yet.</p><p className="mt-2 text-xs leading-5 text-white/28">Orders placed while you are logged in will appear here automatically.</p></div>}
             </div>
@@ -218,6 +303,7 @@ export default function CustomerAccountPage() {
               <h2 className="mt-2 text-xl font-black">Your support inbox</h2>
               <p className="mt-2 text-xs font-medium leading-5 text-white/35">Message Customer Service and keep every reply inside your account.</p>
               <Link href="/account/messages" className="mt-5 inline-flex h-11 items-center rounded-xl bg-white px-4 text-xs font-black text-black">Open Messages{unread ? ` · ${unread} new` : ""}</Link>
+              <Link href="/account/saved" className="ml-2 mt-5 inline-flex h-11 items-center rounded-xl border border-white/10 px-4 text-xs font-black text-white/55">Addresses & Wishlist</Link>
             </section>
 
             <section className="rounded-[26px] border border-white/10 bg-[#0d0e10] p-5">

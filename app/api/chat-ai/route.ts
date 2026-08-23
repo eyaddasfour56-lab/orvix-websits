@@ -411,7 +411,7 @@ export async function POST(request: NextRequest) {
     }
 
     let reply = smartDecision.kind === "reply" ? smartDecision.text : "";
-    let source = smartDecision.kind === "reply" ? "smart" : "external-ai";
+    const source = smartDecision.kind === "reply" ? "smart" : "external-ai";
 
     if (!reply) {
       const generated = await generateReply(session, messages, products);

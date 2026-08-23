@@ -1,4 +1,4 @@
-self.addEventListener('install', function(event) {
+self.addEventListener('install', function() {
   self.skipWaiting();
 });
 
@@ -26,7 +26,7 @@ self.addEventListener('push', function(event) {
         silent: false,
         data: { url: item.target_url || '/admin' }
       });
-    } catch (error) {
+    } catch {
       await self.registration.showNotification('ORVIX', {
         body: 'You have a new update.',
         icon: '/icon.svg?v=orvix-20260817-v4',

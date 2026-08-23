@@ -7,10 +7,8 @@ import { usePathname } from "next/navigation";
 const CONTACT_PHRASES = [
   "contact us",
   "contact orvix",
-  "message us on instagram",
   "تواصل معنا",
   "تواصل مع orvix",
-  "راسلنا على instagram",
 ];
 
 function normalize(value: string | null | undefined) {

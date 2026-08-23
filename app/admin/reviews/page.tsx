@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   useEffect,
@@ -19,6 +20,7 @@ type Review = {
   status: "pending" | "approved" | "rejected";
   created_at: string;
   approved_at: string | null;
+  photo_urls?: string[] | null;
 };
 
 type Statistics = {
@@ -506,6 +508,10 @@ export default function AdminReviewsPage() {
                                 review.status
                               )}
                             </span>
+
+                            <span className="rounded-full border border-blue-300/15 bg-blue-400/[0.08] px-3 py-2 text-[10px] font-black text-blue-100/75">
+                              ✓ Verified purchase
+                            </span>
                           </div>
 
                           <p className="mt-2 text-sm text-gray-500">
@@ -541,6 +547,16 @@ export default function AdminReviewsPage() {
                           {review.review_text}
                         </p>
                       </div>
+
+                      {Array.isArray(review.photo_urls) && review.photo_urls.length > 0 ? (
+                        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                          {review.photo_urls.slice(0, 3).map((url, index) => (
+                            <a key={url} href={url} target="_blank" rel="noreferrer" className="relative aspect-square overflow-hidden rounded-2xl border border-white/10 bg-black/40">
+                              <Image src={url} alt={`Customer review photo ${index + 1}`} fill sizes="(max-width: 640px) 50vw, 220px" unoptimized className="object-cover" />
+                            </a>
+                          ))}
+                        </div>
+                      ) : null}
 
                       <p className="mt-4 text-xs text-gray-500">
                         Submitted on{" "}

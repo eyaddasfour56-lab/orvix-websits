@@ -1,5 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
+import { auditAdminAction } from "@/lib/admin-audit";
+import { hasAdminPermission } from "@/lib/admin-auth";
 import { MAINTENANCE_SETTING_CODE } from "@/lib/maintenance-mode";
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -119,10 +121,13 @@ function validatePayload(
 }
 
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   context: RouteContext
 ) {
   try {
+    if (!hasAdminPermission(request, "inventory")) {
+      return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
+    }
     if (!supabaseUrl || !supabaseSecretKey) {
       return NextResponse.json(
         {
@@ -266,6 +271,11 @@ export async function PATCH(
       );
     }
 
+    await auditAdminAction(request, "update_discount", "discount", String(numericId), {
+      code,
+      discountType: payload.discountType,
+    });
+
     return NextResponse.json({
       success: true,
       discount: result[0],
@@ -288,10 +298,13 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: NextRequest,
   context: RouteContext
 ) {
   try {
+    if (!hasAdminPermission(request, "inventory")) {
+      return NextResponse.json({ success: false, message: "Unauthorized." }, { status: 401 });
+    }
     if (!supabaseUrl || !supabaseSecretKey) {
       return NextResponse.json(
         {
@@ -359,6 +372,10 @@ export async function DELETE(
         { status: 404 }
       );
     }
+
+    await auditAdminAction(request, "delete_discount", "discount", String(numericId), {
+      code: result[0]?.code || null,
+    });
 
     return NextResponse.json({
       success: true,

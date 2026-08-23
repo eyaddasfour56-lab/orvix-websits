@@ -2,41 +2,79 @@
 
 import { usePathname } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLanguage } from "./LanguageProvider";
+import { useSiteSettings } from "@/components/SiteSettingsProvider";
 
-const PROMO_CODE = "ORVIX15";
+type Promotion = {
+  enabled: boolean;
+  code?: string;
+  labelEn?: string;
+  labelAr?: string;
+  productName?: string;
+  discountType?: string;
+  discountValue?: number;
+  discountAmount?: number;
+  price?: number;
+  finalPrice?: number;
+  freeDelivery?: boolean;
+};
 
 export default function PromoBanner() {
   const pathname = usePathname();
   const { language } = useLanguage();
+  const settings = useSiteSettings();
   const reduceMotion = useReducedMotion();
   const [copied, setCopied] = useState(false);
+  const [promotion, setPromotion] = useState<Promotion | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/promotion", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((result) => {
+        if (!cancelled) setPromotion(result?.promotion || { enabled: false });
+      })
+      .catch(() => {
+        if (!cancelled) setPromotion({ enabled: false });
+      });
+    return () => { cancelled = true; };
+  }, [settings.promoCode, settings.promoEnabled, settings.promoProductSlug]);
 
   if (
     pathname.startsWith("/admin") ||
-    pathname.startsWith("/under-construction")
+    pathname.startsWith("/under-construction") ||
+    !promotion?.enabled
   ) {
     return null;
   }
 
+  const promoCode = promotion.code || settings.promoCode;
+  const numberLocale = language === "ar" ? "ar-EG" : "en-GB";
+  const money = (value: number) => Number(value || 0).toLocaleString(numberLocale);
+  const discountText = promotion.freeDelivery
+    ? language === "ar" ? "توصيل مجاني" : "FREE DELIVERY"
+    : language === "ar"
+      ? `خصم ${money(Number(promotion.discountAmount || 0))} ج.م`
+      : `GET ${money(Number(promotion.discountAmount || 0))} EGP OFF`;
+
   const message =
     language === "ar"
-      ? "خصم 1,100 ج.م على Google Fitbit Air"
-      : "GET 1,100 EGP OFF GOOGLE FITBIT AIR";
+      ? `${discountText} على ${promotion.productName}`
+      : `${discountText} ${String(promotion.productName || "").toUpperCase()}`;
 
   const codeLabel =
     language === "ar"
-      ? `استخدم الكود: ${PROMO_CODE}`
-      : `USE CODE: ${PROMO_CODE}`;
+      ? `استخدم الكود: ${promoCode}`
+      : `USE CODE: ${promoCode}`;
 
   const copiedLabel =
     language === "ar" ? "تم النسخ ✓" : "COPIED ✓";
 
   async function copyCode() {
     try {
-      await navigator.clipboard.writeText(PROMO_CODE);
-      window.localStorage.setItem("orvixPromoCode", PROMO_CODE);
+      await navigator.clipboard.writeText(promoCode);
+      window.localStorage.setItem("orvixPromoCode", promoCode);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1600);
     } catch {
@@ -69,16 +107,16 @@ export default function PromoBanner() {
             className="flex min-w-max items-center gap-3 whitespace-nowrap text-[11px] font-black tracking-[0.12em] sm:gap-5 sm:text-sm sm:tracking-[0.16em]"
           >
             <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] tracking-[0.2em] sm:text-xs">
-              LIMITED OFFER
+              {language === "ar" ? promotion.labelAr : promotion.labelEn}
             </span>
             <span>{message}</span>
             <span className="text-blue-200">•</span>
             <span>{codeLabel}</span>
             <span className="text-blue-200">•</span>
-            <span>
-              <span className="text-white/55 line-through">8,500</span>{" "}
-              <span className="text-blue-200">→ 7,400 EGP</span>
-            </span>
+            {!promotion.freeDelivery ? <span>
+              <span className="text-white/55 line-through">{money(Number(promotion.price || 0))}</span>{" "}
+              <span className="text-blue-200">→ {money(Number(promotion.finalPrice || 0))} {language === "ar" ? "ج.م" : "EGP"}</span>
+            </span> : null}
           </motion.div>
         </div>
 
@@ -88,7 +126,7 @@ export default function PromoBanner() {
           className="shrink-0 rounded-full border border-white/20 bg-white px-3 py-2 text-[10px] font-black tracking-[0.12em] text-[#0b2454] transition hover:scale-[1.03] hover:bg-blue-50 active:scale-95 sm:px-4 sm:text-xs"
           aria-label={codeLabel}
         >
-          {copied ? copiedLabel : PROMO_CODE}
+          {copied ? copiedLabel : promoCode}
         </button>
       </div>
 

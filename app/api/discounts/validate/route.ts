@@ -19,6 +19,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const code = String(body.code || "").trim().toUpperCase();
+    const productsTotal = Math.max(0, Number(body.productsTotal || 0));
 
     if (!code) {
       return NextResponse.json(
@@ -91,6 +92,16 @@ export async function POST(request: Request) {
     }
 
     if (
+      discount.starts_at &&
+      new Date(discount.starts_at).getTime() > Date.now()
+    ) {
+      return NextResponse.json(
+        { success: false, message: "This discount code is not active yet." },
+        { status: 400 }
+      );
+    }
+
+    if (
       discount.expires_at &&
       new Date(discount.expires_at).getTime() < Date.now()
     ) {
@@ -116,12 +127,37 @@ export async function POST(request: Request) {
       );
     }
 
+    const minimumOrderValue = Math.max(0, Number(discount.minimum_order_value || 0));
+    if (productsTotal > 0 && productsTotal < minimumOrderValue) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `This code requires at least ${minimumOrderValue.toLocaleString("en-GB")} EGP in products.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const type = String(discount.discount_type || "free_delivery");
+    const value = Math.max(0, Number(discount.discount_value || 0));
+    const message =
+      type === "free_delivery"
+        ? "Free delivery applied."
+        : type === "percentage"
+          ? `${value.toLocaleString("en-GB")}% discount applied.`
+          : `${value.toLocaleString("en-GB")} EGP discount applied.`;
+
     return NextResponse.json({
       success: true,
-      message: "Free delivery applied.",
+      message,
       code: discount.code,
-      discountType: discount.discount_type,
-      discountValue: Number(discount.discount_value),
+      discountType: type,
+      discountValue: value,
+      minimumOrderValue,
+      maximumDiscount:
+        discount.maximum_discount === null
+          ? null
+          : Math.max(0, Number(discount.maximum_discount || 0)),
     });
   } catch (error) {
     return NextResponse.json(

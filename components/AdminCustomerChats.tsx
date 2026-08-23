@@ -153,7 +153,6 @@ export default function AdminCustomerChats() {
     const requested = new URLSearchParams(window.location.search).get("conversation");
     if (requested && UUID_PATTERN.test(requested)) setSelectedId(requested);
     void loadInbox(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

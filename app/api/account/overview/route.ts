@@ -8,6 +8,8 @@ type OrderRow = {
   id: string;
   order_number?: string | null;
   product_name?: string | null;
+  product_slug?: string | null;
+  product_price?: number | string | null;
   colour?: string | null;
   quantity?: number | null;
   total_price?: number | string | null;
@@ -16,6 +18,7 @@ type OrderRow = {
   bosta_tracking_number?: string | null;
   bosta_state_name?: string | null;
   created_at?: string | null;
+  return_status?: string | null;
 };
 
 type ConversationRow = {
@@ -47,7 +50,7 @@ export async function GET(request: Request) {
     const profile = await ensureCustomerProfile(user);
     const [orders, conversations] = await Promise.all([
       supabaseAdminJson<OrderRow[]>(
-        `orders?customer_user_id=eq.${postgrestValue(user.id)}&select=id,order_number,product_name,colour,quantity,total_price,status,journey_status,bosta_tracking_number,bosta_state_name,created_at&order=created_at.desc&limit=100`
+        `orders?customer_user_id=eq.${postgrestValue(user.id)}&select=id,order_number,product_name,product_slug,product_price,colour,quantity,total_price,status,journey_status,bosta_tracking_number,bosta_state_name,return_status,created_at&order=created_at.desc&limit=100`
       ),
       supabaseAdminJson<ConversationRow[]>(
         `customer_chat_sessions?user_id=eq.${postgrestValue(user.id)}&select=id,status,last_message_preview,last_sender,last_message_at,customer_last_read_at,created_at&order=last_message_at.desc&limit=100`

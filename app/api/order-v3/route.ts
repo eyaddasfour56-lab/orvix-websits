@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getBostaCities, getBostaDistricts } from "@/lib/bosta";
+import { verifyCheckoutPhoneToken } from "@/lib/checkout-phone-verification";
 import { getDeliveryAreaForBostaCity } from "@/lib/shipping-pricing";
 import {
   SupabaseAdminError,
@@ -16,6 +17,7 @@ const CHECKOUT_SESSION_COOKIE = "orvix_checkout_session";
 type OrderInput = {
   fullName?: string;
   phone?: string;
+  phoneVerificationToken?: string;
   customerEmail?: string | null;
   productSlug?: string;
   productName?: string;
@@ -179,6 +181,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, message: "Invalid product quantity." },
         { status: 400, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    const phoneVerification = await verifyCheckoutPhoneToken(phone, input.phoneVerificationToken);
+    if (phoneVerification.required && !phoneVerification.valid) {
+      return NextResponse.json(
+        { success: false, code: "PHONE_VERIFICATION_REQUIRED", message: "Verify this phone number with the SMS code before placing the order." },
+        { status: 403, headers: { "Cache-Control": "no-store" } }
       );
     }
 

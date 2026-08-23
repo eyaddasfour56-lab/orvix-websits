@@ -2,6 +2,7 @@ import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { supabaseAdminJson } from "@/lib/supabase-admin";
+import { orderUpdateSmsReady, sendOrderUpdateSms } from "@/lib/tracking-sms";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -34,6 +35,90 @@ type Order = {
   delivery_fee: number | string;
   discount_amount: number | string;
   total_price: number | string;
+  status?: string | null;
+  journey_status?: string | null;
+};
+
+type UpdateCopy = {
+  title: string;
+  body: string;
+  sms: string;
+};
+
+const STATUS_COPY: Record<string, UpdateCopy> = {
+  new: {
+    title: "Your order is active",
+    body: "Your ORVIX order is active and back in our order queue.",
+    sms: "Your order is active.",
+  },
+  pending: {
+    title: "Your order is being reviewed",
+    body: "We received your order and our team is reviewing the details.",
+    sms: "We received your order and are reviewing it.",
+  },
+  confirmed: {
+    title: "Your order is confirmed",
+    body: "Your order details are confirmed. We will keep you updated as it moves forward.",
+    sms: "Your order is confirmed.",
+  },
+  shipped: {
+    title: "Your order has shipped",
+    body: "Your package has been handed into the delivery journey and is moving toward you.",
+    sms: "Your order has shipped.",
+  },
+  out_for_delivery: {
+    title: "Your order is out for delivery",
+    body: "Your package is with the courier and is expected to reach you soon.",
+    sms: "Your order is out for delivery.",
+  },
+  delivered: {
+    title: "Your order was delivered",
+    body: "Your delivery is complete. We hope you enjoy your ORVIX product.",
+    sms: "Your order was delivered.",
+  },
+  cancelled: {
+    title: "Your order was cancelled",
+    body: "This order is now cancelled. Contact Customer Service if you need any help.",
+    sms: "Your order was cancelled.",
+  },
+};
+
+const JOURNEY_COPY: Record<string, UpdateCopy> = {
+  new: {
+    title: "Your pre-order is active",
+    body: "Your item is reserved and waiting to begin its import journey.",
+    sms: "Your pre-order is active.",
+  },
+  international_transit: {
+    title: "Your item is travelling to Egypt",
+    body: "Your item is in international transit. We will notify you at the next milestone.",
+    sms: "Your item is in transit to Egypt.",
+  },
+  arrived_egypt: {
+    title: "Your item has arrived in Egypt",
+    body: "Your item reached Egypt and is moving through the local import process.",
+    sms: "Your item has arrived in Egypt.",
+  },
+  in_customs: {
+    title: "Your item is in customs",
+    body: "Your item is currently being processed by Egyptian customs.",
+    sms: "Your item is being processed by customs.",
+  },
+  customs_cleared: {
+    title: "Your item cleared customs",
+    body: "Customs clearance is complete and your item is moving to ORVIX.",
+    sms: "Your item cleared customs.",
+  },
+  received_at_orvix: {
+    title: "ORVIX received your item",
+    body: "Your item is now with our team for its final checks before local delivery.",
+    sms: "ORVIX received your item.",
+  },
+  ready_for_courier: {
+    title: "Your package is ready for the courier",
+    body: "Final checks are complete and your package is ready for local delivery.",
+    sms: "Your package is ready for the courier.",
+  },
 };
 
 function safeEqual(a: string, b: string) {
@@ -72,7 +157,7 @@ async function isAuthorized(request: NextRequest) {
 
 async function loadOrder(orderId: string) {
   const rows = await supabaseAdminJson<Order[]>(
-    `orders?id=eq.${encodeURIComponent(orderId)}&select=id,order_number,shipping_number,customer_name,phone,customer_email,governorate,address,product_name,product_slug,colour,quantity,product_price,products_total,delivery_fee,discount_amount,total_price&limit=1`
+    `orders?id=eq.${encodeURIComponent(orderId)}&select=id,order_number,shipping_number,customer_name,phone,customer_email,governorate,address,product_name,product_slug,colour,quantity,product_price,products_total,delivery_fee,discount_amount,total_price,status,journey_status&limit=1`
   );
   if (!rows[0]) throw new Error("Order no longer exists.");
   return rows[0];
@@ -201,18 +286,108 @@ async function sendCustomerEmail(resend: Resend, order: Order, origin: string) {
   if (result.error) throw new Error(result.error.message || "Customer email failed.");
 }
 
+function createResendClient() {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) throw new Error("RESEND_API_KEY is missing.");
+  return new Resend(key);
+}
+
+function updateCopy(job: Job, order: Order) {
+  if (job.kind.includes("journey")) {
+    const stage = String(job.payload?.journeyStatus || order.journey_status || "new");
+    return JOURNEY_COPY[stage] || {
+      title: "Your order journey was updated",
+      body: "There is a new milestone in your ORVIX order journey.",
+      sms: "Your order journey was updated.",
+    };
+  }
+
+  const status = String(job.payload?.status || order.status || "pending");
+  return STATUS_COPY[status] || {
+    title: "Your order was updated",
+    body: "There is a new update on your ORVIX order.",
+    sms: "Your order was updated.",
+  };
+}
+
+async function sendCustomerUpdateEmail(
+  resend: Resend,
+  order: Order,
+  origin: string,
+  copy: UpdateCopy
+) {
+  const to = String(order.customer_email || "").trim();
+  if (!to) return;
+
+  const from = process.env.RESEND_FROM_EMAIL || "ORVIX Orders <onboarding@resend.dev>";
+  const trackUrl = `${origin}/track-order?orderNumber=${encodeURIComponent(order.order_number)}`;
+  const result = await resend.emails.send({
+    from,
+    to,
+    subject: `${copy.title} — ${order.order_number}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;padding:28px;color:#111">
+        <p style="letter-spacing:5px;font-weight:800">ORVIX</p>
+        <h1>${escapeHtml(copy.title)}</h1>
+        <p style="font-size:16px;line-height:1.7;color:#444">${escapeHtml(copy.body)}</p>
+        <div style="background:#111;color:#fff;border-radius:18px;padding:20px;margin-top:18px">
+          <div style="font-size:11px;color:#aaa">ORDER NUMBER</div>
+          <div style="font-size:20px;font-weight:800;margin-top:7px">${escapeHtml(order.order_number)}</div>
+        </div>
+        <p style="margin-top:22px"><a href="${escapeHtml(trackUrl)}" style="display:inline-block;background:#111;color:#fff;padding:13px 18px;border-radius:12px;text-decoration:none;font-weight:700">Track your order</a></p>
+      </div>`,
+  });
+  if (result.error) throw new Error(result.error.message || "Order update email failed.");
+}
+
+async function sendReviewRequestEmail(resend: Resend, order: Order, origin: string) {
+  const to = String(order.customer_email || "").trim();
+  if (!to || order.status !== "delivered") return;
+
+  const from = process.env.RESEND_FROM_EMAIL || "ORVIX Orders <onboarding@resend.dev>";
+  const reviewUrl = `${origin}/leave-review?orderNumber=${encodeURIComponent(order.order_number)}`;
+  const result = await resend.emails.send({
+    from,
+    to,
+    subject: `How was your ORVIX order? — ${order.order_number}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;padding:28px;color:#111">
+        <p style="letter-spacing:5px;font-weight:800">ORVIX</p>
+        <h1>Share your verified review</h1>
+        <p style="font-size:16px;line-height:1.7;color:#444">Your order has been delivered. Tell future customers what you thought about ${escapeHtml(order.product_name)}. You can also add up to three photos.</p>
+        <p style="margin-top:22px"><a href="${escapeHtml(reviewUrl)}" style="display:inline-block;background:#111;color:#fff;padding:13px 18px;border-radius:12px;text-decoration:none;font-weight:700">Leave a review</a></p>
+      </div>`,
+  });
+  if (result.error) throw new Error(result.error.message || "Review request email failed.");
+}
+
 async function processJob(job: Job, origin: string) {
-  const resendKey = process.env.RESEND_API_KEY;
-  if (!resendKey) throw new Error("RESEND_API_KEY is missing.");
-  const resend = new Resend(resendKey);
   const orderId = String(job.payload?.orderId || "");
   if (!orderId) throw new Error("Job payload does not include orderId.");
   const order = await loadOrder(orderId);
 
   if (job.kind === "send_order_admin_email") {
-    await sendAdminEmail(resend, order, origin);
+    await sendAdminEmail(createResendClient(), order, origin);
   } else if (job.kind === "send_order_customer_email") {
-    await sendCustomerEmail(resend, order, origin);
+    if (order.customer_email) await sendCustomerEmail(createResendClient(), order, origin);
+  } else if (job.kind === "send_order_status_email" || job.kind === "send_order_journey_email") {
+    if (order.customer_email) {
+      await sendCustomerUpdateEmail(createResendClient(), order, origin, updateCopy(job, order));
+    }
+  } else if (job.kind === "send_review_request_email") {
+    if (order.customer_email && order.status === "delivered") {
+      await sendReviewRequestEmail(createResendClient(), order, origin);
+    }
+  } else if (job.kind === "send_order_status_sms" || job.kind === "send_order_journey_sms") {
+    if (orderUpdateSmsReady() && order.phone) {
+      const copy = updateCopy(job, order);
+      const trackUrl = `${origin}/track-order?orderNumber=${encodeURIComponent(order.order_number)}`;
+      await sendOrderUpdateSms({
+        to: order.phone,
+        text: `ORVIX ${order.order_number}: ${copy.sms} Track: ${trackUrl}`,
+        idempotencyKey: `order_update_${job.id}`,
+      });
+    }
   } else {
     throw new Error(`Unsupported commerce job: ${job.kind}`);
   }

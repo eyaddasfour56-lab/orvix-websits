@@ -27,6 +27,9 @@ const copyByLanguage = {
     reviewPlaceholder:
       "Tell us what you liked about your ORVIX experience...",
     minimum: "Minimum 5 characters",
+    photos: "Photos (optional)",
+    photosHelp: "Add up to 3 JPG, PNG or WebP photos, 1 MB each.",
+    invalidPhotos: "Choose up to 3 valid images no larger than 1 MB each.",
     submitting: "Submitting Review...",
     submit: "Submit Review",
     reviewNote:
@@ -62,6 +65,9 @@ const copyByLanguage = {
     reviewPlaceholder:
       "أخبرنا بما أعجبك في تجربتك مع ORVIX...",
     minimum: "5 أحرف على الأقل",
+    photos: "صور (اختياري)",
+    photosHelp: "يمكنك إضافة 3 صور JPG أو PNG أو WebP بحد أقصى 1 ميجابايت للصورة.",
+    invalidPhotos: "اختر حتى 3 صور صحيحة، وبحد أقصى 5 ميجابايت للصورة.",
     submitting: "جارٍ إرسال التقييم...",
     submit: "إرسال التقييم",
     reviewNote:
@@ -96,6 +102,8 @@ export default function LeaveReviewPage() {
 
   const [reviewText, setReviewText] =
     useState("");
+
+  const [photos, setPhotos] = useState<File[]>([]);
 
   const [loading, setLoading] =
     useState(false);
@@ -188,25 +196,18 @@ export default function LeaveReviewPage() {
     setLoading(true);
 
     try {
+      const formData = new FormData();
+      formData.set("orderNumber", orderNumber.trim().toUpperCase());
+      formData.set("phone", phone.trim());
+      formData.set("rating", String(rating));
+      formData.set("reviewText", reviewText.trim());
+      photos.forEach((photo) => formData.append("photos", photo));
+
       const response = await fetch(
         "/api/reviews/submit",
         {
           method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            orderNumber:
-              orderNumber
-                .trim()
-                .toUpperCase(),
-
-            phone: phone.trim(),
-            rating,
-            reviewText:
-              reviewText.trim(),
-          }),
+          body: formData,
         }
       );
 
@@ -230,6 +231,7 @@ export default function LeaveReviewPage() {
       setRating(0);
       setHoveredRating(0);
       setReviewText("");
+      setPhotos([]);
     } catch (error) {
       setSuccess(false);
 
@@ -413,6 +415,33 @@ export default function LeaveReviewPage() {
                   {reviewText.length}/1000
                 </span>
               </div>
+            </label>
+
+            <label className="mt-6 block rounded-2xl border border-dashed border-white/15 bg-black/25 p-4">
+              <span className="block text-sm font-bold text-gray-300">{copy.photos}</span>
+              <span className="mt-1 block text-xs leading-5 text-gray-500">{copy.photosHelp}</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                disabled={loading}
+                onChange={(event) => {
+                  const selected = Array.from(event.target.files || []);
+                  const valid = selected.length <= 3 && selected.every((file) => ["image/jpeg", "image/png", "image/webp"].includes(file.type) && file.size <= 1024 * 1024);
+                  if (!valid) {
+                    setPhotos([]);
+                    setMessage(copy.invalidPhotos);
+                    setSuccess(false);
+                    event.target.value = "";
+                    return;
+                  }
+                  setPhotos(selected);
+                  setMessage("");
+                  setSuccess(false);
+                }}
+                className="mt-4 block w-full text-xs text-white/55 file:mr-4 file:rounded-full file:border-0 file:bg-white file:px-4 file:py-2.5 file:text-xs file:font-black file:text-black"
+              />
+              {photos.length ? <ul className="mt-3 space-y-1 text-xs text-white/45">{photos.map((photo) => <li key={`${photo.name}-${photo.size}`}>✓ {photo.name}</li>)}</ul> : null}
             </label>
 
             {message && (

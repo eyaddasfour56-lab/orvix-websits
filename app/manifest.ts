@@ -1,11 +1,13 @@
 import type { MetadataRoute } from "next";
+import { loadSiteSettings } from "@/lib/site-settings-server";
 
-export default function manifest(): MetadataRoute.Manifest {
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const settings = await loadSiteSettings();
   return {
     id: "/orvix-app-v4",
-    name: "ORVIX",
-    short_name: "ORVIX",
-    description: "ORVIX smart fitness technology and customer support.",
+    name: settings.brandName,
+    short_name: settings.shortName,
+    description: settings.seoDescription,
     start_url: "/",
     scope: "/",
     display: "standalone",
@@ -15,13 +17,13 @@ export default function manifest(): MetadataRoute.Manifest {
     categories: ["shopping", "business"],
     icons: [
       {
-        src: "/icon.svg?v=orvix-20260817-v4",
+        src: settings.faviconUrl,
         sizes: "any",
         type: "image/svg+xml",
         purpose: "any",
       },
       {
-        src: "/icon.svg?v=orvix-20260817-v4",
+        src: settings.faviconUrl,
         sizes: "any",
         type: "image/svg+xml",
         purpose: "maskable",

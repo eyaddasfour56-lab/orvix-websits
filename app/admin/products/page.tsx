@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   ChangeEvent,
@@ -380,6 +381,8 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     loadProducts();
+    // This is the single initial dashboard load; user-triggered refreshes call it directly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function showSuccess(
@@ -1453,11 +1456,14 @@ export default function AdminProductsPage() {
                             className="overflow-hidden rounded-2xl border border-white/10 bg-white/5"
                           >
                             <div className="relative aspect-square bg-white p-2">
-                              <img
+                              <Image
                                 src={imageUrl}
                                 alt={`Product image ${
                                   imageIndex + 1
                                 }`}
+                                fill
+                                sizes="(max-width: 640px) 100vw, 25vw"
+                                unoptimized
                                 className="h-full w-full object-contain"
                               />
 
@@ -1831,7 +1837,7 @@ export default function AdminProductsPage() {
                                   className="overflow-hidden rounded-2xl border border-white/10 bg-black/30"
                                 >
                                   <div className="relative aspect-square bg-white p-2">
-                                    <img
+                                    <Image
                                       src={
                                         imageUrl
                                       }
@@ -1841,6 +1847,9 @@ export default function AdminProductsPage() {
                                         imageIndex +
                                         1
                                       }`}
+                                      fill
+                                      sizes="(max-width: 640px) 100vw, 25vw"
+                                      unoptimized
                                       className="h-full w-full object-contain"
                                     />
 

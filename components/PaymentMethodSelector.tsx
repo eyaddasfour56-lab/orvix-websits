@@ -129,7 +129,7 @@ export default function PaymentMethodSelector() {
   }> = [
     {
       value: "cash_on_delivery",
-      icon: "£",
+      icon: language === "ar" ? "ج.م" : "E£",
       title: t.cashTitle,
       text: t.cashText,
     },

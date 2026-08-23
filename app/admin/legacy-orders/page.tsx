@@ -732,6 +732,12 @@ export default function AdminPage() {
   const [password, setPassword] =
     useState("");
 
+  const [loginChallengeId, setLoginChallengeId] =
+    useState("");
+
+  const [loginOtp, setLoginOtp] =
+    useState("");
+
   const [orders, setOrders] = useState<
     Order[]
   >([]);
@@ -1109,7 +1115,13 @@ export default function AdminPage() {
           },
 
           body: JSON.stringify({
-            password,
+            ...(loginChallengeId
+              ? {
+                  challengeId:
+                    loginChallengeId,
+                  otp: loginOtp,
+                }
+              : { password }),
           }),
         }
       );
@@ -1127,7 +1139,22 @@ export default function AdminPage() {
         );
       }
 
+      if (result.requiresOtp) {
+        setPassword("");
+        setLoginChallengeId(
+          String(result.challengeId || "")
+        );
+        setLoginOtp("");
+        setMessage(
+          "A 6-digit verification code was sent to the protected admin email."
+        );
+        setMessageType("success");
+        return;
+      }
+
       setPassword("");
+      setLoginChallengeId("");
+      setLoginOtp("");
       setAuthenticated(true);
 
       await loadDashboard();
@@ -2038,45 +2065,75 @@ export default function AdminPage() {
           </h1>
 
           <p className="mt-4 leading-7 text-gray-400">
-            Enter the admin password to
-            manage products, orders,
-            reviews, discount codes and
-            shipping labels.
+            {loginChallengeId
+              ? "Enter the one-time code sent to the protected admin email."
+              : "Enter the admin password to manage products, orders, reviews, discount codes and shipping labels."}
           </p>
 
           <input
-            type="password"
-            value={password}
+            type={loginChallengeId ? "text" : "password"}
+            value={loginChallengeId ? loginOtp : password}
             onChange={(event) => {
-              setPassword(
-                event.target.value
-              );
+              if (loginChallengeId) {
+                setLoginOtp(
+                  event.target.value
+                    .replace(/\D/g, "")
+                    .slice(0, 6)
+                );
+              } else {
+                setPassword(
+                  event.target.value
+                );
+              }
 
               setMessage("");
               setMessageType("");
             }}
-            placeholder="Enter admin password"
-            autoComplete="current-password"
+            placeholder={loginChallengeId ? "6-digit code" : "Enter admin password"}
+            autoComplete={loginChallengeId ? "one-time-code" : "current-password"}
+            inputMode={loginChallengeId ? "numeric" : undefined}
+            maxLength={loginChallengeId ? 6 : undefined}
             className="mt-8 w-full rounded-2xl border border-white/15 bg-black px-4 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white"
           />
 
           {message && (
-            <p className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-semibold text-red-300">
+            <p className={`mt-4 rounded-2xl border p-4 text-sm font-semibold ${messageType === "success" ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200" : "border-red-500/20 bg-red-500/10 text-red-300"}`}>
               {message}
             </p>
           )}
+
+          {loginChallengeId ? (
+            <button
+              type="button"
+              onClick={() => {
+                setLoginChallengeId("");
+                setLoginOtp("");
+                setMessage("");
+                setMessageType("");
+              }}
+              className="mt-4 text-xs font-bold text-white/45 transition hover:text-white"
+            >
+              Use a different password
+            </button>
+          ) : null}
 
           <button
             type="submit"
             disabled={
               loginLoading ||
-              !password.trim()
+              (loginChallengeId
+                ? loginOtp.length !== 6
+                : !password.trim())
             }
             className="mt-6 w-full rounded-2xl bg-white px-5 py-4 font-bold text-black transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loginLoading
-              ? "Signing in..."
-              : "Sign in"}
+              ? loginChallengeId
+                ? "Verifying..."
+                : "Signing in..."
+              : loginChallengeId
+                ? "Verify and sign in"
+                : "Sign in"}
           </button>
         </form>
       </main>

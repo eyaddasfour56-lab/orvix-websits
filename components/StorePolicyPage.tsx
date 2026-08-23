@@ -77,7 +77,7 @@ const content: Record<PolicySlug, { en: { title: string; intro: string; sections
       sections: [
         { title: "Information we process", paragraphs: ["ORVIX processes checkout and account details such as name, phone, email, delivery address, order contents, support messages and basic security or analytics information needed to run the store."] },
         { title: "How it is used", paragraphs: ["The data is used to accept and deliver orders, send transactional emails, provide customer support, prevent abuse, improve store performance and meet legal obligations."], bullets: ["Bosta receives the delivery details needed to transport a shipment.", "Resend processes transactional email delivery.", "Supabase stores account and commerce records."] },
-        { title: "Secure tracking", paragraphs: ["ORVIX does not show an order from a phone number alone. A one-time code is sent to the email saved on the order; codes expire after 10 minutes and verified tracking sessions after 30 minutes. Only hashes of codes and session tokens are stored."] },
+        { title: "Secure tracking", paragraphs: ["ORVIX does not show an order from a phone number alone. When secure SMS is available, a one-time code is sent to the mobile number saved on the order. If SMS is unavailable, the customer must enter the exact checkout email instead. Codes expire after 10 minutes and verified tracking sessions after 30 minutes. Only hashes of codes and session tokens are stored."] },
         { title: "Choices and contact", paragraphs: ["ORVIX does not sell customer personal data. Contact official ORVIX support to ask about your stored information, subject to identity checks and records that must be kept for legal or operational reasons."] },
       ],
     },
@@ -87,7 +87,7 @@ const content: Record<PolicySlug, { en: { title: string; intro: string; sections
       sections: [
         { title: "البيانات التي نعالجها", paragraphs: ["تعالج ORVIX بيانات الطلب والحساب مثل الاسم والموبايل والإيميل وعنوان التوصيل ومحتويات الطلب ورسائل الدعم وبعض بيانات الأمان والتحليلات اللازمة لتشغيل المتجر."] },
         { title: "طريقة الاستخدام", paragraphs: ["تستخدم البيانات لقبول الطلبات وتوصيلها وإرسال الإيميلات التشغيلية ودعم العملاء ومنع إساءة الاستخدام وتحسين أداء المتجر والوفاء بالالتزامات القانونية."], bullets: ["تستلم بوسطة بيانات التوصيل اللازمة لنقل الشحنة.", "تعالج Resend إرسال الإيميلات التشغيلية.", "تخزن Supabase سجلات الحسابات والتجارة."] },
-        { title: "التتبع الآمن", paragraphs: ["لا تعرض ORVIX الطلب باستخدام رقم الموبايل وحده. يرسل كود مؤقت إلى الإيميل المحفوظ على الطلب؛ تنتهي الأكواد بعد 10 دقائق وجلسة التتبع المؤكدة بعد 30 دقيقة. يتم تخزين بصمات الأكواد ورموز الجلسات بدلًا من القيم الأصلية."] },
+        { title: "التتبع الآمن", paragraphs: ["لا تعرض ORVIX الطلب باستخدام رقم الموبايل وحده. عند توفر خدمة الرسائل الآمنة، يُرسل كود مؤقت إلى رقم الموبايل المحفوظ على الطلب. وإذا لم تتوفر الرسائل، يجب إدخال نفس إيميل الشراء بالضبط. تنتهي الأكواد بعد 10 دقائق وجلسة التتبع المؤكدة بعد 30 دقيقة، ويتم تخزين بصمات الأكواد ورموز الجلسات بدلًا من القيم الأصلية."] },
         { title: "الاختيارات والتواصل", paragraphs: ["لا تبيع ORVIX البيانات الشخصية للعملاء. تواصل مع الدعم الرسمي للسؤال عن بياناتك، مع مراعاة التحقق من الهوية والسجلات التي يلزم الاحتفاظ بها قانونيًا أو تشغيليًا."] },
       ],
     },

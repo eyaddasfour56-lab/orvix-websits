@@ -3,7 +3,6 @@
 import Link from "next/link";
 import Image from "next/image";
 import {
-  FormEvent,
   TouchEvent,
   useEffect,
   useMemo,
@@ -80,6 +79,8 @@ type Review = {
   review?: string;
   status?: string;
   created_at?: string;
+  photoUrls?: string[];
+  verifiedPurchase?: boolean;
 };
 
 type TechCategory = {
@@ -562,6 +563,12 @@ const copyByLanguage = {
     noReviews: "No reviews yet.",
     previousImage: "Previous image",
     nextImage: "Next image",
+    zoomImage: "Open image zoom",
+    closeImage: "Close image zoom",
+    fitGuide: "Fit guide",
+    fitGuideSummary: "One included band fits wrists from 130–210 mm.",
+    fitGuideDetail:
+      "Wrap a soft measuring tape around your wrist without pulling it tight. If the measurement is between 130 and 210 mm, the included band should fit.",
   },
   ar: {
     colourNames: {
@@ -630,6 +637,12 @@ const copyByLanguage = {
     noReviews: "لا توجد تقييمات بعد.",
     previousImage: "الصورة السابقة",
     nextImage: "الصورة التالية",
+    zoomImage: "تكبير صورة المنتج",
+    closeImage: "إغلاق الصورة المكبرة",
+    fitGuide: "دليل المقاس",
+    fitGuideSummary: "السوار المرفق مناسب لمحيط معصم من 130 إلى 210 مم.",
+    fitGuideDetail:
+      "لف شريط قياس مرن حول المعصم من غير شد. لو القياس بين 130 و210 مم، فالسوار المرفق مناسب للمقاس.",
   },
 } as const;
 
@@ -715,6 +728,9 @@ export default function GoogleFitbitAirPage() {
     setActiveImageIndex,
   ] = useState(0);
 
+  const [isImageZoomOpen, setIsImageZoomOpen] =
+    useState(false);
+
   const [touchStartX, setTouchStartX] =
     useState<number | null>(null);
 
@@ -748,24 +764,6 @@ export default function GoogleFitbitAirPage() {
     reviewsLoading,
     setReviewsLoading,
   ] = useState(true);
-
-  const [reviewName, setReviewName] =
-    useState("");
-
-  const [
-    reviewRating,
-    setReviewRating,
-  ] = useState(5);
-
-  const [
-    reviewComment,
-    setReviewComment,
-  ] = useState("");
-
-  const [
-    submittingReview,
-    setSubmittingReview,
-  ] = useState(false);
 
   useEffect(() => {
     async function loadProduct() {
@@ -900,6 +898,17 @@ export default function GoogleFitbitAirPage() {
         animationFrame
       );
   }, []);
+
+  useEffect(() => {
+    if (!isImageZoomOpen) return;
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setIsImageZoomOpen(false);
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [isImageZoomOpen]);
 
   const productImages = useMemo(
     () => colourImages[selectedColour],
@@ -1176,86 +1185,6 @@ export default function GoogleFitbitAirPage() {
     );
   }
 
-  async function submitReview(
-    event: FormEvent<HTMLFormElement>
-  ) {
-    event.preventDefault();
-
-    if (!reviewName.trim()) {
-      showMessage(
-        copy.enterName,
-        "error"
-      );
-      return;
-    }
-
-    if (
-      reviewComment.trim().length < 5
-    ) {
-      showMessage(
-        copy.longerReview,
-        "error"
-      );
-      return;
-    }
-
-    setSubmittingReview(true);
-
-    try {
-      const response = await fetch(
-        "/api/reviews",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            productSlug:
-              "google-fitbit-air",
-            name: reviewName.trim(),
-            rating: reviewRating,
-            comment:
-              reviewComment.trim(),
-          }),
-        }
-      );
-
-      const result =
-        await response.json();
-
-      if (
-        !response.ok ||
-        !result.success
-      ) {
-        throw new Error(
-          result.message ||
-            copy.reviewError
-        );
-      }
-
-      setReviewName("");
-      setReviewRating(5);
-      setReviewComment("");
-
-      showMessage(
-        copy.reviewSuccess,
-        "success"
-      );
-    } catch (error) {
-      showMessage(
-        error instanceof Error
-          ? language === "ar"
-            ? copy.reviewError
-            : error.message
-          : copy.reviewError,
-        "error"
-      );
-    } finally {
-      setSubmittingReview(false);
-    }
-  }
-
   function scrollToSection(
     section:
       | "overview"
@@ -1419,16 +1348,26 @@ export default function GoogleFitbitAirPage() {
                         : 0.32,
                       ease: premiumEase,
                     }}
-                    className="relative aspect-square w-full"
+                    className="w-full"
                   >
-                    <Image
-                      src={activeImage}
-                      alt={`${product.name} ${selectedColour}`}
-                      draggable={false}
-                      fill
-                      sizes="(max-width: 1024px) 100vw, 50vw"
-                      className="object-contain transition duration-500 group-hover:scale-[1.02]"
-                    />
+                    <button
+                      type="button"
+                      onClick={() => setIsImageZoomOpen(true)}
+                      aria-label={copy.zoomImage}
+                      className="relative aspect-square w-full cursor-zoom-in"
+                    >
+                      <Image
+                        src={activeImage}
+                        alt={`${product.name} ${selectedColour}`}
+                        draggable={false}
+                        fill
+                        sizes="(max-width: 1024px) 100vw, 50vw"
+                        className="object-contain transition duration-500 group-hover:scale-[1.02]"
+                      />
+                      <span className="absolute bottom-2 right-2 rounded-full bg-black/75 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-white backdrop-blur sm:bottom-4 sm:right-4">
+                        {language === "ar" ? "تكبير" : "Zoom"}
+                      </span>
+                    </button>
                   </motion.div>
                 </AnimatePresence>
 
@@ -1638,6 +1577,21 @@ export default function GoogleFitbitAirPage() {
                   })}
                 </div>
               </div>
+
+              <details className="mt-5 rounded-[24px] border border-white/10 bg-white/[0.035] p-5 open:bg-white/[0.055]">
+                <summary className="cursor-pointer list-none font-black">
+                  <span className="flex items-center justify-between gap-4">
+                    <span>{copy.fitGuide}</span>
+                    <span aria-hidden="true" className="text-white/45">+</span>
+                  </span>
+                </summary>
+                <p className="mt-4 text-sm font-bold text-white/70">
+                  {copy.fitGuideSummary}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-white/45">
+                  {copy.fitGuideDetail}
+                </p>
+              </details>
 
               <div className="mt-5 rounded-[30px] border border-white/10 bg-white/[0.035] p-5 sm:p-6">
                 <div className="flex items-center justify-between">
@@ -2017,70 +1971,19 @@ export default function GoogleFitbitAirPage() {
               {copy.shareExperience}
             </h2>
 
-            <form
-              onSubmit={submitReview}
-              className="mt-8 rounded-[30px] border border-white/10 bg-white/[0.025] p-6"
-            >
-              <input
-                value={reviewName}
-                onChange={(event) =>
-                  setReviewName(
-                    event.target.value
-                  )
-                }
-                placeholder={copy.yourName}
-                className="w-full rounded-2xl border border-white/10 bg-black px-4 py-4"
-              />
-
-              <div className="mt-5 flex gap-2">
-                {[1, 2, 3, 4, 5].map(
-                  (rating) => (
-                    <button
-                      key={rating}
-                      type="button"
-                      onClick={() =>
-                        setReviewRating(
-                          rating
-                        )
-                      }
-                      aria-label={copy.ratingLabel(
-                        rating
-                      )}
-                      className={`text-3xl ${
-                        rating <=
-                        reviewRating
-                          ? "text-yellow-300"
-                          : "text-white/15"
-                      }`}
-                    >
-                      ★
-                    </button>
-                  )
-                )}
-              </div>
-
-              <textarea
-                value={reviewComment}
-                onChange={(event) =>
-                  setReviewComment(
-                    event.target.value
-                  )
-                }
-                placeholder={copy.yourReview}
-                rows={5}
-                className="mt-5 w-full resize-none rounded-2xl border border-white/10 bg-black px-4 py-4"
-              />
-
-              <button
-                type="submit"
-                disabled={submittingReview}
-                className="orvix-premium-button mt-5 w-full rounded-full bg-white px-6 py-4 font-black text-black"
-              >
-                {submittingReview
-                  ? copy.submitting
-                  : copy.submitReview}
-              </button>
-            </form>
+            <div className="mt-8 rounded-[30px] border border-emerald-300/15 bg-emerald-400/[0.045] p-6">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-200/70">
+                {language === "ar" ? "تقييمات موثقة فقط" : "VERIFIED PURCHASES ONLY"}
+              </p>
+              <p className="mt-3 text-sm leading-6 text-white/48">
+                {language === "ar"
+                  ? "يمكنك إضافة تقييم وصور بعد توصيل طلبك. سنطلب رقم الطلب والموبايل للتأكد من أن التقييم حقيقي."
+                  : "Leave a rating and optional photos after delivery. Your order number and checkout phone verify that every review is genuine."}
+              </p>
+              <Link href="/leave-review" className="orvix-premium-button mt-5 inline-flex w-full items-center justify-center rounded-full bg-white px-6 py-4 font-black text-black">
+                {language === "ar" ? "أضف تقييمًا موثقًا" : "Leave a verified review"}
+              </Link>
+            </div>
           </motion.div>
 
           <motion.div
@@ -2132,6 +2035,8 @@ export default function GoogleFitbitAirPage() {
                     )}
                   </h3>
 
+                  {review.verifiedPurchase ? <p className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-emerald-200/60">{language === "ar" ? "شراء موثق" : "Verified purchase"}</p> : null}
+
                   <p className="mt-2 text-yellow-300">
                     {"★".repeat(
                       Math.max(
@@ -2149,12 +2054,55 @@ export default function GoogleFitbitAirPage() {
                   <p className="mt-5 text-white/55">
                     {getReviewComment(review)}
                   </p>
+
+                  {review.photoUrls?.length ? <div className="mt-5 grid grid-cols-3 gap-2">{review.photoUrls.map((url, photoIndex) => <button key={url} type="button" onClick={() => window.open(url, "_blank", "noopener,noreferrer")} className="overflow-hidden rounded-xl border border-white/10 bg-white"><Image src={url} alt={`${getReviewName(review, language)} review photo ${photoIndex + 1}`} width={240} height={240} unoptimized className="aspect-square h-full w-full object-cover" /></button>)}</div> : null}
                 </motion.article>
               ))
             )}
           </motion.div>
         </div>
       </section>
+
+      <AnimatePresence>
+        {isImageZoomOpen ? (
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label={copy.zoomImage}
+            initial={reduceMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={reduceMotion ? undefined : { opacity: 0 }}
+            onClick={() => setIsImageZoomOpen(false)}
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/90 p-4 backdrop-blur-lg sm:p-10"
+          >
+            <button
+              type="button"
+              onClick={() => setIsImageZoomOpen(false)}
+              aria-label={copy.closeImage}
+              className="absolute right-4 top-4 z-10 flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-black/70 text-2xl font-black text-white sm:right-8 sm:top-8"
+            >
+              ×
+            </button>
+            <motion.div
+              initial={reduceMotion ? false : { opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={reduceMotion ? undefined : { opacity: 0, scale: 0.96 }}
+              transition={{ duration: reduceMotion ? 0 : 0.24, ease: premiumEase }}
+              onClick={(event) => event.stopPropagation()}
+              className="relative h-[min(84vh,900px)] w-[min(92vw,1100px)] overflow-hidden rounded-[32px] bg-white p-5 shadow-2xl"
+            >
+              <Image
+                src={activeImage}
+                alt={`${product.name} ${selectedColour}`}
+                fill
+                priority
+                sizes="92vw"
+                className="object-contain p-4 sm:p-8"
+              />
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <motion.div
         initial={

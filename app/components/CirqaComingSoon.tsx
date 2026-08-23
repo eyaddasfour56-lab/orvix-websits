@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 
 const colours = [
@@ -78,10 +79,12 @@ export default function CirqaComingSoon() {
         <div className="grid items-center gap-12 lg:grid-cols-[1fr_0.95fr]">
           <div>
             <div className="overflow-hidden rounded-[40px] bg-white p-6 md:p-10">
-              <img
+              <Image
                 key={selectedColour.image}
                 src={selectedColour.image}
                 alt={`Garmin CIRQA in ${selectedColour.name}`}
+                width={900}
+                height={900}
                 className="h-auto w-full object-contain"
               />
             </div>

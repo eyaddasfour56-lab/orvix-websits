@@ -1,7 +1,8 @@
-import {
-  NextRequest,
-  NextResponse,
-} from "next/server";
+import { createHash, randomUUID } from "crypto";
+import { NextResponse } from "next/server";
+import { postgrestValue, supabaseAdminJson } from "@/lib/supabase-admin";
+
+export const runtime = "nodejs";
 
 type OrderRecord = {
   id: string;
@@ -13,397 +14,190 @@ type OrderRecord = {
   product_slug?: string | null;
 };
 
-function normalisePhone(value: string) {
-  return value.replace(/\D/g, "");
+const MAX_FILES = 3;
+// Keep the complete multipart request below common serverless request limits.
+const MAX_FILE_SIZE = 1024 * 1024;
+const allowedTypes: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+function normalizePhone(value: string) {
+  let digits = value.replace(/\D/g, "");
+  if (digits.startsWith("0020")) digits = digits.slice(2);
+  if (digits.startsWith("20")) return `0${digits.slice(2)}`;
+  if (digits.startsWith("1")) return `0${digits}`;
+  return digits;
 }
 
-function phonesMatch(
-  firstPhone: string,
-  secondPhone: string
-) {
-  const first = normalisePhone(firstPhone);
-  const second = normalisePhone(secondPhone);
-
-  if (!first || !second) {
-    return false;
-  }
-
-  if (first === second) {
-    return true;
-  }
-
-  const firstWithoutCountryCode =
-    first.startsWith("20")
-      ? `0${first.slice(2)}`
-      : first;
-
-  const secondWithoutCountryCode =
-    second.startsWith("20")
-      ? `0${second.slice(2)}`
-      : second;
-
-  return (
-    firstWithoutCountryCode ===
-    secondWithoutCountryCode
-  );
+function clientIp(request: Request) {
+  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
 }
 
-export async function POST(
-  request: NextRequest
-) {
+function hash(value: string) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+async function allowed(request: Request) {
+  const key = `verified-review:${hash(clientIp(request)).slice(0, 32)}`;
+  return supabaseAdminJson<boolean>("rpc/orvix_take_rate_limit", {
+    method: "POST",
+    body: JSON.stringify({ p_key: key, p_limit: 8, p_window_seconds: 30 * 60 }),
+  });
+}
+
+function signatureMatches(type: string, bytes: Uint8Array) {
+  if (type === "image/jpeg") return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (type === "image/png") {
+    const png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+    return png.every((value, index) => bytes[index] === value);
+  }
+  if (type === "image/webp") {
+    return String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" && String.fromCharCode(...bytes.slice(8, 12)) === "WEBP";
+  }
+  return false;
+}
+
+async function readInput(request: Request) {
+  const contentType = request.headers.get("content-type") || "";
+  if (contentType.includes("multipart/form-data")) {
+    const data = await request.formData();
+    return {
+      orderNumber: String(data.get("orderNumber") || ""),
+      phone: String(data.get("phone") || ""),
+      rating: Number(data.get("rating")),
+      reviewText: String(data.get("reviewText") || ""),
+      photos: data.getAll("photos").filter((item): item is File => item instanceof File && item.size > 0),
+    };
+  }
+
+  const body = (await request.json()) as Record<string, unknown>;
+  return {
+    orderNumber: String(body.orderNumber || ""),
+    phone: String(body.phone || ""),
+    rating: Number(body.rating),
+    reviewText: String(body.reviewText || ""),
+    photos: [] as File[],
+  };
+}
+
+async function uploadPhotos(orderId: string, photos: File[]) {
+  if (!photos.length) return { urls: [] as string[], paths: [] as string[] };
+  const supabaseUrl = process.env.SUPABASE_URL?.replace(/\/$/, "");
+  const secretKey = process.env.SUPABASE_SECRET_KEY;
+  if (!supabaseUrl || !secretKey) throw new Error("Review media storage is unavailable.");
+
+  const folder = hash(orderId).slice(0, 24);
+  const urls: string[] = [];
+  const paths: string[] = [];
+
+  for (const photo of photos) {
+    const extension = allowedTypes[photo.type];
+    if (!extension || photo.size > MAX_FILE_SIZE) {
+      throw new Error("Each photo must be a JPG, PNG or WebP image no larger than 1 MB.");
+    }
+    const bytes = new Uint8Array(await photo.arrayBuffer());
+    if (!signatureMatches(photo.type, bytes)) {
+      throw new Error("One of the selected files is not a valid image.");
+    }
+
+    const path = `${folder}/${randomUUID()}.${extension}`;
+    const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+    const response = await fetch(`${supabaseUrl}/storage/v1/object/review-media/${encodedPath}`, {
+      method: "POST",
+      headers: {
+        apikey: secretKey,
+        Authorization: `Bearer ${secretKey}`,
+        "Content-Type": photo.type,
+        "x-upsert": "false",
+      },
+      body: bytes,
+    });
+    if (!response.ok) throw new Error("Could not upload one of the review photos.");
+    paths.push(path);
+    urls.push(`${supabaseUrl}/storage/v1/object/public/review-media/${encodedPath}`);
+  }
+
+  return { urls, paths };
+}
+
+async function removeUploads(paths: string[]) {
+  if (!paths.length) return;
+  const supabaseUrl = process.env.SUPABASE_URL?.replace(/\/$/, "");
+  const secretKey = process.env.SUPABASE_SECRET_KEY;
+  if (!supabaseUrl || !secretKey) return;
+  await fetch(`${supabaseUrl}/storage/v1/object/review-media`, {
+    method: "DELETE",
+    headers: { apikey: secretKey, Authorization: `Bearer ${secretKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ prefixes: paths }),
+  }).catch(() => undefined);
+}
+
+export async function POST(request: Request) {
+  let uploadedPaths: string[] = [];
   try {
-    const supabaseUrl =
-      process.env.SUPABASE_URL;
-
-    const supabaseSecretKey =
-      process.env.SUPABASE_SECRET_KEY;
-
-    if (
-      !supabaseUrl ||
-      !supabaseSecretKey
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Supabase settings are missing.",
-        },
-        {
-          status: 500,
-        }
-      );
+    if (!(await allowed(request))) {
+      return NextResponse.json({ success: false, message: "Too many review attempts. Please wait and try again." }, { status: 429 });
     }
 
-    const body = await request.json();
+    const input = await readInput(request);
+    const orderNumber = input.orderNumber.trim().toUpperCase().slice(0, 80);
+    const phone = input.phone.trim().slice(0, 40);
+    const reviewText = input.reviewText.trim();
+    const rating = input.rating;
+    const photos = input.photos.slice(0, MAX_FILES + 1);
 
-    const orderNumber = String(
-      body.orderNumber || ""
-    )
-      .trim()
-      .toUpperCase();
+    if (!orderNumber) return NextResponse.json({ success: false, message: "Please enter your order number." }, { status: 400 });
+    if (!phone) return NextResponse.json({ success: false, message: "Please enter your phone number." }, { status: 400 });
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) return NextResponse.json({ success: false, message: "Please select a rating from 1 to 5 stars." }, { status: 400 });
+    if (reviewText.length < 5 || reviewText.length > 1000) return NextResponse.json({ success: false, message: "Your review must contain 5 to 1,000 characters." }, { status: 400 });
+    if (photos.length > MAX_FILES) return NextResponse.json({ success: false, message: "You can attach up to 3 photos." }, { status: 400 });
 
-    const phone = String(
-      body.phone || ""
-    ).trim();
-
-    const rating = Number(body.rating);
-
-    const reviewText = String(
-      body.reviewText || ""
-    ).trim();
-
-    if (!orderNumber) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Please enter your order number.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    if (!phone) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Please enter your phone number.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    if (
-      !Number.isInteger(rating) ||
-      rating < 1 ||
-      rating > 5
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Please select a rating from 1 to 5 stars.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    if (reviewText.length < 5) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Your review must contain at least 5 characters.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    if (reviewText.length > 1000) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Your review is too long.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    const orderResponse = await fetch(
-      `${supabaseUrl}/rest/v1/orders?order_number=eq.${encodeURIComponent(
-        orderNumber
-      )}&select=id,order_number,customer_name,phone,status,product_name,product_slug&limit=1`,
-      {
-        headers: {
-          apikey: supabaseSecretKey,
-          Authorization: `Bearer ${supabaseSecretKey}`,
-          "Content-Type":
-            "application/json",
-        },
-        cache: "no-store",
-      }
+    const orders = await supabaseAdminJson<OrderRecord[]>(
+      `orders?order_number=eq.${postgrestValue(orderNumber)}&select=id,order_number,customer_name,phone,status,product_name,product_slug&limit=1`
     );
-
-    if (!orderResponse.ok) {
-      const errorText =
-        await orderResponse.text();
-
-      console.error(
-        "Review order lookup error:",
-        errorText
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Could not verify your order.",
-        },
-        {
-          status: 500,
-        }
-      );
-    }
-
-    const orders =
-      (await orderResponse.json()) as OrderRecord[];
-
     const order = orders[0];
+    if (!order) return NextResponse.json({ success: false, message: "Order not found. Check your order number." }, { status: 404 });
+    if (normalizePhone(order.phone) !== normalizePhone(phone)) return NextResponse.json({ success: false, message: "The phone number does not match this order." }, { status: 403 });
+    if (String(order.status).toLowerCase() !== "delivered") return NextResponse.json({ success: false, message: "You can leave a review after your order has been delivered." }, { status: 400 });
 
-    if (!order) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Order not found. Check your order number.",
-        },
-        {
-          status: 404,
-        }
-      );
-    }
+    const existing = await supabaseAdminJson<Array<{ id: string }>>(
+      `reviews?order_id=eq.${postgrestValue(order.id)}&select=id&limit=1`
+    );
+    if (existing.length) return NextResponse.json({ success: false, message: "A review has already been submitted for this order." }, { status: 409 });
 
-    if (
-      !phonesMatch(order.phone, phone)
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "The phone number does not match this order.",
-        },
-        {
-          status: 403,
-        }
-      );
-    }
-
-    if (
-      String(order.status)
-        .trim()
-        .toLowerCase() !== "delivered"
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "You can leave a review after your order has been delivered.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    const existingReviewResponse =
-      await fetch(
-        `${supabaseUrl}/rest/v1/reviews?order_id=eq.${encodeURIComponent(
-          order.id
-        )}&select=id&limit=1`,
-        {
-          headers: {
-            apikey: supabaseSecretKey,
-            Authorization: `Bearer ${supabaseSecretKey}`,
-            "Content-Type":
-              "application/json",
-          },
-          cache: "no-store",
-        }
-      );
-
-    if (!existingReviewResponse.ok) {
-      const errorText =
-        await existingReviewResponse.text();
-
-      console.error(
-        "Existing review lookup error:",
-        errorText
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Could not check your review.",
-        },
-        {
-          status: 500,
-        }
-      );
-    }
-
-    const existingReviews =
-      await existingReviewResponse.json();
-
-    if (
-      Array.isArray(existingReviews) &&
-      existingReviews.length > 0
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "A review has already been submitted for this order.",
-        },
-        {
-          status: 409,
-        }
-      );
-    }
-
-    const productName =
-      order.product_name?.trim() ||
-      "Google Fitbit Air";
-
-    const productSlug =
-      order.product_slug?.trim() ||
-      "google-fitbit-air";
-
-    const createReviewResponse =
-      await fetch(
-        `${supabaseUrl}/rest/v1/reviews`,
-        {
-          method: "POST",
-          headers: {
-            apikey: supabaseSecretKey,
-            Authorization: `Bearer ${supabaseSecretKey}`,
-            "Content-Type":
-              "application/json",
-            Prefer: "return=representation",
-          },
-          body: JSON.stringify({
-            order_id: order.id,
-            order_number:
-              order.order_number,
-
-            product_name: productName,
-            product_slug: productSlug,
-
-            customer_name:
-              order.customer_name,
-
-            rating,
-            review_text: reviewText,
-            status: "pending",
-          }),
-        }
-      );
-
-    if (!createReviewResponse.ok) {
-      const errorText =
-        await createReviewResponse.text();
-
-      console.error(
-        "Create review error:",
-        errorText
-      );
-
-      if (
-        errorText
-          .toLowerCase()
-          .includes("duplicate")
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            message:
-              "A review has already been submitted for this order.",
-          },
-          {
-            status: 409,
-          }
-        );
-      }
-
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Could not submit your review.",
-        },
-        {
-          status: 500,
-        }
-      );
-    }
-
-    const createdReviews =
-      await createReviewResponse.json();
+    const uploaded = await uploadPhotos(order.id, photos);
+    uploadedPaths = uploaded.paths;
+    const created = await supabaseAdminJson<Array<Record<string, unknown>>>("reviews", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({
+        order_id: order.id,
+        order_number: order.order_number,
+        product_name: order.product_name?.trim() || "Google Fitbit Air",
+        product_slug: order.product_slug?.trim() || "google-fitbit-air",
+        customer_name: order.customer_name,
+        rating,
+        review_text: reviewText,
+        photo_urls: uploaded.urls,
+        status: "pending",
+      }),
+    });
 
     return NextResponse.json({
       success: true,
-      message:
-        "Thank you! Your review was submitted and is waiting for approval.",
-      review:
-        createdReviews[0] || null,
+      message: "Thank you! Your verified review was submitted and is waiting for approval.",
+      review: created[0] || null,
     });
   } catch (error) {
-    console.error(
-      "Submit review API error:",
-      error
-    );
-
+    await removeUploads(uploadedPaths);
+    const message = error instanceof Error ? error.message : "Could not submit your review.";
+    const duplicate = message.toLowerCase().includes("duplicate");
+    console.error("Submit verified review API error:", error);
     return NextResponse.json(
-      {
-        success: false,
-        message:
-          "Could not submit your review.",
-      },
-      {
-        status: 500,
-      }
+      { success: false, message: duplicate ? "A review has already been submitted for this order." : message },
+      { status: duplicate ? 409 : 500 }
     );
   }
 }

@@ -131,6 +131,7 @@ export default function CustomerLoginPage() {
             ) : null}
             <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email address" type="email" autoComplete="email" required className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.035] px-4 text-sm font-semibold outline-none placeholder:text-white/22 focus:border-white/25" />
             <input value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password" type="password" minLength={8} autoComplete={mode === "login" ? "current-password" : "new-password"} required className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.035] px-4 text-sm font-semibold outline-none placeholder:text-white/22 focus:border-white/25" />
+            {mode === "login" ? <div className="text-right"><Link href="/account/forgot-password" className="text-[11px] font-bold text-white/35 hover:text-white/65">Forgot password?</Link></div> : null}
 
             {error ? <p className="rounded-xl border border-red-300/15 bg-red-400/[0.07] px-4 py-3 text-xs font-bold text-red-100">{error}</p> : null}
             {message ? <p className="rounded-xl border border-emerald-300/15 bg-emerald-400/[0.07] px-4 py-3 text-xs font-bold text-emerald-100">{message}</p> : null}

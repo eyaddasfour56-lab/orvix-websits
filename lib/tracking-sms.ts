@@ -30,11 +30,24 @@ export function trackingSmsReady() {
   );
 }
 
-export async function sendTrackingOtpSms(input: {
+export function orderUpdateSmsReady() {
+  return (
+    process.env.SENT_ORDER_SMS_ENABLED === "true" &&
+    Boolean(sentApiKey())
+  );
+}
+
+export function checkoutPhoneSmsReady() {
+  return (
+    process.env.SENT_CHECKOUT_SMS_ENABLED === "true" &&
+    Boolean(sentApiKey())
+  );
+}
+
+async function sendSms(input: {
   to: string;
-  otp: string;
-  challengeId: string;
-  expiresInMinutes: number;
+  text: string;
+  idempotencyKey: string;
 }) {
   const apiKey = sentApiKey();
   if (!apiKey) throw new Error("Sent SMS credentials are missing.");
@@ -48,12 +61,12 @@ export async function sendTrackingOtpSms(input: {
       headers: {
         "x-api-key": apiKey,
         "Content-Type": "application/json",
-        "Idempotency-Key": `tracking_otp_${input.challengeId}`,
+        "Idempotency-Key": input.idempotencyKey,
       },
       body: JSON.stringify({
         to: [input.to],
         channel: ["sms"],
-        text: `Your secure order tracking code is ${input.otp}. It expires in ${input.expiresInMinutes} minutes. Do not share it.`,
+        text: input.text,
       }),
       cache: "no-store",
       signal: controller.signal,
@@ -66,21 +79,51 @@ export async function sendTrackingOtpSms(input: {
     }
 
     const messageId = result.data?.recipients?.[0]?.message_id;
-    if (!messageId) {
-      throw new Error("Sent did not return a message id.");
-    }
+    if (!messageId) throw new Error("Sent did not return a message id.");
 
-    console.info("Tracking SMS accepted:", {
+    console.info("Customer SMS accepted:", {
       messageId,
       requestId: result.meta?.request_id || null,
     });
     return { messageId };
   } catch (error) {
-    if (controller.signal.aborted) {
-      throw new Error("The SMS provider did not respond in time.");
-    }
+    if (controller.signal.aborted) throw new Error("The SMS provider did not respond in time.");
     throw error;
   } finally {
     clearTimeout(timeout);
   }
+}
+
+export async function sendOrderUpdateSms(input: {
+  to: string;
+  text: string;
+  idempotencyKey: string;
+}) {
+  return sendSms(input);
+}
+
+export async function sendCheckoutOtpSms(input: {
+  to: string;
+  otp: string;
+  challengeId: string;
+  expiresInMinutes: number;
+}) {
+  return sendSms({
+    to: input.to,
+    idempotencyKey: `checkout_otp_${input.challengeId}`,
+    text: `Your ORVIX checkout code is ${input.otp}. It expires in ${input.expiresInMinutes} minutes. Do not share it.`,
+  });
+}
+
+export async function sendTrackingOtpSms(input: {
+  to: string;
+  otp: string;
+  challengeId: string;
+  expiresInMinutes: number;
+}) {
+  return sendSms({
+    to: input.to,
+    idempotencyKey: `tracking_otp_${input.challengeId}`,
+    text: `Your secure order tracking code is ${input.otp}. It expires in ${input.expiresInMinutes} minutes. Do not share it.`,
+  });
 }

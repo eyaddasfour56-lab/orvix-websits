@@ -1,65 +1,40 @@
-import {
-  createHmac,
-  timingSafeEqual,
-} from "crypto";
-
-import {
-  NextRequest,
-  NextResponse,
-} from "next/server";
-
-function createAdminSession(
-  secret: string
-) {
-  return createHmac("sha256", secret)
-    .update("orvix-admin-session")
-    .digest("hex");
-}
-
-function isAdminAuthenticated(
-  request: NextRequest
-) {
-  const sessionSecret =
-    process.env.ADMIN_SESSION_SECRET;
-
-  const receivedSession =
-    request.cookies.get(
-      "orvix_admin_session"
-    )?.value;
-
-  if (
-    !sessionSecret ||
-    !receivedSession
-  ) {
-    return false;
-  }
-
-  const expectedSession =
-    createAdminSession(sessionSecret);
-
-  const receivedBuffer = Buffer.from(
-    receivedSession
-  );
-
-  const expectedBuffer = Buffer.from(
-    expectedSession
-  );
-
-  return (
-    receivedBuffer.length ===
-      expectedBuffer.length &&
-    timingSafeEqual(
-      receivedBuffer,
-      expectedBuffer
-    )
-  );
-}
+import { NextRequest, NextResponse } from "next/server";
+import { auditAdminAction } from "@/lib/admin-audit";
+import { hasAdminPermission } from "@/lib/admin-auth";
 
 const allowedStatuses = [
   "pending",
   "approved",
   "rejected",
 ];
+
+async function removeReviewPhotos(review: { photo_urls?: unknown }, supabaseUrl: string, secretKey: string) {
+  const urls = Array.isArray(review.photo_urls) ? review.photo_urls : [];
+  const marker = "/storage/v1/object/public/review-media/";
+  const prefixes = urls
+    .map((value) => {
+      try {
+        const pathname = new URL(String(value)).pathname;
+        const index = pathname.indexOf(marker);
+        return index >= 0 ? decodeURIComponent(pathname.slice(index + marker.length)) : "";
+      } catch {
+        return "";
+      }
+    })
+    .filter(Boolean);
+  if (!prefixes.length) return;
+
+  const response = await fetch(`${supabaseUrl}/storage/v1/object/review-media`, {
+    method: "DELETE",
+    headers: {
+      apikey: secretKey,
+      Authorization: `Bearer ${secretKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ prefixes }),
+  });
+  if (!response.ok) console.error("Review photo cleanup failed:", await response.text());
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -70,7 +45,7 @@ export async function PATCH(
   }
 ) {
   try {
-    if (!isAdminAuthenticated(request)) {
+    if (!hasAdminPermission(request, "customers")) {
       return NextResponse.json(
         {
           success: false,
@@ -207,6 +182,8 @@ export async function PATCH(
       );
     }
 
+    await auditAdminAction(request, "moderate_review", "review", id, { status });
+
     return NextResponse.json({
       success: true,
       message:
@@ -241,7 +218,7 @@ export async function DELETE(
   }
 ) {
   try {
-    if (!isAdminAuthenticated(request)) {
+    if (!hasAdminPermission(request, "customers")) {
       return NextResponse.json(
         {
           success: false,
@@ -345,6 +322,11 @@ export async function DELETE(
         }
       );
     }
+
+    await removeReviewPhotos(deletedReviews[0], supabaseUrl, supabaseSecretKey);
+    await auditAdminAction(request, "delete_review", "review", id, {
+      orderNumber: deletedReviews[0]?.order_number || null,
+    });
 
     return NextResponse.json({
       success: true,

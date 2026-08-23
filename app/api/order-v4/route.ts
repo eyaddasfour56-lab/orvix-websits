@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getBostaCities, getBostaDistricts } from "@/lib/bosta";
+import { verifyCheckoutPhoneToken } from "@/lib/checkout-phone-verification";
 import { getDeliveryAreaForBostaCity } from "@/lib/shipping-pricing";
 import { postgrestValue, SupabaseAdminError, supabaseAdminJson } from "@/lib/supabase-admin";
 
@@ -22,6 +23,7 @@ type CartInput = {
 type OrderInput = {
   fullName?: string;
   phone?: string;
+  phoneVerificationToken?: string;
   customerEmail?: string | null;
   items?: CartInput[];
   bostaCityId?: string;
@@ -209,6 +211,11 @@ export async function POST(request: NextRequest) {
 
     if (!isValidEmail(customerEmail)) {
       return NextResponse.json({ success: false, message: "Please enter a valid email address for order confirmation and secure tracking." }, { status: 400, headers: { "Cache-Control": "no-store" } });
+    }
+
+    const phoneVerification = await verifyCheckoutPhoneToken(phone, input.phoneVerificationToken);
+    if (phoneVerification.required && !phoneVerification.valid) {
+      return NextResponse.json({ success: false, code: "PHONE_VERIFICATION_REQUIRED", message: "Verify this phone number with the SMS code before placing the order." }, { status: 403, headers: { "Cache-Control": "no-store" } });
     }
 
     const settings = await getCommerceSettings();

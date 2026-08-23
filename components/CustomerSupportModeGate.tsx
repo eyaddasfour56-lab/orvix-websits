@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
@@ -139,7 +140,7 @@ export default function CustomerSupportModeGate() {
       <div className="w-full max-w-lg rounded-[30px] border border-white/10 bg-[#0b0b0b] p-5 shadow-2xl sm:p-7">
         <div className="flex items-center gap-3">
           <div className="h-12 w-12 overflow-hidden rounded-2xl border border-white/10 bg-[#111]">
-            <img src="/logo.jpeg" alt="ORVIX" className="h-full w-full object-cover" />
+            <Image src="/logo.jpeg" alt="ORVIX" width={48} height={48} className="h-full w-full object-cover" />
           </div>
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-300/70">

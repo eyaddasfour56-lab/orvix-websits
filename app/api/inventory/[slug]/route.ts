@@ -50,9 +50,9 @@ export async function GET(
     }
 
     const response = await fetch(
-      `${supabaseUrl}/rest/v1/product_inventory?product_slug=eq.${encodeURIComponent(
+      `${supabaseUrl}/rest/v1/store_products?slug=eq.${encodeURIComponent(
         slug
-      )}&select=*`,
+      )}&select=id,slug,name,stock_quantity,low_stock_limit,status,allow_purchase,updated_at&limit=1`,
       {
         headers: {
           apikey: supabaseSecretKey,
@@ -111,9 +111,9 @@ export async function GET(
       inventory: {
         id: product.id,
         productSlug:
-          product.product_slug,
+          product.slug,
         productName:
-          product.product_name,
+          product.name,
         stockQuantity: Number(
           product.stock_quantity || 0
         ),
@@ -121,7 +121,9 @@ export async function GET(
           product.low_stock_limit || 0
         ),
         isAvailable: Boolean(
-          product.is_available
+          product.allow_purchase &&
+          ["available", "preorder"].includes(String(product.status)) &&
+          (String(product.status) === "preorder" || Number(product.stock_quantity || 0) > 0)
         ),
         updatedAt:
           product.updated_at,

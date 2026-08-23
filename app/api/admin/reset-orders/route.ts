@@ -1,35 +1,9 @@
-import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-
-function createAdminSession(secret: string) {
-  return createHmac("sha256", secret)
-    .update("orvix-admin-session")
-    .digest("hex");
-}
-
-function isAdminAuthenticated(request: NextRequest) {
-  const sessionSecret = process.env.ADMIN_SESSION_SECRET;
-  const receivedSession =
-    request.cookies.get("orvix_admin_session")?.value;
-
-  if (!sessionSecret || !receivedSession) {
-    return false;
-  }
-
-  const expectedSession = createAdminSession(sessionSecret);
-
-  const receivedBuffer = Buffer.from(receivedSession);
-  const expectedBuffer = Buffer.from(expectedSession);
-
-  return (
-    receivedBuffer.length === expectedBuffer.length &&
-    timingSafeEqual(receivedBuffer, expectedBuffer)
-  );
-}
+import { hasAdminPermission } from "@/lib/admin-auth";
 
 export async function DELETE(request: NextRequest) {
   try {
-    if (!isAdminAuthenticated(request)) {
+    if (!hasAdminPermission(request, "roles")) {
       return NextResponse.json(
         {
           success: false,

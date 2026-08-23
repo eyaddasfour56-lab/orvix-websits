@@ -20,6 +20,7 @@ import {
   enterMotion,
   revealMotion,
 } from "@/lib/motion-config";
+import { useSiteSettings } from "@/components/SiteSettingsProvider";
 
 type ProductStatus =
   | "available"
@@ -485,6 +486,7 @@ function getButtonClasses(
 export default function Home() {
   const { language, isArabic } =
     useLanguage();
+  const settings = useSiteSettings();
   const reduceMotion = useReducedMotion();
   const copy = copyByLanguage[language];
   const benefits =
@@ -1090,7 +1092,7 @@ export default function Home() {
 
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                   <a
-                    href="https://www.instagram.com/orvix_tech/"
+                    href={settings.instagramUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="orvix-premium-button inline-flex items-center justify-center rounded-full bg-white px-7 py-4 font-black text-black transition hover:bg-gray-200"
@@ -1113,12 +1115,12 @@ export default function Home() {
                 </p>
 
                 <a
-                  href="https://www.instagram.com/orvix_tech/"
+                  href={settings.instagramUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-5 block break-words text-3xl font-black transition hover:text-gray-300"
                 >
-                  @orvix_tech
+                  {settings.instagramHandle}
                 </a>
 
                 <p className="mt-5 leading-7 text-gray-400">
@@ -1145,11 +1147,11 @@ export default function Home() {
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-5 text-center lg:flex-row lg:text-start">
           <div>
             <p className="font-black tracking-[0.3em]">
-              ORVIX
+              {settings.shortName}
             </p>
 
             <p className="mt-2 text-sm text-gray-600">
-              © 2026 ORVIX. {copy.rights}
+              © 2026 {settings.brandName}. {copy.rights}
             </p>
           </div>
 

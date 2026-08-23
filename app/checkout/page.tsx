@@ -12,11 +12,13 @@ import {
   useState,
 } from "react";
 import Navbar from "@/components/Navbar";
+import CheckoutPhoneVerification from "@/components/CheckoutPhoneVerification";
 import { useLanguage } from "@/components/LanguageProvider";
 import { checkoutCopy } from "@/lib/checkout-copy";
 import {
   getDeliveryAreaForBostaCity,
 } from "@/lib/shipping-pricing";
+import { getCustomerSupabaseBrowser } from "@/lib/customer-supabase-browser";
 
 const PRODUCT_NAME = "Google Fitbit Air";
 const PRODUCT_SLUG = "google-fitbit-air";
@@ -110,6 +112,17 @@ type BostaLocationsResult = {
   message?: string;
   cities?: BostaCity[];
   districts?: BostaDistrict[];
+};
+
+type SavedAddress = {
+  id: string;
+  label: string;
+  full_name: string;
+  phone: string;
+  governorate: string;
+  area?: string | null;
+  address: string;
+  is_default?: boolean;
 };
 
 type LocationSearchOption = {
@@ -676,12 +689,15 @@ export default function CheckoutPage() {
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneVerificationToken, setPhoneVerificationToken] = useState("");
 
   const [customerEmail, setCustomerEmail] =
     useState("");
 
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [selectedSavedAddressId, setSelectedSavedAddressId] = useState("");
 
   const [discountCode, setDiscountCode] =
     useState("");
@@ -713,6 +729,21 @@ export default function CheckoutPage() {
 
   const [orderError, setOrderError] =
     useState("");
+
+  function applySavedAddress(saved: SavedAddress) {
+    setSelectedSavedAddressId(saved.id);
+    setFullName(saved.full_name || "");
+    setPhone(saved.phone || "");
+    setAddress(saved.address || "");
+    setSelectedDistrictId("");
+
+    const city = cities.find((item) =>
+      [item.name, item.nameAr].some(
+        (name) => String(name || "").trim().toLowerCase() === saved.governorate.trim().toLowerCase()
+      )
+    );
+    if (city) setSelectedCityId(city.id);
+  }
 
   const selectedCity = cities.find(
     (city) => city.id === selectedCityId
@@ -861,6 +892,73 @@ export default function CheckoutPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = getCustomerSupabaseBrowser();
+
+    void supabase.auth.getSession().then(async ({ data }) => {
+      const token = data.session?.access_token || "";
+      if (!token || cancelled) return;
+      const headers = { Authorization: `Bearer ${token}` };
+      try {
+        const [overviewResponse, addressesResponse] = await Promise.all([
+          fetch("/api/account/overview", { headers, cache: "no-store" }),
+          fetch("/api/account/addresses", { headers, cache: "no-store" }),
+        ]);
+        const [overview, addressesResult] = await Promise.all([
+          overviewResponse.json(),
+          addressesResponse.json(),
+        ]);
+        if (cancelled) return;
+
+        const profile = overview?.account?.profile;
+        setFullName((current) => current || String(profile?.full_name || ""));
+        setPhone((current) => current || String(profile?.phone || ""));
+        setCustomerEmail((current) => current || String(overview?.account?.email || data.session?.user?.email || ""));
+
+        const addresses: SavedAddress[] = Array.isArray(addressesResult?.addresses) ? addressesResult.addresses : [];
+        setSavedAddresses(addresses);
+        const preferred = addresses.find((item) => item.is_default) || addresses[0];
+        if (preferred) {
+          setSelectedSavedAddressId(preferred.id);
+          setFullName((current) => current || preferred.full_name || "");
+          setPhone((current) => current || preferred.phone || "");
+          setAddress((current) => current || preferred.address || "");
+        }
+      } catch {
+        // Account prefill is a convenience and never blocks checkout.
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!cities.length || !selectedSavedAddressId) return;
+    const saved = savedAddresses.find((item) => item.id === selectedSavedAddressId);
+    if (!saved) return;
+    const city = cities.find((item) =>
+      [item.name, item.nameAr].some(
+        (name) => String(name || "").trim().toLowerCase() === saved.governorate.trim().toLowerCase()
+      )
+    );
+    if (city && city.id !== selectedCityId) setSelectedCityId(city.id);
+  }, [cities, savedAddresses, selectedCityId, selectedSavedAddressId]);
+
+  useEffect(() => {
+    if (!districts.length || !selectedSavedAddressId || selectedDistrictId) return;
+    const saved = savedAddresses.find((item) => item.id === selectedSavedAddressId);
+    if (!saved?.area) return;
+    const district = districts.find((item) =>
+      [item.name, item.nameAr].some(
+        (name) => String(name || "").trim().toLowerCase() === String(saved.area || "").trim().toLowerCase()
+      )
+    );
+    if (district) setSelectedDistrictId(district.id);
+  }, [districts, savedAddresses, selectedDistrictId, selectedSavedAddressId]);
 
   // Redirect non-Fitbit cart items to their generic checkout.
   useEffect(() => {
@@ -1398,6 +1496,7 @@ export default function CheckoutPage() {
           body: JSON.stringify({
             fullName: fullName.trim(),
             phone: phone.trim(),
+            phoneVerificationToken,
 
             customerEmail:
               normalisedEmail || null,
@@ -1750,6 +1849,30 @@ export default function CheckoutPage() {
                   {copy.contactInformation}
                 </h2>
 
+                {savedAddresses.length > 0 ? (
+                  <label className="mt-6 block rounded-2xl border border-emerald-300/15 bg-emerald-400/[0.05] p-4">
+                    <span className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-emerald-100/70">
+                      {language === "ar" ? "استخدم عنوانًا محفوظًا" : "Use a saved address"}
+                    </span>
+                    <select
+                      value={selectedSavedAddressId}
+                      onChange={(event) => {
+                        const saved = savedAddresses.find((item) => item.id === event.target.value);
+                        if (saved) applySavedAddress(saved);
+                      }}
+                      disabled={isSending}
+                      className="w-full rounded-xl border border-white/10 bg-[#111] px-4 py-3 text-sm font-bold text-white outline-none"
+                    >
+                      <option value="">{language === "ar" ? "اختر عنوانًا" : "Choose an address"}</option>
+                      {savedAddresses.map((saved) => (
+                        <option key={saved.id} value={saved.id}>
+                          {saved.label} · {saved.governorate}{saved.area ? ` · ${saved.area}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+
                 <div className="mt-6 grid gap-5">
                   <label>
                     <span className="mb-2 block text-sm font-bold text-gray-300">
@@ -1794,6 +1917,13 @@ export default function CheckoutPage() {
                       className="w-full rounded-2xl border border-white/15 bg-black/40 px-5 py-4 text-white outline-none placeholder:text-gray-600 focus:border-white disabled:opacity-50"
                     />
                   </label>
+
+                  <CheckoutPhoneVerification
+                    phone={phone}
+                    onTokenChange={setPhoneVerificationToken}
+                    language={language}
+                    disabled={isSending}
+                  />
 
                   <label>
                     <span className="mb-2 block text-sm font-bold text-gray-300">
