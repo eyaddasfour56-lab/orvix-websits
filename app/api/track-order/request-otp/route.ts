@@ -16,6 +16,7 @@ import { sendOrvixEmail } from "@/lib/transactional-email";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 20;
 
 type OrderIdentity = {
   phone: string;
@@ -39,6 +40,27 @@ async function takeRateLimit(key: string, limit: number, seconds: number) {
     method: "POST",
     body: JSON.stringify({ p_key: key, p_limit: limit, p_window_seconds: seconds }),
   });
+}
+
+async function updateChallengeDelivery(
+  challengeId: string,
+  deliveryStatus: "sent" | "failed"
+) {
+  try {
+    await supabaseAdminJson(
+      `order_tracking_otp_challenges?id=eq.${postgrestValue(challengeId)}`,
+      {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          delivery_status: deliveryStatus,
+          delivered_at: deliveryStatus === "sent" ? new Date().toISOString() : null,
+        }),
+      }
+    );
+  } catch (statusError) {
+    console.error("Tracking OTP delivery status error:", statusError);
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -110,29 +132,17 @@ export async function POST(request: NextRequest) {
           ...content,
           idempotencyKey: `tracking-otp-${challengeId}`,
         });
-        await supabaseAdminJson(
-          `order_tracking_otp_challenges?id=eq.${postgrestValue(challengeId)}`,
-          {
-            method: "PATCH",
-            headers: { Prefer: "return=minimal" },
-            body: JSON.stringify({
-              delivery_status: "sent",
-              delivered_at: new Date().toISOString(),
-            }),
-          }
-        );
+        await updateChallengeDelivery(challengeId, "sent");
       } catch (emailError) {
         console.error("Tracking OTP email error:", emailError);
-        await supabaseAdminJson(
-          `order_tracking_otp_challenges?id=eq.${postgrestValue(challengeId)}`,
-          {
-            method: "PATCH",
-            headers: { Prefer: "return=minimal" },
-            body: JSON.stringify({ delivery_status: "failed" }),
-          }
-        );
+        await updateChallengeDelivery(challengeId, "failed");
         return json(
-          { success: false, code: "EMAIL_UNAVAILABLE", message: "We could not send the secure code right now. Please try again shortly." },
+          {
+            success: false,
+            code: "EMAIL_UNAVAILABLE",
+            message:
+              "Secure email delivery is not ready for this address yet. Please contact ORVIX Customer Service.",
+          },
           503
         );
       }

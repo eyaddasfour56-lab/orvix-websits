@@ -1,7 +1,5 @@
 import "server-only";
 
-import { Resend } from "resend";
-
 type TransactionalEmail = {
   to: string;
   subject: string;
@@ -9,6 +7,16 @@ type TransactionalEmail = {
   text: string;
   idempotencyKey: string;
 };
+
+type ResendEmailResponse = {
+  id?: string;
+  message?: string;
+  error?: {
+    message?: string;
+  };
+};
+
+const EMAIL_REQUEST_TIMEOUT_MS = 6_000;
 
 export function siteOrigin(request: Request) {
   const configured =
@@ -23,23 +31,59 @@ export async function sendOrvixEmail(input: TransactionalEmail) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error("RESEND_API_KEY is missing.");
 
-  const resend = new Resend(apiKey);
-  const result = await resend.emails.send(
-    {
-      from:
-        process.env.RESEND_FROM_EMAIL ||
-        "ORVIX <onboarding@resend.dev>",
-      to: input.to,
-      subject: input.subject,
-      html: input.html,
-      text: input.text,
-    },
-    { idempotencyKey: input.idempotencyKey }
-  );
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), EMAIL_REQUEST_TIMEOUT_MS);
 
-  if (result.error) {
-    throw new Error(result.error.message || "The email could not be sent.");
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "Idempotency-Key": input.idempotencyKey,
+      },
+      body: JSON.stringify({
+        from:
+          process.env.RESEND_FROM_EMAIL ||
+          "ORVIX <onboarding@resend.dev>",
+        to: input.to,
+        subject: input.subject,
+        html: input.html,
+        text: input.text,
+      }),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+
+    const raw = await response.text();
+    let result: ResendEmailResponse = {};
+    if (raw) {
+      try {
+        result = JSON.parse(raw) as ResendEmailResponse;
+      } catch {
+        // A non-JSON provider response is handled by the status check below.
+      }
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        result.message ||
+          result.error?.message ||
+          `The email provider returned HTTP ${response.status}.`
+      );
+    }
+
+    if (!result.id) {
+      throw new Error("The email provider did not confirm delivery.");
+    }
+
+    return { id: result.id };
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error("The email provider did not respond in time.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  return result.data;
 }
