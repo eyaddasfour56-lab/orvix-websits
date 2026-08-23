@@ -17,7 +17,7 @@ The seller retains ownership of the underlying platform, reusable components, de
 
 ## Commercial terms
 
-- **Price:** 95,000 EGP, subject to final scope
+- **Price:** 69,000 EGP fixed for the listed fast-sale scope
 - **Deposit:** [Amount or percentage]
 - **Balance:** [Milestone and due date]
 - **Payment method:** [Buyer and seller to agree on a protected method]
