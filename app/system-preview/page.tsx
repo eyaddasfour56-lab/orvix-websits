@@ -48,7 +48,7 @@ const demoLinks = [
   { href: "/checkout?colour=Black&quantity=1&discount=ORVIX15", label: "Secure checkout", detail: "Delivery, payment, pricing and discounts" },
   { href: "/track-order", label: "Order tracking", detail: "Identity-protected customer journey" },
   { href: "/account/login", label: "Customer account", detail: "Authentication and post-purchase operations" },
-  { href: "/admin", label: "Admin entry", detail: "Protected operating system and role gates" },
+  { href: "/admin/buyer-preview", label: "Read-only admin demo", detail: "Synthetic data with every write control disabled" },
 ];
 
 export default function SystemPreviewPage() {
@@ -72,8 +72,8 @@ export default function SystemPreviewPage() {
                 <Link href="/" className="rounded-2xl bg-white px-6 py-3.5 text-sm font-black text-black transition hover:bg-blue-50">
                   Open live store ↗
                 </Link>
-                <Link href="/admin" className="rounded-2xl border border-white/13 bg-white/[0.045] px-6 py-3.5 text-sm font-black text-white/76 transition hover:bg-white/[0.08]">
-                  View protected admin entry
+                <Link href="/admin/buyer-preview" className="rounded-2xl border border-white/13 bg-white/[0.045] px-6 py-3.5 text-sm font-black text-white/76 transition hover:bg-white/[0.08]">
+                  Open read-only admin demo
                 </Link>
               </div>
             </div>
