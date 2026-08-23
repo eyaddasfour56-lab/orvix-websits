@@ -86,7 +86,12 @@ export async function supabaseAdminJson<T>(
     return undefined as T;
   }
 
-  return (await response.json()) as T;
+  const body = await response.text();
+  if (!body.trim()) {
+    return undefined as T;
+  }
+
+  return JSON.parse(body) as T;
 }
 
 export function postgrestValue(
