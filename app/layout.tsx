@@ -5,6 +5,7 @@ import Script from "next/script";
 import { Suspense } from "react";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import PromoBanner from "@/components/PromoBanner";
+import AcquisitionBanner from "@/components/AcquisitionBanner";
 import SiteAnalytics from "@/components/SiteAnalytics";
 import ConversionMount from "@/components/ConversionMount";
 import HomepageQuickOrder from "@/components/HomepageQuickOrder";
@@ -150,6 +151,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <CommerceCartAnalytics />
           <CommerceExperienceV3 />
           <PromoBanner />
+          <AcquisitionBanner />
           <HomepageQuickOrder />
           <CheckoutCompactPolish />
           <PaymentMethodSelector />
