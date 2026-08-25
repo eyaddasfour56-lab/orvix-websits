@@ -4,6 +4,13 @@ const filePath = "app/admin/page.tsx";
 let source = fs.readFileSync(filePath, "utf8");
 let changed = false;
 
+const commandCenterExport = 'export { default } from "./command-center/advanced/page";';
+
+if (source.includes(commandCenterExport)) {
+  console.log("Main admin delegates to the Advanced Command Center, which already includes the admin assistant experience. Sync skipped.");
+  process.exit(0);
+}
+
 const importLine = 'import OrvixAiPanel from "./OrvixAiPanel";\n';
 
 if (!source.includes(importLine.trim())) {
