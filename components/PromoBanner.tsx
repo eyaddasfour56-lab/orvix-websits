@@ -44,6 +44,9 @@ export default function PromoBanner() {
   if (
     pathname.startsWith("/admin") ||
     pathname.startsWith("/under-construction") ||
+    pathname.startsWith("/buy-orvix") ||
+    pathname.startsWith("/system-preview") ||
+    pathname.startsWith("/license") ||
     !promotion?.enabled
   ) {
     return null;
