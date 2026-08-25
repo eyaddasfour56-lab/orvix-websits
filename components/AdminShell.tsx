@@ -11,7 +11,8 @@ type AdminMode = "simple" | "advanced";
 type NavItem = { label: string; href: string; keywords: string; badge?: string };
 
 const simpleItems: NavItem[] = [
-  { label: "Home", href: "/admin", keywords: "home dashboard overview summary" },
+  { label: "Home", href: "/admin", keywords: "home dashboard overview summary command center" },
+  { label: "Setup & Launch", href: "/admin/setup", keywords: "setup launch onboarding checklist white label buyer deploy", badge: "NEW" },
   { label: "Orders", href: "/admin/fulfillment", keywords: "orders status preorder tracking customs courier bosta", badge: "LIVE" },
   { label: "Products", href: "/admin/products", keywords: "products stock inventory price variants" },
   { label: "Money", href: "/admin/cashflow", keywords: "money cashflow profit expenses revenue" },
@@ -24,7 +25,9 @@ const advancedItems: NavItem[] = [
   { label: "Email Previews", href: "/admin/email-preview", keywords: "email preview signup confirmation otp sign in" },
   { label: "Analytics", href: "/admin/analytics", keywords: "analytics views conversion traffic funnel" },
   { label: "Discounts", href: "/admin/discounts", keywords: "discount coupon promo codes" },
-  { label: "Brand & SEO", href: "/admin/settings", keywords: "brand logo colours favicon social instagram seo promotion settings" },
+  { label: "Brand & SEO", href: "/admin/settings", keywords: "brand logo colours favicon social instagram seo promotion settings white label rebrand" },
+  { label: "Buyer Handover", href: "/admin/handover", keywords: "buyer handover transfer deploy acceptance documentation sale", badge: "BUYER" },
+  { label: "Buyer Demo", href: "/admin/buyer-preview", keywords: "buyer demo preview read only synthetic safe sale", badge: "SAFE" },
   { label: "Checkout Recovery", href: "/admin/recovery", keywords: "abandoned checkout recovery" },
   { label: "Risk Center", href: "/admin/risk", keywords: "risk fraud suspicious duplicate" },
   { label: "Reviews", href: "/admin/reviews", keywords: "reviews ratings feedback" },
@@ -125,7 +128,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-sm font-black text-black">O</span>
           <div className="min-w-0">
             <p className="truncate text-sm font-black tracking-[0.12em]">ORVIX</p>
-            <p className="text-[10px] font-semibold text-white/35">Admin</p>
+            <p className="text-[10px] font-semibold text-white/35">Commerce OS</p>
           </div>
         </Link>
         <button type="button" onClick={() => setMobileOpen(false)} className="rounded-lg p-2 text-white/45 lg:hidden" aria-label="Close menu">×</button>
@@ -136,7 +139,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
           <button type="button" onClick={() => changeMode("simple")} className={`rounded-lg px-3 py-2 text-[10px] font-black ${mode === "simple" ? "bg-white text-black" : "text-white/35"}`}>Simple</button>
           <button type="button" onClick={() => changeMode("advanced")} className={`rounded-lg px-3 py-2 text-[10px] font-black ${mode === "advanced" ? "bg-violet-300 text-black" : "text-white/35"}`}>Advanced</button>
         </div>
-        <p className="mt-2 px-1 text-[10px] leading-4 text-white/25">Simple shows only what you use every day.</p>
+        <p className="mt-2 px-1 text-[10px] leading-4 text-white/25">Simple keeps daily operations and launch controls in reach.</p>
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4">
@@ -150,9 +153,14 @@ export default function AdminShell({ children }: { children: ReactNode }) {
       </nav>
 
       <div className="border-t border-white/[0.07] p-3">
-        <Link href="/" target="_blank" className="flex items-center justify-between rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-3 text-xs font-bold text-white/55">
-          <span>Open Store</span><span>↗</span>
-        </Link>
+        <div className="grid gap-2">
+          <Link href="/admin/buyer-preview" target="_blank" className="flex items-center justify-between rounded-xl border border-emerald-300/10 bg-emerald-400/[0.045] px-3 py-3 text-xs font-bold text-emerald-100/70">
+            <span>Safe Buyer Demo</span><span>↗</span>
+          </Link>
+          <Link href="/" target="_blank" className="flex items-center justify-between rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-3 text-xs font-bold text-white/55">
+            <span>Open Store</span><span>↗</span>
+          </Link>
+        </div>
       </div>
     </div>
   );
@@ -177,7 +185,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
                 value={search}
                 onFocus={() => setSearchOpen(true)}
                 onChange={(event) => { setSearch(event.target.value); setSearchOpen(true); }}
-                placeholder="Search admin"
+                placeholder="Search admin, setup or buyer tools"
                 className="h-10 w-full rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 pr-12 text-sm font-medium text-white outline-none placeholder:text-white/25 focus:border-white/20"
               />
               <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-white/25">⌘K</span>
