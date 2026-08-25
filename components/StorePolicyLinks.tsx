@@ -17,7 +17,13 @@ export default function StorePolicyLinks() {
   const pathname = usePathname();
   const { language } = useLanguage();
   const settings = useSiteSettings();
-  if (pathname.startsWith("/admin") || pathname.startsWith("/under-construction")) return null;
+  if (
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/under-construction") ||
+    pathname.startsWith("/buy-orvix") ||
+    pathname.startsWith("/system-preview") ||
+    pathname.startsWith("/license")
+  ) return null;
 
   return (
     <footer className="border-t border-white/[0.08] bg-[#08090b] px-4 py-7 text-white sm:px-6">
