@@ -41,7 +41,10 @@ export default function CustomerServiceLink() {
   const hidden =
     pathname?.startsWith("/admin") ||
     pathname?.startsWith("/chat") ||
-    pathname?.startsWith("/under-construction");
+    pathname?.startsWith("/under-construction") ||
+    pathname?.startsWith("/buy-orvix") ||
+    pathname?.startsWith("/system-preview") ||
+    pathname?.startsWith("/license");
 
   useEffect(() => {
     if (hidden) return;

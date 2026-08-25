@@ -1,9 +1,9 @@
 # ORVIX Commerce Platform
 
-ORVIX is a production-deployed, white-label-ready commerce and operations platform for modern retail brands in Egypt. It combines a bilingual storefront, checkout, customer accounts, secure order tracking, fulfillment tooling, analytics, and a configurable admin operating system in one Next.js application.
+ORVIX is a production-deployed, transfer-ready commerce and operations platform for modern retail brands in Egypt. It combines a bilingual storefront, checkout, customer accounts, secure order tracking, fulfillment tooling, analytics, and a configurable admin operating system in one Next.js application.
 
 - Live storefront: <https://orvix-websits.vercel.app>
-- Buyer-facing system overview: <https://orvix-websits.vercel.app/system-preview>
+- Private full-project sale page: <https://orvix-websits.vercel.app/buy-orvix>
 - Safe synthetic admin demo: <https://orvix-websits.vercel.app/admin/buyer-preview>
 - Buyer quickstart: [`docs/BUYER_QUICKSTART.md`](docs/BUYER_QUICKSTART.md)
 - Handover guide: [`docs/WHITE_LABEL_HANDOVER.md`](docs/WHITE_LABEL_HANDOVER.md)
@@ -36,7 +36,7 @@ ORVIX is a production-deployed, white-label-ready commerce and operations platfo
 - Cashflow, analytics, attribution, recovery, risk, and feature controls
 - Editable brand identity, colours, contacts, SEO, and live promotion settings
 - Role-aware admin permissions, audit trails, and optional two-factor verification
-- Setup & Launch wizard for white-label deployment acceptance
+- Setup & Launch wizard for buyer-controlled deployment acceptance
 - Buyer Handover center with provider ownership and final acceptance checklist
 - Safe buyer preview built from synthetic data with no production write connection
 
@@ -86,6 +86,8 @@ For buyer acceptance, also complete the in-app `/admin/handover` checklist with 
 
 The core storefront and database require buyer-owned Vercel and Supabase projects. Transactional email, SMS, courier dispatch, and AI features are optional integrations and activate only after the buyer supplies verified provider accounts, approved senders, and environment variables.
 
-## Rights
+## Commercial transfer
 
-All rights are reserved. Access to this repository does not grant a licence, redistribution right, resale right, or ownership transfer. Commercial rights begin only under a signed agreement that defines the included deployment, support period, and licence scope.
+The ORVIX website and system can be sold as a complete project handover including the agreed source-code snapshot, database migration set, documentation and buyer-controlled deployment workflow. Existing production customer data, private credentials and third-party provider accounts are excluded unless they are separately agreed, legally transferable and explicitly included in the signed sale agreement.
+
+Repository access by itself does not transfer commercial rights. The final sale agreement defines the exact source snapshot, included assets, payment terms, support period and any ownership or usage rights transferred to the buyer.
