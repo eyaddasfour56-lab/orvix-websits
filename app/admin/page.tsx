@@ -1,1 +1,1 @@
-export { default } from "./legacy-orders/page";
+export { default } from "./command-center/advanced/page";
