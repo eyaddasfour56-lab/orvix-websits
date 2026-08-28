@@ -1,47 +1,56 @@
-# ORVIX full website + system sale listing
+# ORVIX buyer offer — approved positioning
 
-This is the single approved sale positioning for direct outreach, proposals, and marketplace listings. Keep every factual claim aligned with the exact source snapshot and assets included in the signed sale agreement.
+Use this wording for direct outreach, proposals, and marketplace listings. Keep factual claims aligned with the exact source snapshot and assets included in the signed agreement.
 
 ## Listing title
 
-Complete bilingual ecommerce website + admin operating system for sale
+Ready bilingual ecommerce system — full acquisition or commercial license
 
 ## One-line pitch
 
-Acquire a production-deployed bilingual ecommerce platform with storefront, checkout, customer accounts, secure tracking, fulfillment, analytics, admin operations, source code, database migrations, and a documented buyer-controlled handover path.
+Acquire or license a production-deployed bilingual ecommerce platform with storefront, checkout, customer accounts, secure tracking, fulfillment, analytics, admin operations, source code, database migrations, and a documented buyer-controlled handover path.
 
-## Asking price
+## Public asking prices
 
-**55,000 EGP for the complete website + system package.**
+- **25,000 EGP — full acquisition** of the agreed website + system package.
+- **9,000 EGP — non-exclusive commercial license** for one branded production deployment.
 
-Payment structure:
+### Full acquisition payment structure
 
-- **27,500 EGP (50%) upfront** to reserve the project and begin the agreed handover/rebranding work.
-- **27,500 EGP (50%) on delivery** after the agreed handover package is ready and before final source/control transfer is completed.
+- **12,500 EGP (50%) upfront** to reserve the project and begin the agreed handover/rebranding work.
+- **12,500 EGP (50%) on acceptance** before final source/control transfer is completed.
 
-Do not use alternate URL-controlled prices or older licence pricing. Qualified prospects should be sent to the private `/buy-orvix` page.
+### Commercial license structure
 
-The normal customer storefront must never display system-sale pricing or acquisition banners.
+The non-exclusive commercial license covers one branded production deployment. The licensee may rebrand and operate the system for its own business or client, but may not redistribute, resell, sublicense, or publish the source code unless separately agreed in writing. License payment is due before delivery of the licensed source package.
+
+Qualified prospects should be sent to the private `/buy-orvix` page. The normal customer storefront must never display system-sale pricing or acquisition banners.
 
 ## Full listing description
 
-ORVIX is a production-deployed ecommerce website and operations system designed around Egyptian retail workflows. The sale package is a complete project handover: the buyer receives the agreed website/system source snapshot, database migrations, technical documentation, rebranding scope, and buyer-controlled deployment workflow.
+ORVIX is a production-deployed ecommerce website and operations system designed around Egyptian retail workflows. Buyers can choose either a complete project acquisition or a non-exclusive commercial license.
 
-The system covers the customer journey from product discovery through post-purchase operations: products, variants, stock, cart, discounts, checkout, account registration, saved addresses, order history, reorder, cancellation, returns, verified reviews, and identity-protected order tracking. The protected admin area covers orders, fulfillment, products, inventory, customers, cashflow, analytics, discounts, reviews, waitlists, brand settings, SEO, risk signals, recovery, exports, and role-aware controls.
+The system covers the customer journey from product discovery through post-purchase operations: products, variants, stock, cart, discounts, checkout, account registration, saved addresses, order history, reorder, cancellation, returns, verified reviews, and identity-protected order tracking. The protected admin area covers orders, fulfillment, products, inventory, customers, analytics, discounts, reviews, waitlists, brand settings, SEO, recovery, exports, and role-aware controls.
 
-The platform is built with Next.js 16, React 19, TypeScript, Supabase, and Vercel. English and Arabic customer experiences are included.
+The platform is built with Next.js, React, TypeScript, Supabase, and Vercel. English and Arabic customer experiences are included.
 
-### Included
+### Included in a full acquisition
 
 - Complete agreed source-code snapshot
-- Storefront and full admin operating system
+- Storefront and admin operating system
 - Complete Supabase migration set
 - Buyer-controlled Supabase and Vercel deployment workflow
-- Full agreed rebranding for the buyer's brand
-- Brand, product, delivery, promotion, and SEO configuration tools
+- Agreed rebranding/configuration scope
 - Environment-variable template without production secrets
 - Technical handover and acceptance documentation
 - Any support period explicitly agreed in the final sale terms
+
+### Included in a commercial license
+
+- Licensed source snapshot for one branded production deployment
+- Storefront and admin system
+- Database migrations and deployment documentation
+- Rebranding/configuration for the licensed deployment as agreed
 
 ### Not included unless separately agreed and legally transferable
 
@@ -49,26 +58,24 @@ The platform is built with Next.js 16, React 19, TypeScript, Supabase, and Verce
 - Private credentials, passwords, OTPs, or production secrets
 - Seller-owned hosting, database, courier, email, SMS, AI, or payment accounts
 - Provider credits, contracts, KYC approvals, or guaranteed third-party availability
-- Domains, social accounts, trademarks, or other brand assets not listed in the sale agreement
+- Domains, social accounts, trademarks, or other brand assets not listed in the agreement
 - New features or ongoing maintenance beyond the agreed support period
 
-### Important disclosure
+## Important disclosure
 
-This is a sale of the website/system project package and a working production demo. Do not represent unverified revenue, customers, or business performance. Provider-dependent email, SMS, courier, or AI capabilities require the buyer's own approved accounts unless another arrangement is explicitly agreed.
+Do not represent unverified revenue, customers, or business performance. Provider-dependent email, SMS, courier, or AI capabilities require the buyer's own approved accounts unless another arrangement is explicitly agreed.
 
 ## Outreach positioning
 
 Use this positioning in buyer conversations:
 
-**Complete ORVIX ecommerce website + full operating system for sale for 55,000 EGP, including source code, admin, database migrations, secure tracking, full agreed rebranding, and documented handover. Payment: 50% upfront and 50% on delivery.**
-
-Do not describe the current offer as a one-brand licence. Do not put sale messaging on the customer-facing storefront. Send qualified prospects directly to the private `/buy-orvix` link.
+**ORVIX is available for 25,000 EGP as a full acquisition, or 9,000 EGP as a non-exclusive commercial license for one branded production deployment. The system includes a bilingual storefront, admin operating system, secure tracking, database migrations, rebranding support, and documented handover.**
 
 ## Buyer qualification questions
 
-1. What ecommerce project is the buyer trying to launch or replace?
-2. Which country, brand, and product category will the deployment serve?
-3. Does the buyer need the current system as-is or the included rebranding?
+1. Does the buyer want full ownership or a licensed deployment?
+2. What ecommerce project is the buyer trying to launch or replace?
+3. Which country, brand, and product category will the deployment serve?
 4. Which courier, email, SMS, and payment providers are required?
 5. Who is the authorised buyer or company representative approving payment and handover?
 
